@@ -1,4 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import ArtistSharingModal from '@/components/ArtistSharingModal';
+import SocialShareModal from '@/components/SocialShareModal';
 import {
   View,
   Text,
@@ -257,6 +259,8 @@ export default function GameModal() {
   const [hasPlayedLossReveal, setHasPlayedLossReveal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showFullReveal, setShowFullReveal] = useState(false);
+  const [showArtistModal, setShowArtistModal] = useState(false);
+  const [showSocialModal, setShowSocialModal] = useState(false);
 
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -357,20 +361,6 @@ export default function GameModal() {
     }
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-  };
-
-  const handleNativeShare = async () => {
-    try {
-      await Share.share({ 
-        message: shareText,
-        title: `Melodyx #${puzzleNumber}`,
-      });
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-    } catch (error) {
-      console.log('Share error:', error);
     }
   };
 
@@ -657,13 +647,23 @@ export default function GameModal() {
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.shareOptionButton, styles.moreButton]} 
-                onPress={handleNativeShare}
+                onPress={() => setShowSocialModal(true)}
               >
                 <Share2 size={18} color={Colors.correct} />
                 <Text style={[styles.shareOptionText, { color: Colors.correct }]}>More</Text>
               </TouchableOpacity>
             </View>
           </View>
+
+          {won && (
+            <TouchableOpacity 
+              style={styles.discoverButton}
+              onPress={() => setShowArtistModal(true)}
+            >
+              <Music size={18} color={Colors.accent} />
+              <Text style={styles.discoverButtonText}>Discover More from Artist</Text>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.actionButtons}>
             <TouchableOpacity style={styles.dashboardButton} onPress={handleGoToDashboard}>
@@ -709,6 +709,22 @@ export default function GameModal() {
             />
           </View>
         </Animated.View>
+
+        <ArtistSharingModal
+          visible={showArtistModal}
+          onClose={() => setShowArtistModal(false)}
+          melody={melody}
+        />
+
+        <SocialShareModal
+          visible={showSocialModal}
+          onClose={() => setShowSocialModal(false)}
+          melody={melody}
+          guesses={guesses}
+          puzzleNumber={puzzleNumber}
+          won={won}
+          streak={stats.currentStreak}
+        />
       </View>
     </Modal>
   );
@@ -1010,5 +1026,22 @@ const styles = StyleSheet.create({
   modesGrid: {
     width: '100%',
     gap: 10,
+  },
+  discoverButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.accent + '15',
+    borderWidth: 1,
+    borderColor: Colors.accent + '40',
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginBottom: 16,
+  },
+  discoverButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.accent,
   },
 });

@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, Flame, User, Trophy, Map } from 'lucide-react-native';
+import { Home, Flame, User, Trophy, GraduationCap } from 'lucide-react-native';
 import React from 'react';
 import { Colors } from '@/constants/colors';
 
@@ -52,10 +52,16 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="learning"
+        options={{
+          title: 'Learn',
+          tabBarIcon: ({ color, size }) => <GraduationCap size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="campaign"
         options={{
-          title: 'Quest',
-          tabBarIcon: ({ color, size }) => <Map size={size} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
