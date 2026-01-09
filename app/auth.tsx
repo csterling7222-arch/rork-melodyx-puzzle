@@ -36,6 +36,7 @@ export default function AuthScreen() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState({ title: '', subtitle: '' });
+  const [passwordStrength, setPasswordStrength] = useState<'weak' | 'medium' | 'strong' | null>(null);
 
   const logoAnim = useRef(new Animated.Value(0)).current;
   const formAnim = useRef(new Animated.Value(0)).current;
@@ -76,10 +77,40 @@ export default function AuthScreen() {
       return;
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setLocalError('Please enter a valid email address');
+      shakeForm();
+      return;
+    }
+
     if (!password) {
       setLocalError('Please enter your password');
       shakeForm();
       return;
+    }
+
+    if (mode === 'signup') {
+      if (password.length < 8) {
+        setLocalError('Password must be at least 8 characters');
+        shakeForm();
+        return;
+      }
+      if (!/[A-Z]/.test(password)) {
+        setLocalError('Password must contain at least one uppercase letter');
+        shakeForm();
+        return;
+      }
+      if (!/[a-z]/.test(password)) {
+        setLocalError('Password must contain at least one lowercase letter');
+        shakeForm();
+        return;
+      }
+      if (!/[0-9]/.test(password)) {
+        setLocalError('Password must contain at least one number');
+        shakeForm();
+        return;
+      }
     }
 
     if (mode === 'signup' && password !== confirmPassword) {
@@ -90,6 +121,12 @@ export default function AuthScreen() {
 
     if (mode === 'signup' && !displayName.trim()) {
       setLocalError('Please enter your name');
+      shakeForm();
+      return;
+    }
+
+    if (mode === 'signup' && displayName.trim().length < 2) {
+      setLocalError('Name must be at least 2 characters');
       shakeForm();
       return;
     }
@@ -301,7 +338,20 @@ export default function AuthScreen() {
                 placeholder="Password"
                 placeholderTextColor={Colors.textMuted}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (mode === 'signup') {
+                    const hasUpper = /[A-Z]/.test(text);
+                    const hasLower = /[a-z]/.test(text);
+                    const hasNumber = /[0-9]/.test(text);
+                    const isLong = text.length >= 8;
+                    const score = [hasUpper, hasLower, hasNumber, isLong].filter(Boolean).length;
+                    if (text.length === 0) setPasswordStrength(null);
+                    else if (score <= 2) setPasswordStrength('weak');
+                    else if (score === 3) setPasswordStrength('medium');
+                    else setPasswordStrength('strong');
+                  }
+                }}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 editable={!isLoading}
@@ -317,6 +367,36 @@ export default function AuthScreen() {
                 )}
               </TouchableOpacity>
             </View>
+
+            {mode === 'signup' && passwordStrength && (
+              <View style={styles.passwordStrengthContainer}>
+                <View style={styles.passwordStrengthBar}>
+                  <View style={[
+                    styles.passwordStrengthFill,
+                    passwordStrength === 'weak' && styles.strengthWeak,
+                    passwordStrength === 'medium' && styles.strengthMedium,
+                    passwordStrength === 'strong' && styles.strengthStrong,
+                  ]} />
+                </View>
+                <Text style={[
+                  styles.passwordStrengthText,
+                  passwordStrength === 'weak' && styles.strengthWeakText,
+                  passwordStrength === 'medium' && styles.strengthMediumText,
+                  passwordStrength === 'strong' && styles.strengthStrongText,
+                ]}>
+                  {passwordStrength === 'weak' ? 'Weak' : passwordStrength === 'medium' ? 'Medium' : 'Strong'}
+                </Text>
+              </View>
+            )}
+
+            {mode === 'signup' && (
+              <View style={styles.passwordRequirements}>
+                <Text style={[styles.requirementText, password.length >= 8 && styles.requirementMet]}>✓ At least 8 characters</Text>
+                <Text style={[styles.requirementText, /[A-Z]/.test(password) && styles.requirementMet]}>✓ One uppercase letter</Text>
+                <Text style={[styles.requirementText, /[a-z]/.test(password) && styles.requirementMet]}>✓ One lowercase letter</Text>
+                <Text style={[styles.requirementText, /[0-9]/.test(password) && styles.requirementMet]}>✓ One number</Text>
+              </View>
+            )}
 
             {mode === 'signup' && (
               <View style={styles.inputContainer}>
@@ -623,6 +703,62 @@ const styles = StyleSheet.create({
   },
   footerLink: {
     color: Colors.accent,
+  },
+  passwordStrengthContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 10,
+  },
+  passwordStrengthBar: {
+    flex: 1,
+    height: 4,
+    backgroundColor: Colors.surfaceLight,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  passwordStrengthFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  strengthWeak: {
+    width: '33%',
+    backgroundColor: '#EF4444',
+  },
+  strengthMedium: {
+    width: '66%',
+    backgroundColor: '#F59E0B',
+  },
+  strengthStrong: {
+    width: '100%',
+    backgroundColor: '#10B981',
+  },
+  passwordStrengthText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+  },
+  strengthWeakText: {
+    color: '#EF4444',
+  },
+  strengthMediumText: {
+    color: '#F59E0B',
+  },
+  strengthStrongText: {
+    color: '#10B981',
+  },
+  passwordRequirements: {
+    backgroundColor: Colors.surfaceLight,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    gap: 4,
+  },
+  requirementText: {
+    fontSize: 12,
+    color: Colors.textMuted,
+  },
+  requirementMet: {
+    color: '#10B981',
   },
   successOverlay: {
     flex: 1,

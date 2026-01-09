@@ -8,10 +8,11 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
-  Coins, Palette, Lightbulb, Crown, Check, RotateCcw, Sparkles, Star
+  Coins, Palette, Lightbulb, Crown, Check, RotateCcw, Sparkles, Star, Tag
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
@@ -133,10 +134,16 @@ export default function ShopScreen() {
     isConfigured,
     getPackageByIdentifier,
     getMockPrice,
+    calculateSavings,
+    applyPromoCode,
   } = usePurchases();
   
   const [selectedTab, setSelectedTab] = useState<'skins' | 'hints' | 'coins' | 'premium'>('skins');
   const [purchasingPackage, setPurchasingPackage] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
+  const [promoCode, setPromoCode] = useState('');
+  const [promoResult, setPromoResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
 
   const handleBuySkin = useCallback((skinId: string, price: number) => {
     if (inventory.coins < price) {
@@ -237,6 +244,21 @@ export default function ShopScreen() {
     if (pkg?.product.priceString) return pkg.product.priceString;
     return getMockPrice(identifier);
   };
+
+  const handleApplyPromo = useCallback(async () => {
+    if (!promoCode.trim()) return;
+    setIsApplyingPromo(true);
+    const result = await applyPromoCode(promoCode.trim());
+    setPromoResult(result);
+    setIsApplyingPromo(false);
+    if (result.success && Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  }, [promoCode, applyPromoCode]);
+
+  const monthlyPrice = 4.99;
+  const yearlyPrice = 39.99;
+  const savings = calculateSavings(monthlyPrice, yearlyPrice);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -393,17 +415,34 @@ export default function ShopScreen() {
                 </View>
               ) : (
                 <View style={styles.premiumCard}>
-                  <View style={styles.premiumBadge}>
-                    <Text style={styles.premiumBadgeText}>BEST VALUE</Text>
-                  </View>
                   <Crown size={48} color="#FFD700" />
                   <Text style={styles.premiumTitle}>Melodyx Premium</Text>
-                  <Text style={styles.premiumPrice}>{getPackagePrice(PACKAGE_IDENTIFIERS.MONTHLY)}/month</Text>
                   {!isConfigured && (
                     <View style={styles.sandboxBadge}>
                       <Text style={styles.sandboxText}>SANDBOX MODE</Text>
                     </View>
                   )}
+
+                  <View style={styles.planSelector}>
+                    <TouchableOpacity
+                      style={[styles.planOption, selectedPlan === 'monthly' && styles.planOptionActive]}
+                      onPress={() => setSelectedPlan('monthly')}
+                    >
+                      <Text style={[styles.planOptionTitle, selectedPlan === 'monthly' && styles.planOptionTitleActive]}>Monthly</Text>
+                      <Text style={[styles.planOptionPrice, selectedPlan === 'monthly' && styles.planOptionPriceActive]}>{getPackagePrice(PACKAGE_IDENTIFIERS.MONTHLY)}/mo</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.planOption, selectedPlan === 'yearly' && styles.planOptionActive]}
+                      onPress={() => setSelectedPlan('yearly')}
+                    >
+                      <View style={styles.savingsBadge}>
+                        <Text style={styles.savingsBadgeText}>Save {savings}%</Text>
+                      </View>
+                      <Text style={[styles.planOptionTitle, selectedPlan === 'yearly' && styles.planOptionTitleActive]}>Yearly</Text>
+                      <Text style={[styles.planOptionPrice, selectedPlan === 'yearly' && styles.planOptionPriceActive]}>{getPackagePrice(PACKAGE_IDENTIFIERS.YEARLY)}/yr</Text>
+                      <Text style={styles.planPerMonth}>${(yearlyPrice / 12).toFixed(2)}/mo</Text>
+                    </TouchableOpacity>
+                  </View>
                   
                   <View style={styles.premiumFeatures}>
                     <View style={styles.featureRow}>
@@ -432,20 +471,52 @@ export default function ShopScreen() {
                     </View>
                   </View>
 
+                  <View style={styles.promoCodeSection}>
+                    <View style={styles.promoInputRow}>
+                      <Tag size={18} color={Colors.textSecondary} />
+                      <TextInput
+                        style={styles.promoInput}
+                        placeholder="Promo code"
+                        placeholderTextColor={Colors.textMuted}
+                        value={promoCode}
+                        onChangeText={setPromoCode}
+                        autoCapitalize="characters"
+                      />
+                      <TouchableOpacity
+                        style={[styles.promoApplyButton, (!promoCode.trim() || isApplyingPromo) && styles.promoApplyButtonDisabled]}
+                        onPress={handleApplyPromo}
+                        disabled={!promoCode.trim() || isApplyingPromo}
+                      >
+                        {isApplyingPromo ? (
+                          <ActivityIndicator size="small" color={Colors.text} />
+                        ) : (
+                          <Text style={styles.promoApplyText}>Apply</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                    {promoResult && (
+                      <Text style={[styles.promoResultText, promoResult.success ? styles.promoSuccess : styles.promoError]}>
+                        {promoResult.message}
+                      </Text>
+                    )}
+                  </View>
+
                   <TouchableOpacity 
                     style={[styles.premiumButton, isPurchasing && styles.premiumButtonDisabled]} 
-                    onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.MONTHLY)}
+                    onPress={() => handleIAPPurchase(selectedPlan === 'yearly' ? PACKAGE_IDENTIFIERS.YEARLY : PACKAGE_IDENTIFIERS.MONTHLY)}
                     disabled={isPurchasing}
                   >
-                    {purchasingPackage === PACKAGE_IDENTIFIERS.MONTHLY ? (
+                    {(purchasingPackage === PACKAGE_IDENTIFIERS.MONTHLY || purchasingPackage === PACKAGE_IDENTIFIERS.YEARLY) ? (
                       <ActivityIndicator size="small" color="#000" />
                     ) : (
-                      <Text style={styles.premiumButtonText}>Subscribe Now</Text>
+                      <Text style={styles.premiumButtonText}>
+                        {selectedPlan === 'yearly' ? 'Subscribe Yearly' : 'Subscribe Monthly'}
+                      </Text>
                     )}
                   </TouchableOpacity>
 
                   <Text style={styles.legalText}>
-                    Subscription auto-renews monthly. Cancel anytime in your app store settings.
+                    Subscription auto-renews {selectedPlan === 'yearly' ? 'annually' : 'monthly'}. Cancel anytime in your app store settings.
                   </Text>
                 </View>
               )}
@@ -807,5 +878,104 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: '#FF6B35',
     letterSpacing: 0.5,
+  },
+  planSelector: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    marginBottom: 20,
+  },
+  planOption: {
+    flex: 1,
+    backgroundColor: Colors.surfaceLight,
+    borderRadius: 14,
+    padding: 14,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    position: 'relative',
+  },
+  planOptionActive: {
+    borderColor: '#FFD700',
+    backgroundColor: '#FFD700' + '15',
+  },
+  planOptionTitle: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.textSecondary,
+    marginBottom: 4,
+  },
+  planOptionTitleActive: {
+    color: Colors.text,
+  },
+  planOptionPrice: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.textSecondary,
+  },
+  planOptionPriceActive: {
+    color: '#FFD700',
+  },
+  planPerMonth: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  savingsBadge: {
+    position: 'absolute',
+    top: -10,
+    right: -5,
+    backgroundColor: Colors.correct,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  savingsBadgeText: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  promoCodeSection: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  promoInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceLight,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  promoInput: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.text,
+    paddingVertical: 12,
+  },
+  promoApplyButton: {
+    backgroundColor: Colors.accent,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  promoApplyButtonDisabled: {
+    opacity: 0.5,
+  },
+  promoApplyText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.text,
+  },
+  promoResultText: {
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  promoSuccess: {
+    color: Colors.correct,
+  },
+  promoError: {
+    color: '#EF4444',
   },
 });

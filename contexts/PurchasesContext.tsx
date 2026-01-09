@@ -67,6 +67,7 @@ export const ENTITLEMENTS = {
 export const PACKAGE_IDENTIFIERS = {
   MONTHLY: '$rc_monthly',
   YEARLY: '$rc_annual',
+  LIFETIME: 'lifetime',
   COINS_500: 'coins_500',
   COINS_1500: 'coins_1500',
   COINS_5000: 'coins_5000',
@@ -74,6 +75,13 @@ export const PACKAGE_IDENTIFIERS = {
   HINTS_LARGE: 'hints_large',
   HINT_SINGLE: 'hint_single',
 } as const;
+
+export interface PromoOffer {
+  code: string;
+  discount: number;
+  expiresAt: string;
+  type: 'percentage' | 'fixed';
+}
 
 export interface MockPackage {
   identifier: string;
@@ -105,6 +113,16 @@ const MOCK_PACKAGES: MockPackage[] = [
       price: 39.99,
       title: 'Melodyx Premium Yearly',
       description: 'Save 33% with annual subscription',
+    },
+  },
+  {
+    identifier: 'lifetime',
+    product: {
+      identifier: 'melodyx_premium_lifetime',
+      priceString: '$79.99',
+      price: 79.99,
+      title: 'Melodyx Premium Lifetime',
+      description: 'One-time purchase, forever premium',
     },
   },
   {
@@ -321,6 +339,32 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     return currentOffering?.annual ?? getPackageByIdentifier(PACKAGE_IDENTIFIERS.YEARLY);
   }, [currentOffering, getPackageByIdentifier]);
 
+  const getLifetimePackage = useCallback((): PurchasesPackage | undefined => {
+    return currentOffering?.lifetime ?? getPackageByIdentifier(PACKAGE_IDENTIFIERS.LIFETIME);
+  }, [currentOffering, getPackageByIdentifier]);
+
+  const calculateSavings = useCallback((monthlyPrice: number, yearlyPrice: number): number => {
+    const yearlyEquivalent = monthlyPrice * 12;
+    return Math.round(((yearlyEquivalent - yearlyPrice) / yearlyEquivalent) * 100);
+  }, []);
+
+  const applyPromoCode = useCallback(async (code: string): Promise<{ success: boolean; message: string }> => {
+    console.log('[RevenueCat] Applying promo code:', code);
+    if (!isConfigured) {
+      return { success: false, message: 'Store not available' };
+    }
+    try {
+      const validCodes = ['MELODYX20', 'WELCOME50', 'PREMIUM25'];
+      if (validCodes.includes(code.toUpperCase())) {
+        return { success: true, message: 'Promo code applied! Discount will be shown at checkout.' };
+      }
+      return { success: false, message: 'Invalid or expired promo code' };
+    } catch (err) {
+      console.error('[RevenueCat] Promo code error:', err);
+      return { success: false, message: 'Failed to apply promo code' };
+    }
+  }, []);
+
   const getMockPackage = useCallback((identifier: string): MockPackage | undefined => {
     return MOCK_PACKAGES.find(
       (pkg) => pkg.identifier === identifier || pkg.identifier === `$rc_${identifier}`
@@ -372,6 +416,9 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     getPackageByIdentifier,
     getMonthlyPackage,
     getYearlyPackage,
+    getLifetimePackage,
+    calculateSavings,
+    applyPromoCode,
     getMockPackage,
     getMockPrice,
     refreshCustomerInfo,

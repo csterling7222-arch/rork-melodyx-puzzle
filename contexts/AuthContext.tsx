@@ -56,13 +56,61 @@ function generateUid(): string {
   return `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
-function validateEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+interface ValidationResult {
+  valid: boolean;
+  error?: string;
 }
 
-function validatePassword(password: string): boolean {
-  return password.length >= 6;
+function validateEmail(email: string): ValidationResult {
+  if (!email || email.trim().length === 0) {
+    return { valid: false, error: 'Email is required' };
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { valid: false, error: 'Please enter a valid email address' };
+  }
+  if (email.length > 254) {
+    return { valid: false, error: 'Email address is too long' };
+  }
+  return { valid: true };
+}
+
+function validatePassword(password: string): ValidationResult {
+  if (!password) {
+    return { valid: false, error: 'Password is required' };
+  }
+  if (password.length < 8) {
+    return { valid: false, error: 'Password must be at least 8 characters' };
+  }
+  if (password.length > 128) {
+    return { valid: false, error: 'Password is too long' };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one uppercase letter' };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one lowercase letter' };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one number' };
+  }
+  return { valid: true };
+}
+
+function validateDisplayName(name: string): ValidationResult {
+  if (!name || name.trim().length === 0) {
+    return { valid: false, error: 'Name is required' };
+  }
+  if (name.trim().length < 2) {
+    return { valid: false, error: 'Name must be at least 2 characters' };
+  }
+  if (name.trim().length > 50) {
+    return { valid: false, error: 'Name must be less than 50 characters' };
+  }
+  if (!/^[a-zA-Z0-9\s_-]+$/.test(name.trim())) {
+    return { valid: false, error: 'Name can only contain letters, numbers, spaces, hyphens, and underscores' };
+  }
+  return { valid: true };
 }
 
 async function getUsersDb(): Promise<StoredUser[]> {
@@ -134,11 +182,21 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     mutationFn: async ({ email, password, displayName }: AuthCredentials): Promise<AuthUser> => {
       setAuthError(null);
       
-      if (!validateEmail(email)) {
-        throw new Error('Please enter a valid email address');
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.valid) {
+        throw new Error(emailValidation.error);
       }
-      if (!validatePassword(password)) {
-        throw new Error('Password must be at least 6 characters');
+      
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
+        throw new Error(passwordValidation.error);
+      }
+      
+      if (displayName) {
+        const nameValidation = validateDisplayName(displayName);
+        if (!nameValidation.valid) {
+          throw new Error(nameValidation.error);
+        }
       }
 
       const users = await getUsersDb();
@@ -187,8 +245,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     mutationFn: async ({ email, password }: AuthCredentials): Promise<AuthUser> => {
       setAuthError(null);
 
-      if (!validateEmail(email)) {
-        throw new Error('Please enter a valid email address');
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.valid) {
+        throw new Error(emailValidation.error);
       }
       if (!password) {
         throw new Error('Please enter your password');
@@ -301,11 +360,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         throw new Error('No anonymous account to link');
       }
 
-      if (!validateEmail(email)) {
-        throw new Error('Please enter a valid email address');
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.valid) {
+        throw new Error(emailValidation.error);
       }
-      if (!validatePassword(password)) {
-        throw new Error('Password must be at least 6 characters');
+      
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
+        throw new Error(passwordValidation.error);
       }
 
       const users = await getUsersDb();
@@ -351,8 +413,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     mutationFn: async (email: string): Promise<{ success: boolean; message: string }> => {
       setAuthError(null);
 
-      if (!validateEmail(email)) {
-        throw new Error('Please enter a valid email address');
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.valid) {
+        throw new Error(emailValidation.error);
       }
 
       const users = await getUsersDb();
@@ -390,8 +453,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     mutationFn: async ({ token, newPassword }: { token: string; newPassword: string }): Promise<{ success: boolean; message: string }> => {
       setAuthError(null);
 
-      if (!validatePassword(newPassword)) {
-        throw new Error('Password must be at least 6 characters');
+      const passwordValidation = validatePassword(newPassword);
+      if (!passwordValidation.valid) {
+        throw new Error(passwordValidation.error);
       }
 
       const resets = await getPasswordResets();
@@ -431,8 +495,13 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         throw new Error('You must be signed in to change your password');
       }
 
-      if (!validatePassword(newPassword)) {
-        throw new Error('New password must be at least 6 characters');
+      const passwordValidation = validatePassword(newPassword);
+      if (!passwordValidation.valid) {
+        throw new Error(passwordValidation.error);
+      }
+      
+      if (currentPassword === newPassword) {
+        throw new Error('New password must be different from current password');
       }
 
       const users = await getUsersDb();

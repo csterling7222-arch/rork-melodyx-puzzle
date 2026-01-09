@@ -4,7 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import { initErrorTracking } from '@/utils/errorTracking';
+import { initErrorTracking, addBreadcrumb, captureError } from '@/utils/errorTracking';
 import { GameProvider } from '@/contexts/GameContext';
 import { FeverProvider } from '@/contexts/FeverContext';
 import { UserProvider } from '@/contexts/UserContext';
@@ -34,8 +34,19 @@ function RootLayoutNav() {
 export default function RootLayout() {
   useEffect(() => {
     initErrorTracking();
+    addBreadcrumb({ category: 'lifecycle', message: 'App launched', level: 'info' });
     console.log('[App] Error tracking initialized');
-    SplashScreen.hideAsync();
+    
+    const hideSplash = async () => {
+      try {
+        await SplashScreen.hideAsync();
+        addBreadcrumb({ category: 'lifecycle', message: 'Splash screen hidden', level: 'info' });
+      } catch (error) {
+        captureError(error, { tags: { component: 'RootLayout', action: 'hideSplash' } });
+      }
+    };
+    
+    hideSplash();
   }, []);
 
   return (
