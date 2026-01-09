@@ -1,4 +1,5 @@
-import { Platform } from 'react-native';
+import { Platform, Dimensions, PixelRatio } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type SeverityLevel = 'fatal' | 'error' | 'warning' | 'info' | 'debug';
 
@@ -43,12 +44,84 @@ interface PerformanceMetric {
 const performanceBuffer: PerformanceMetric[] = [];
 const MAX_PERF_BUFFER_SIZE = 100;
 
+const BUG_REPORTS_KEY = 'melodyx_bug_reports';
+const GLITCH_SETTINGS_KEY = 'melodyx_glitch_settings';
+
+export interface GlitchReport {
+  id: string;
+  timestamp: string;
+  description: string;
+  category: 'audio' | 'visual' | 'performance' | 'crash' | 'other';
+  screenshot?: string;
+  deviceInfo: DeviceInfo;
+  sessionId: string;
+  errorBuffer: ErrorEvent[];
+  performanceBuffer: PerformanceMetric[];
+  status: 'pending' | 'reviewed' | 'resolved';
+}
+
+export interface DeviceInfo {
+  platform: string;
+  screenWidth: number;
+  screenHeight: number;
+  pixelRatio: number;
+  isLowEndDevice: boolean;
+  memoryWarnings: number;
+}
+
+export interface AdaptiveSettings {
+  audioQuality: 'low' | 'medium' | 'high';
+  animationsEnabled: boolean;
+  particleCount: number;
+  hapticIntensity: 'off' | 'low' | 'high';
+  preloadCount: number;
+}
+
+const DEFAULT_ADAPTIVE_SETTINGS: AdaptiveSettings = {
+  audioQuality: 'high',
+  animationsEnabled: true,
+  particleCount: 100,
+  hapticIntensity: 'high',
+  preloadCount: 12,
+};
+
 class ErrorTracker {
   private isInitialized = false;
   private userId: string | null = null;
   private userEmail: string | null = null;
   private userName: string | null = null;
   private sessionId: string = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  private deviceInfo: DeviceInfo;
+  private adaptiveSettings: AdaptiveSettings = DEFAULT_ADAPTIVE_SETTINGS;
+  private frameTimestamps: number[] = [];
+  private currentFPS: number = 60;
+  private memoryWarningCount: number = 0;
+  private glitchReports: GlitchReport[] = [];
+
+  constructor() {
+    const { width, height } = Dimensions.get('window');
+    const pixelRatio = PixelRatio.get();
+    const isLowEnd = pixelRatio < 2 || (width * height) < 400000;
+    
+    this.deviceInfo = {
+      platform: Platform.OS,
+      screenWidth: width,
+      screenHeight: height,
+      pixelRatio,
+      isLowEndDevice: isLowEnd,
+      memoryWarnings: 0,
+    };
+    
+    if (isLowEnd) {
+      this.adaptiveSettings = {
+        audioQuality: 'medium',
+        animationsEnabled: true,
+        particleCount: 50,
+        hapticIntensity: 'low',
+        preloadCount: 6,
+      };
+    }
+  }
 
   init() {
     if (this.isInitialized) return;
@@ -87,6 +160,90 @@ class ErrorTracker {
     }
 
     console.log('[ErrorTracker] Error tracking initialized for platform:', Platform.OS, 'session:', this.sessionId);
+    
+    this.loadGlitchReports();
+    this.loadAdaptiveSettings();
+    this.startFPSMonitoring();
+    
+    console.log('[ErrorTracker] Device info:', this.deviceInfo);
+    console.log('[ErrorTracker] Adaptive settings:', this.adaptiveSettings);
+  }
+
+  private startFPSMonitoring() {
+    if (Platform.OS === 'web') return;
+    
+    const measureFPS = () => {
+      const now = Date.now();
+      this.frameTimestamps.push(now);
+      
+      while (this.frameTimestamps.length > 0 && this.frameTimestamps[0] < now - 1000) {
+        this.frameTimestamps.shift();
+      }
+      
+      this.currentFPS = this.frameTimestamps.length;
+      
+      if (this.currentFPS < 30 && this.frameTimestamps.length > 10) {
+        console.warn('[ErrorTracker] Low FPS detected:', this.currentFPS);
+        this.autoOptimize();
+      }
+      
+      requestAnimationFrame(measureFPS);
+    };
+    
+    requestAnimationFrame(measureFPS);
+  }
+
+  private autoOptimize() {
+    if (this.currentFPS < 20) {
+      this.adaptiveSettings.animationsEnabled = false;
+      this.adaptiveSettings.particleCount = 20;
+      this.adaptiveSettings.audioQuality = 'low';
+      console.log('[ErrorTracker] Auto-optimizing for very low FPS');
+    } else if (this.currentFPS < 40) {
+      this.adaptiveSettings.particleCount = Math.max(30, this.adaptiveSettings.particleCount - 20);
+      console.log('[ErrorTracker] Auto-optimizing for low FPS');
+    }
+    
+    this.saveAdaptiveSettings();
+  }
+
+  private async loadGlitchReports() {
+    try {
+      const stored = await AsyncStorage.getItem(BUG_REPORTS_KEY);
+      if (stored) {
+        this.glitchReports = JSON.parse(stored);
+        console.log('[ErrorTracker] Loaded', this.glitchReports.length, 'pending bug reports');
+      }
+    } catch (error) {
+      console.log('[ErrorTracker] Failed to load bug reports:', error);
+    }
+  }
+
+  private async saveGlitchReports() {
+    try {
+      await AsyncStorage.setItem(BUG_REPORTS_KEY, JSON.stringify(this.glitchReports.slice(-20)));
+    } catch (error) {
+      console.log('[ErrorTracker] Failed to save bug reports:', error);
+    }
+  }
+
+  private async loadAdaptiveSettings() {
+    try {
+      const stored = await AsyncStorage.getItem(GLITCH_SETTINGS_KEY);
+      if (stored) {
+        this.adaptiveSettings = { ...this.adaptiveSettings, ...JSON.parse(stored) };
+      }
+    } catch (error) {
+      console.log('[ErrorTracker] Failed to load adaptive settings:', error);
+    }
+  }
+
+  private async saveAdaptiveSettings() {
+    try {
+      await AsyncStorage.setItem(GLITCH_SETTINGS_KEY, JSON.stringify(this.adaptiveSettings));
+    } catch (error) {
+      console.log('[ErrorTracker] Failed to save adaptive settings:', error);
+    }
   }
 
   setUser(user: { id?: string; email?: string; username?: string } | null) {
@@ -210,6 +367,106 @@ class ErrorTracker {
     return [...performanceBuffer];
   }
 
+  getCurrentFPS(): number {
+    return this.currentFPS;
+  }
+
+  getDeviceInfo(): DeviceInfo {
+    return { ...this.deviceInfo };
+  }
+
+  getAdaptiveSettings(): AdaptiveSettings {
+    return { ...this.adaptiveSettings };
+  }
+
+  updateAdaptiveSettings(settings: Partial<AdaptiveSettings>) {
+    this.adaptiveSettings = { ...this.adaptiveSettings, ...settings };
+    this.saveAdaptiveSettings();
+    console.log('[ErrorTracker] Adaptive settings updated:', this.adaptiveSettings);
+  }
+
+  reportMemoryWarning() {
+    this.memoryWarningCount++;
+    this.deviceInfo.memoryWarnings = this.memoryWarningCount;
+    
+    console.warn('[ErrorTracker] Memory warning #', this.memoryWarningCount);
+    
+    if (this.memoryWarningCount >= 2) {
+      this.adaptiveSettings.preloadCount = Math.max(4, this.adaptiveSettings.preloadCount - 2);
+      this.adaptiveSettings.particleCount = Math.max(20, this.adaptiveSettings.particleCount - 30);
+      this.saveAdaptiveSettings();
+    }
+  }
+
+  async submitGlitchReport(
+    description: string, 
+    category: GlitchReport['category'] = 'other',
+    screenshot?: string
+  ): Promise<string> {
+    const report: GlitchReport = {
+      id: `glitch_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      description,
+      category,
+      screenshot,
+      deviceInfo: this.getDeviceInfo(),
+      sessionId: this.sessionId,
+      errorBuffer: this.getErrorBuffer().slice(-10),
+      performanceBuffer: this.getPerformanceBuffer().slice(-20),
+      status: 'pending',
+    };
+    
+    this.glitchReports.push(report);
+    await this.saveGlitchReports();
+    
+    console.log('[ErrorTracker] Glitch report submitted:', report.id);
+    this.captureMessage(`Glitch Report: ${description}`, 'warning', {
+      tags: { category, reportId: report.id },
+    });
+    
+    return report.id;
+  }
+
+  getPendingGlitchReports(): GlitchReport[] {
+    return this.glitchReports.filter(r => r.status === 'pending');
+  }
+
+  async markReportReviewed(reportId: string) {
+    const report = this.glitchReports.find(r => r.id === reportId);
+    if (report) {
+      report.status = 'reviewed';
+      await this.saveGlitchReports();
+    }
+  }
+
+  isLowEndDevice(): boolean {
+    return this.deviceInfo.isLowEndDevice;
+  }
+
+  shouldReduceAnimations(): boolean {
+    return !this.adaptiveSettings.animationsEnabled || this.currentFPS < 40;
+  }
+
+  getOptimalParticleCount(): number {
+    if (this.currentFPS < 30) return Math.min(20, this.adaptiveSettings.particleCount);
+    if (this.currentFPS < 45) return Math.min(50, this.adaptiveSettings.particleCount);
+    return this.adaptiveSettings.particleCount;
+  }
+
+  resetAdaptiveSettings() {
+    this.adaptiveSettings = this.deviceInfo.isLowEndDevice 
+      ? {
+          audioQuality: 'medium',
+          animationsEnabled: true,
+          particleCount: 50,
+          hapticIntensity: 'low',
+          preloadCount: 6,
+        }
+      : DEFAULT_ADAPTIVE_SETTINGS;
+    this.saveAdaptiveSettings();
+    console.log('[ErrorTracker] Adaptive settings reset');
+  }
+
   measureAsync<T>(name: string, fn: () => Promise<T>, tags?: Record<string, string>): Promise<T> {
     const start = Date.now();
     return fn()
@@ -296,6 +553,54 @@ export function measureSync<T>(name: string, fn: () => T, tags?: Record<string, 
 
 export function getPerformanceMetrics(): PerformanceMetric[] {
   return errorTracker.getPerformanceBuffer();
+}
+
+export function getCurrentFPS(): number {
+  return errorTracker.getCurrentFPS();
+}
+
+export function getDeviceInfo(): DeviceInfo {
+  return errorTracker.getDeviceInfo();
+}
+
+export function getAdaptiveSettings(): AdaptiveSettings {
+  return errorTracker.getAdaptiveSettings();
+}
+
+export function updateAdaptiveSettings(settings: Partial<AdaptiveSettings>) {
+  errorTracker.updateAdaptiveSettings(settings);
+}
+
+export function reportMemoryWarning() {
+  errorTracker.reportMemoryWarning();
+}
+
+export async function submitGlitchReport(
+  description: string,
+  category: GlitchReport['category'] = 'other',
+  screenshot?: string
+): Promise<string> {
+  return errorTracker.submitGlitchReport(description, category, screenshot);
+}
+
+export function getPendingGlitchReports(): GlitchReport[] {
+  return errorTracker.getPendingGlitchReports();
+}
+
+export function isLowEndDevice(): boolean {
+  return errorTracker.isLowEndDevice();
+}
+
+export function shouldReduceAnimations(): boolean {
+  return errorTracker.shouldReduceAnimations();
+}
+
+export function getOptimalParticleCount(): number {
+  return errorTracker.getOptimalParticleCount();
+}
+
+export function resetAdaptiveSettings() {
+  errorTracker.resetAdaptiveSettings();
 }
 
 export type { PerformanceMetric };

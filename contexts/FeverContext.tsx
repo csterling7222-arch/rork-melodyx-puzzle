@@ -1,8 +1,8 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { MELODIES, Melody } from '@/utils/melodies';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { MELODIES, Melody, INTERNATIONAL_MELODIES } from '@/utils/melodies';
 import { getFeedback, isWin, GuessResult } from '@/utils/gameLogic';
 
 export interface FeverStats {
@@ -35,9 +35,74 @@ const FEVER_REWARDS = {
   hintsPerMilestone: 1,
 } as const;
 
-function getRandomMelody(excludeNames: string[] = []): Melody {
-  const available = MELODIES.filter(m => !excludeNames.includes(m.name));
-  const pool = available.length > 0 ? available : MELODIES;
+export type FeverGenreFilter = 'all' | 'pop' | 'rock' | 'classical' | 'movie' | 'game' | 'folk' | 'viral';
+
+const GENRE_MAPPING: Record<FeverGenreFilter, string[]> = {
+  all: [],
+  pop: ['Pop', '80s', 'Viral', 'Meme'],
+  rock: ['Rock'],
+  classical: ['Classical'],
+  movie: ['Movie', 'TV', 'Disney'],
+  game: ['Video Game'],
+  folk: ['Folk', 'International'],
+  viral: ['Viral', 'Meme', 'Pop Culture'],
+};
+
+const EXPANDED_MELODY_POOL = [...MELODIES, ...INTERNATIONAL_MELODIES];
+
+function getSmartRandomMelody(
+  excludeNames: string[] = [],
+  genreFilter: FeverGenreFilter = 'all',
+  userHistory: string[] = [],
+  chain: number = 0
+): Melody {
+  let pool = EXPANDED_MELODY_POOL;
+  
+  if (genreFilter !== 'all') {
+    const allowedGenres = GENRE_MAPPING[genreFilter];
+    pool = pool.filter(m => 
+      allowedGenres.some(g => m.genre?.includes(g) || m.category?.includes(g))
+    );
+  }
+  
+  const available = pool.filter(m => !excludeNames.includes(m.name));
+  
+  if (available.length === 0) {
+    pool = EXPANDED_MELODY_POOL;
+  } else {
+    pool = available;
+  }
+  
+  const leastPlayed = pool.filter(m => !userHistory.includes(m.name));
+  if (leastPlayed.length > 10) {
+    pool = leastPlayed;
+  }
+  
+  if (chain > 0 && chain % 5 === 0) {
+    const rareMelodies = pool.filter(m => m.country || m.era === 'Traditional');
+    if (rareMelodies.length > 3) {
+      pool = rareMelodies;
+    }
+  }
+  
+  const weights = pool.map((m, idx) => {
+    let weight = 1;
+    if (!userHistory.includes(m.name)) weight += 2;
+    if (m.mood === 'energetic' && chain >= 5) weight += 1;
+    if (m.country) weight += 0.5;
+    return { melody: m, weight, index: idx };
+  });
+  
+  const totalWeight = weights.reduce((sum, w) => sum + w.weight, 0);
+  let random = Math.random() * totalWeight;
+  
+  for (const item of weights) {
+    random -= item.weight;
+    if (random <= 0) {
+      return item.melody;
+    }
+  }
+  
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
@@ -61,6 +126,10 @@ export const [FeverProvider, useFever] = createContextHook(() => {
   const [feverDuration, setFeverDuration] = useState(0);
   const [showRewardPopup, setShowRewardPopup] = useState(false);
   const [lastReward, setLastReward] = useState<{ coins: number; hints: number; type: string } | null>(null);
+  const [genreFilter, setGenreFilter] = useState<FeverGenreFilter>('all');
+  const [playHistory, setPlayHistory] = useState<string[]>([]);
+  const [powerUps, setPowerUps] = useState({ timeFreeze: 0, doublePoints: 0, skipSong: 0 });
+  const [isPaused, setIsPaused] = useState(false);
   
   const feverTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const feverStartTimeRef = useRef<number | null>(null);
@@ -122,8 +191,8 @@ export const [FeverProvider, useFever] = createContextHook(() => {
     };
   }, [isFeverActive, feverTimeLeft, multiplier]);
 
-  const startGame = useCallback(() => {
-    const melody = getRandomMelody();
+  const startGame = useCallback((filter: FeverGenreFilter = genreFilter) => {
+    const melody = getSmartRandomMelody([], filter, playHistory, 0);
     setCurrentMelody(melody);
     setRecentMelodies([melody.name]);
     setCurrentGuess([]);
@@ -141,18 +210,25 @@ export const [FeverProvider, useFever] = createContextHook(() => {
     setFeverDuration(0);
     setShowRewardPopup(false);
     setLastReward(null);
+    setIsPaused(false);
     feverStartTimeRef.current = null;
-    console.log('[Fever] Game started with melody:', melody.name);
-  }, []);
+    console.log('[Fever] Game started with melody:', melody.name, 'filter:', filter);
+  }, [genreFilter, playHistory]);
 
   const nextMelody = useCallback(() => {
-    const melody = getRandomMelody(recentMelodies.slice(-5));
+    const melody = getSmartRandomMelody(
+      recentMelodies.slice(-8),
+      genreFilter,
+      playHistory,
+      chain
+    );
     setCurrentMelody(melody);
-    setRecentMelodies(prev => [...prev.slice(-4), melody.name]);
+    setRecentMelodies(prev => [...prev.slice(-7), melody.name]);
+    setPlayHistory(prev => [...prev.slice(-50), melody.name]);
     setCurrentGuess([]);
     setGuesses([]);
-    console.log('Next melody:', melody.name);
-  }, [recentMelodies]);
+    console.log('[Fever] Next melody:', melody.name, 'chain:', chain);
+  }, [recentMelodies, genreFilter, playHistory, chain]);
 
   const addNote = useCallback((note: string) => {
     if (!isPlaying || gameOver || !currentMelody) return;
@@ -259,6 +335,49 @@ export const [FeverProvider, useFever] = createContextHook(() => {
     setShowRewardPopup(false);
   }, []);
 
+  const changeGenreFilter = useCallback((filter: FeverGenreFilter) => {
+    setGenreFilter(filter);
+    console.log('[Fever] Genre filter changed to:', filter);
+  }, []);
+
+  const usePowerUp = useCallback((type: 'timeFreeze' | 'doublePoints' | 'skipSong') => {
+    if (powerUps[type] <= 0) return false;
+    
+    setPowerUps(prev => ({ ...prev, [type]: prev[type] - 1 }));
+    
+    switch (type) {
+      case 'timeFreeze':
+        if (isFeverActive) {
+          setFeverTimeLeft(prev => Math.min(prev + 10, 30));
+        }
+        break;
+      case 'doublePoints':
+        setMultiplier(prev => prev * 2);
+        setTimeout(() => setMultiplier(prev => prev / 2), 15000);
+        break;
+      case 'skipSong':
+        nextMelody();
+        break;
+    }
+    
+    console.log('[Fever] Power-up used:', type);
+    return true;
+  }, [powerUps, isFeverActive, nextMelody]);
+
+  const togglePause = useCallback(() => {
+    if (!isFeverActive) {
+      setIsPaused(prev => !prev);
+    }
+  }, [isFeverActive]);
+
+  const totalMelodiesAvailable = useMemo(() => {
+    if (genreFilter === 'all') return EXPANDED_MELODY_POOL.length;
+    const allowedGenres = GENRE_MAPPING[genreFilter];
+    return EXPANDED_MELODY_POOL.filter(m => 
+      allowedGenres.some(g => m.genre?.includes(g) || m.category?.includes(g))
+    ).length;
+  }, [genreFilter]);
+
   return {
     isPlaying,
     currentMelody,
@@ -283,5 +402,13 @@ export const [FeverProvider, useFever] = createContextHook(() => {
     submitGuess,
     endGame,
     dismissRewardPopup,
+    genreFilter,
+    changeGenreFilter,
+    powerUps,
+    usePowerUp,
+    isPaused,
+    togglePause,
+    totalMelodiesAvailable,
+    playHistory,
   };
 });

@@ -6,13 +6,14 @@ import {
   TouchableOpacity,
   Animated,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Flame, Zap, Trophy, Play, RotateCcw, Home, Volume2, Music } from 'lucide-react-native';
+import { Flame, Zap, Trophy, Play, RotateCcw, Home, Volume2, Music, Filter, Sparkles, Globe, Gamepad2, Film, Music2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
-import { useFever } from '@/contexts/FeverContext';
+import { useFever, FeverGenreFilter } from '@/contexts/FeverContext';
 import { useScreenTheme } from '@/contexts/ThemeContext';
 import { useInstrument } from '@/contexts/InstrumentContext';
 import ThemedBackground from '@/components/ThemedBackground';
@@ -407,6 +408,9 @@ export default function FeverScreen() {
     addNote,
     removeNote,
     submitGuess,
+    genreFilter,
+    changeGenreFilter,
+    totalMelodiesAvailable,
   } = useFever();
 
   const [showMelodyHint, setShowMelodyHint] = useState(false);
@@ -508,11 +512,26 @@ export default function FeverScreen() {
     }
   }, [canSubmit, currentGuess, playMelody, submitGuess]);
 
+  const GENRE_OPTIONS: { id: FeverGenreFilter; label: string; icon: React.ReactNode; color: string }[] = [
+    { id: 'all', label: 'All', icon: <Sparkles size={16} color="#FF6B35" />, color: '#FF6B35' },
+    { id: 'pop', label: 'Pop', icon: <Music2 size={16} color="#E91E63" />, color: '#E91E63' },
+    { id: 'rock', label: 'Rock', icon: <Zap size={16} color="#9C27B0" />, color: '#9C27B0' },
+    { id: 'classical', label: 'Classical', icon: <Music size={16} color="#3F51B5" />, color: '#3F51B5' },
+    { id: 'movie', label: 'Movies', icon: <Film size={16} color="#FF9800" />, color: '#FF9800' },
+    { id: 'game', label: 'Games', icon: <Gamepad2 size={16} color="#4CAF50" />, color: '#4CAF50' },
+    { id: 'folk', label: 'Folk', icon: <Globe size={16} color="#00BCD4" />, color: '#00BCD4' },
+    { id: 'viral', label: 'Viral', icon: <Flame size={16} color="#F44336" />, color: '#F44336' },
+  ];
+
   if (!isPlaying) {
     return (
       <ThemedBackground theme={theme} isDark={isDarkMode} animated={animationsEnabled}>
         <View style={[styles.container, { paddingTop: insets.top }]}>
-          <View style={styles.startScreen}>
+          <ScrollView 
+            style={styles.startScrollView} 
+            contentContainerStyle={styles.startScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.feverIcon}>
               <Flame size={64} color="#FF6B35" />
             </View>
@@ -524,6 +543,38 @@ export default function FeverScreen() {
               <Text style={styles.ruleText}>🔥 Build chains for multipliers</Text>
               <Text style={styles.ruleText}>⚡ 10+ chain = FEVER MODE (x3!)</Text>
               <Text style={styles.ruleText}>❌ Miss 6 guesses = Game Over</Text>
+            </View>
+
+            <View style={styles.genreSection}>
+              <View style={styles.genreHeader}>
+                <Filter size={16} color={Colors.textSecondary} />
+                <Text style={styles.genreLabel}>Genre Filter</Text>
+                <Text style={styles.genreCount}>{totalMelodiesAvailable} songs</Text>
+              </View>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.genreScroll}
+              >
+                {GENRE_OPTIONS.map((genre) => (
+                  <TouchableOpacity
+                    key={genre.id}
+                    style={[
+                      styles.genreChip,
+                      genreFilter === genre.id && { backgroundColor: genre.color + '30', borderColor: genre.color },
+                    ]}
+                    onPress={() => changeGenreFilter(genre.id)}
+                  >
+                    {genre.icon}
+                    <Text style={[
+                      styles.genreChipText,
+                      genreFilter === genre.id && { color: genre.color },
+                    ]}>
+                      {genre.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
 
             <View style={styles.instrumentSection}>
@@ -541,7 +592,7 @@ export default function FeverScreen() {
               <Play size={24} color={Colors.background} fill={Colors.background} />
               <Text style={styles.startButtonText}>Start Game</Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
       </ThemedBackground>
     );
@@ -647,11 +698,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  startScreen: {
+  startScrollView: {
     flex: 1,
+  },
+  startScrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
+    paddingBottom: 40,
   },
   feverIcon: {
     width: 120,
@@ -683,6 +738,49 @@ const styles = StyleSheet.create({
   },
   ruleText: {
     fontSize: 15,
+    color: Colors.text,
+  },
+  genreSection: {
+    width: '100%',
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  genreHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  genreLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.textSecondary,
+    flex: 1,
+  },
+  genreCount: {
+    fontSize: 12,
+    color: Colors.textMuted,
+  },
+  genreScroll: {
+    gap: 8,
+    paddingRight: 8,
+  },
+  genreChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  genreChipText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
     color: Colors.text,
   },
   instrumentSection: {
