@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Flame, Zap, Trophy, Play, RotateCcw, Home, Volume2 } from 'lucide-react-native';
+import { Flame, Zap, Trophy, Play, RotateCcw, Home, Volume2, Music } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useFever } from '@/contexts/FeverContext';
@@ -323,16 +323,39 @@ export default function FeverScreen() {
   } = useFever();
 
   const [showMelodyHint, setShowMelodyHint] = useState(false);
+  const [showBuildingMelody, setShowBuildingMelody] = useState(false);
   const prevGuessLength = useRef(currentGuess.length);
+  const correctFeedbackAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (currentGuess.length > prevGuessLength.current && currentGuess.length > 0) {
       const lastNote = currentGuess[currentGuess.length - 1];
       playNote(lastNote);
-      console.log(`Fever: Playing note ${lastNote}`);
+      console.log(`Fever: Playing note ${lastNote} (${currentGuess.length}/${melodyLength})`);
+      
+      if (isFeverActive && Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      }
     }
     prevGuessLength.current = currentGuess.length;
-  }, [currentGuess, playNote]);
+  }, [currentGuess, playNote, isFeverActive, melodyLength]);
+
+  useEffect(() => {
+    if (chain > 0 && guesses.length > 0) {
+      Animated.sequence([
+        Animated.timing(correctFeedbackAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(correctFeedbackAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [chain, guesses.length, correctFeedbackAnim]);
 
   const canSubmit = currentGuess.length === melodyLength && !gameOver;
 
@@ -364,13 +387,6 @@ export default function FeverScreen() {
     addNote(note);
   }, [addNote, isFeverActive, multiplier]);
 
-  const handleSubmit = useCallback(() => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-    submitGuess();
-  }, [submitGuess]);
-
   const handlePlayMelodyHint = useCallback(() => {
     if (currentMelody && guesses.length >= 2) {
       const hintNotes = currentMelody.notes.slice(0, 3);
@@ -381,6 +397,29 @@ export default function FeverScreen() {
       }
     }
   }, [currentMelody, guesses.length, playMelody]);
+
+  const handlePlayBuildingMelody = useCallback(() => {
+    if (currentGuess.length > 0) {
+      playMelody(currentGuess, 350);
+      setShowBuildingMelody(true);
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+      setTimeout(() => setShowBuildingMelody(false), currentGuess.length * 350 + 500);
+    }
+  }, [currentGuess, playMelody]);
+
+  const handleSubmitWithSound = useCallback(() => {
+    if (canSubmit) {
+      playMelody(currentGuess, 200);
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+      setTimeout(() => {
+        submitGuess();
+      }, currentGuess.length * 200 + 100);
+    }
+  }, [canSubmit, currentGuess, playMelody, submitGuess]);
 
   if (!isPlaying) {
     return (
@@ -438,18 +477,32 @@ export default function FeverScreen() {
             <Text style={styles.melodyHint}>
               {guesses.length >= 2 ? currentMelody.hint : '???'}
             </Text>
-            {guesses.length >= 2 && (
-              <TouchableOpacity 
-                style={styles.audioHintButton}
-                onPress={handlePlayMelodyHint}
-                disabled={playbackState.isPlaying}
-              >
-                <Volume2 size={16} color={Colors.accent} />
-                <Text style={styles.audioHintText}>
-                  {playbackState.isPlaying ? 'Playing...' : 'Hear first 3'}
-                </Text>
-              </TouchableOpacity>
-            )}
+            <View style={styles.audioButtonsRow}>
+              {guesses.length >= 2 && (
+                <TouchableOpacity 
+                  style={styles.audioHintButton}
+                  onPress={handlePlayMelodyHint}
+                  disabled={playbackState.isPlaying}
+                >
+                  <Volume2 size={16} color={Colors.accent} />
+                  <Text style={styles.audioHintText}>
+                    {playbackState.isPlaying ? 'Playing...' : 'Hint'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {currentGuess.length > 0 && (
+                <TouchableOpacity 
+                  style={[styles.audioHintButton, styles.buildingMelodyButton]}
+                  onPress={handlePlayBuildingMelody}
+                  disabled={playbackState.isPlaying}
+                >
+                  <Music size={16} color="#FF6B35" />
+                  <Text style={[styles.audioHintText, styles.buildingMelodyText]}>
+                    {showBuildingMelody ? 'Playing...' : `Play (${currentGuess.length})`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         )}
 
@@ -468,11 +521,16 @@ export default function FeverScreen() {
           />
         </View>
 
+        <Animated.View style={[
+          styles.successFlash,
+          { opacity: correctFeedbackAnim }
+        ]} pointerEvents="none" />
+
         <View style={styles.bottomSection}>
           <PianoKeyboard
             onNotePress={handleAddNote}
             onDelete={removeNote}
-            onSubmit={handleSubmit}
+            onSubmit={handleSubmitWithSound}
             canSubmit={canSubmit}
             disabled={gameOver}
             playNote={playNote}
@@ -691,12 +749,17 @@ const styles = StyleSheet.create({
     zIndex: 0,
   },
   melodyInfo: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 8,
     paddingVertical: 8,
     paddingHorizontal: 16,
+  },
+  audioButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 6,
   },
   melodyHint: {
     fontSize: 14,
@@ -716,6 +779,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600' as const,
     color: Colors.accent,
+  },
+  buildingMelodyButton: {
+    backgroundColor: '#FF6B35' + '20',
+    borderColor: '#FF6B35',
+    borderWidth: 1,
+  },
+  buildingMelodyText: {
+    color: '#FF6B35',
+  },
+  successFlash: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.correct,
+    zIndex: 50,
   },
   hintPlayed: {
     alignItems: 'center',

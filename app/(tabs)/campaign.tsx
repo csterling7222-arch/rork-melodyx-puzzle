@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Modal,
   Dimensions,
   Platform,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,6 +24,7 @@ import {
   RotateCcw,
   Home,
   Volume2,
+  Music,
 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { CampaignProvider, useCampaign } from '@/contexts/CampaignContext';
@@ -62,14 +64,53 @@ function CampaignContent() {
   const { currentInstrument } = useInstrument();
   const { playNote, playMelody, playbackState } = useAudio(currentInstrument.id);
   const [selectedWorld, setSelectedWorld] = useState<string | null>(null);
+  const [showBuildingMelody, setShowBuildingMelody] = useState(false);
+  const prevGuessLength = useRef(currentGuess.length);
+  const successFlashAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (currentGuess.length > prevGuessLength.current && currentGuess.length > 0) {
+      const lastNote = currentGuess[currentGuess.length - 1];
+      playNote(lastNote);
+      console.log(`Quest: Auto-playing note ${lastNote}`);
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    }
+    prevGuessLength.current = currentGuess.length;
+  }, [currentGuess, playNote]);
+
+  useEffect(() => {
+    if (gameState.gameStatus === 'won') {
+      Animated.sequence([
+        Animated.timing(successFlashAnim, {
+          toValue: 0.4,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(successFlashAnim, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [gameState.gameStatus, successFlashAnim]);
 
   const handleNotePress = useCallback((note: string) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    playNote(note);
     addNote(note);
-  }, [playNote, addNote]);
+  }, [addNote]);
+
+  const handlePlayBuildingMelody = useCallback(() => {
+    if (currentGuess.length > 0) {
+      playMelody(currentGuess, 350);
+      setShowBuildingMelody(true);
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+      setTimeout(() => setShowBuildingMelody(false), currentGuess.length * 350 + 500);
+    }
+  }, [currentGuess, playMelody]);
 
   const handlePlayMelody = useCallback(() => {
     if (currentPuzzle) {
@@ -82,12 +123,18 @@ function CampaignContent() {
 
   const handleSubmit = useCallback(() => {
     if (currentPuzzle && currentGuess.length === currentPuzzle.notes.length) {
+      playMelody(currentGuess, 200);
       if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
-      submitGuess();
+      setTimeout(() => {
+        submitGuess();
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      }, currentGuess.length * 200 + 100);
     }
-  }, [currentPuzzle, currentGuess.length, submitGuess]);
+  }, [currentPuzzle, currentGuess, playMelody, submitGuess]);
 
   const handleRemoveNote = useCallback(() => {
     if (Platform.OS !== 'web') {
@@ -189,9 +236,31 @@ function CampaignContent() {
               </View>
             )}
 
-            <Text style={styles.puzzleHint}>{currentPuzzle.hint}</Text>
+            <View style={styles.puzzleHintRow}>
+              <Text style={styles.puzzleHint}>{currentPuzzle.hint}</Text>
+              {currentGuess.length > 0 && gameState.gameStatus === 'playing' && (
+                <TouchableOpacity
+                  style={styles.playBuildingButton}
+                  onPress={handlePlayBuildingMelody}
+                  disabled={playbackState.isPlaying}
+                >
+                  <Music size={16} color="#A78BFA" />
+                  <Text style={styles.playBuildingText}>
+                    {showBuildingMelody ? 'Playing...' : `Play (${currentGuess.length})`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
             <View style={styles.guessGrid}>{renderGuessGrid()}</View>
+
+            <Animated.View
+              style={[
+                styles.successFlash,
+                { opacity: successFlashAnim }
+              ]}
+              pointerEvents="none"
+            />
 
             {gameState.gameStatus === 'won' && (
               <View style={styles.resultContainer}>
@@ -899,11 +968,39 @@ const styles = StyleSheet.create({
     fontStyle: 'italic' as const,
     lineHeight: 22,
   },
+  puzzleHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 20,
+    flexWrap: 'wrap',
+  },
   puzzleHint: {
     fontSize: 14,
     color: Colors.textSecondary,
-    marginBottom: 20,
     textAlign: 'center' as const,
+  },
+  playBuildingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(167, 139, 250, 0.2)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#A78BFA',
+  },
+  playBuildingText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: '#A78BFA',
+  },
+  successFlash: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#22C55E',
+    zIndex: 50,
   },
   guessGrid: {
     gap: 8,
