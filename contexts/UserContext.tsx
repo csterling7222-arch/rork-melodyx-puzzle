@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { ACHIEVEMENTS, Achievement } from '@/constants/achievements';
-import { getDailyReward } from '@/constants/shop';
+import { getDailyReward, getStreakMilestone } from '@/constants/shop';
 import { usePurchases } from './PurchasesContext';
 import { useAuth } from './AuthContext';
 
@@ -392,7 +392,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
     saveUserState(newState);
   }, [userState, saveUserState]);
 
-  const claimDailyReward = useCallback((): { coins: number; bonus?: string } | null => {
+  const claimDailyReward = useCallback((): { coins: number; hints?: number; bonus?: string; description?: string; streakMilestone?: { badge: string; coins: number; hints: number } } | null => {
     const today = getTodayString();
     if (userState.dailyReward.claimedToday) return null;
 
@@ -404,13 +404,23 @@ export const [UserProvider, useUser] = createContextHook(() => {
     const newConsecutiveDays = isConsecutive ? userState.dailyReward.consecutiveDays + 1 : 1;
 
     const reward = getDailyReward(newConsecutiveDays);
+    const milestone = getStreakMilestone(newConsecutiveDays);
+    
+    let totalCoins = reward.coins;
+    let totalHints = reward.hints || 0;
+    
+    if (milestone) {
+      totalCoins += milestone.coins;
+      totalHints += milestone.hints;
+      console.log(`[User] Streak milestone reached: ${milestone.badge}`);
+    }
 
     const newState: UserState = {
       ...userState,
       inventory: {
         ...userState.inventory,
-        coins: userState.inventory.coins + reward.coins,
-        hints: reward.bonus === 'free_hint' ? userState.inventory.hints + 1 : userState.inventory.hints,
+        coins: userState.inventory.coins + totalCoins,
+        hints: userState.inventory.hints + totalHints,
       },
       dailyReward: {
         lastClaimDate: today,
@@ -420,7 +430,15 @@ export const [UserProvider, useUser] = createContextHook(() => {
     };
 
     saveUserState(newState);
-    return { coins: reward.coins, bonus: reward.bonus };
+    console.log(`[User] Daily reward claimed: ${totalCoins} coins, ${totalHints} hints`);
+    
+    return { 
+      coins: reward.coins, 
+      hints: reward.hints,
+      bonus: reward.bonus, 
+      description: reward.description,
+      streakMilestone: milestone ? { badge: milestone.badge, coins: milestone.coins, hints: milestone.hints } : undefined,
+    };
   }, [userState, saveUserState]);
 
   const updateUsername = useCallback((username: string) => {

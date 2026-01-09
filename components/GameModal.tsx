@@ -248,6 +248,8 @@ export default function GameModal() {
     stats,
     solveTimeSeconds,
     clearNavigationFlag,
+    shouldAutoPlaySnippet,
+    setShouldAutoPlaySnippet,
   } = useGame();
 
   const { playSnippet, stopPlayback, playbackState } = useAudio();
@@ -290,6 +292,21 @@ export default function GameModal() {
       setCopied(false);
     }
   }, [showModal, gameStatus, scaleAnim, opacityAnim, slideAnim]);
+
+  useEffect(() => {
+    if (showModal && shouldAutoPlaySnippet && gameStatus === 'won' && !hasPlayedSnippet) {
+      const autoPlayTimeout = setTimeout(() => {
+        playSnippet(melody.extendedNotes, () => {
+          setHasPlayedSnippet(true);
+        });
+        setShouldAutoPlaySnippet(false);
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      }, 800);
+      return () => clearTimeout(autoPlayTimeout);
+    }
+  }, [showModal, shouldAutoPlaySnippet, gameStatus, hasPlayedSnippet, melody.extendedNotes, playSnippet, setShouldAutoPlaySnippet]);
 
   const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength, stats.currentStreak);
 
@@ -425,6 +442,12 @@ export default function GameModal() {
               ? `You got it in ${guesses.length} ${guesses.length === 1 ? 'guess' : 'guesses'}!`
               : 'The melody was:'}
           </Text>
+
+          {melody.artist && (
+            <View style={styles.artistBadge}>
+              <Text style={styles.artistText}>🎤 {melody.artist}</Text>
+            </View>
+          )}
 
           <View style={styles.melodyContainer}>
             <View style={styles.melodyHeader}>
@@ -664,6 +687,18 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     marginTop: 4,
     marginBottom: 12,
+  },
+  artistBadge: {
+    backgroundColor: Colors.accent + '15',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  artistText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.accent,
   },
   notesContainer: {
     flexDirection: 'row',

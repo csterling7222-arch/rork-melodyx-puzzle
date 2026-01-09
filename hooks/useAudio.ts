@@ -32,6 +32,9 @@ const soundCache = new Map<string, Map<string, Audio.Sound>>();
 const preloadQueue = new Set<string>();
 let isPreloading = false;
 let currentInstrumentId = DEFAULT_INSTRUMENT_ID;
+const MAX_CACHE_SIZE = 60;
+const PRELOAD_BATCH_SIZE = 4;
+const PRELOAD_DELAY_MS = 30;
 
 function getWebAudioContext(): AudioContext | null {
   if (Platform.OS !== 'web') return null;
@@ -122,17 +125,42 @@ async function preloadAllSounds(instrumentId: string = currentInstrumentId) {
   
   const notes = Object.keys(NOTE_FREQUENCIES);
   const cache = getInstrumentCache(instrumentId);
-  console.log(`Starting audio preload for ${instrumentId}...`);
+  console.log(`[Audio] Starting preload for ${instrumentId}...`);
   
-  for (const note of notes) {
-    if (!cache.has(note)) {
-      await preloadSound(note, instrumentId);
-      await new Promise(resolve => setTimeout(resolve, 50));
-    }
+  const notesToLoad = notes.filter(note => !cache.has(note));
+  
+  for (let i = 0; i < notesToLoad.length; i += PRELOAD_BATCH_SIZE) {
+    const batch = notesToLoad.slice(i, i + PRELOAD_BATCH_SIZE);
+    await Promise.all(batch.map(note => preloadSound(note, instrumentId)));
+    await new Promise(resolve => setTimeout(resolve, PRELOAD_DELAY_MS));
   }
   
-  console.log(`Audio preload complete for ${instrumentId}`);
+  cleanupOldCaches(instrumentId);
+  console.log(`[Audio] Preload complete for ${instrumentId} (${cache.size} sounds cached)`);
   isPreloading = false;
+}
+
+function cleanupOldCaches(currentInstrumentId: string) {
+  let totalCached = 0;
+  soundCache.forEach((cache) => {
+    totalCached += cache.size;
+  });
+  
+  if (totalCached > MAX_CACHE_SIZE) {
+    soundCache.forEach((cache, instId) => {
+      if (instId !== currentInstrumentId && cache.size > 0) {
+        console.log(`[Audio] Cleaning up cache for ${instId}`);
+        cache.forEach(async (sound) => {
+          try {
+            await sound.unloadAsync();
+          } catch (e) {
+            console.log('[Audio] Error unloading sound:', e);
+          }
+        });
+        cache.clear();
+      }
+    });
+  }
 }
 
 export function useAudio(instrumentId?: string) {
@@ -215,7 +243,7 @@ export function useAudio(instrumentId?: string) {
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + duration + releaseTime + 0.05);
 
-      console.log(`Web: Playing ${note} on ${instrument.name} at ${adjustedFreq}Hz`);
+      console.log(`[Audio] Web: Playing ${note} on ${instrument.name}`);
     } catch (error) {
       console.log('Web audio error:', error);
     }

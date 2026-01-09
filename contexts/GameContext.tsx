@@ -51,6 +51,7 @@ export const [GameProvider, useGame] = createContextHook(() => {
   const [showModal, setShowModal] = useState(false);
   const [shouldNavigateHome, setShouldNavigateHome] = useState(false);
   const [gameEndTime, setGameEndTime] = useState<number | null>(null);
+  const [shouldAutoPlaySnippet, setShouldAutoPlaySnippet] = useState(false);
   const gameStartTimeRef = useRef<number>(Date.now());
 
   const aiSelection = useMemo<AISelection>(() => aiChooseSong(), []);
@@ -186,6 +187,9 @@ export const [GameProvider, useGame] = createContextHook(() => {
       setTimeout(() => {
         setShowModal(true);
         setShouldNavigateHome(true);
+        if (won) {
+          setShouldAutoPlaySnippet(true);
+        }
       }, 1200);
     }
 
@@ -264,5 +268,7 @@ export const [GameProvider, useGame] = createContextHook(() => {
     shouldNavigateHome,
     clearNavigationFlag,
     solveTimeSeconds,
+    shouldAutoPlaySnippet,
+    setShouldAutoPlaySnippet,
   };
 });

@@ -13,6 +13,8 @@ export interface Instrument {
   releaseTime: number;
 }
 
+export type InstrumentTier = 'free' | 'premium';
+
 export const INSTRUMENTS: Instrument[] = [
   {
     id: 'piano',
@@ -34,7 +36,7 @@ export const INSTRUMENTS: Instrument[] = [
     icon: 'Guitar',
     midiProgram: 25,
     soundfontName: 'acoustic_guitar_steel',
-    isPremium: true,
+    isPremium: false,
     description: 'Warm acoustic guitar tones',
     waveType: 'triangle',
     attackTime: 0.005,
@@ -62,7 +64,7 @@ export const INSTRUMENTS: Instrument[] = [
     icon: 'Disc',
     midiProgram: 118,
     soundfontName: 'synth_drum',
-    isPremium: false,
+    isPremium: true,
     description: 'Synth drum kit',
     waveType: 'square',
     attackTime: 0.001,
@@ -72,7 +74,7 @@ export const INSTRUMENTS: Instrument[] = [
   },
   {
     id: 'synth',
-    name: 'Synth',
+    name: 'Keyboard',
     icon: 'Waves',
     midiProgram: 81,
     soundfontName: 'lead_1_square',
@@ -85,6 +87,9 @@ export const INSTRUMENTS: Instrument[] = [
     releaseTime: 0.5,
   },
 ];
+
+export const FREE_INSTRUMENTS = INSTRUMENTS.filter(i => !i.isPremium);
+export const PREMIUM_INSTRUMENTS = INSTRUMENTS.filter(i => i.isPremium);
 
 export const DEFAULT_INSTRUMENT_ID = 'piano';
 export const WELLNESS_INSTRUMENT_ID = 'synth';

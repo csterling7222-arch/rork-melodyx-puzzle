@@ -338,7 +338,7 @@ function RewardClaimedModal({
 }: { 
   visible: boolean; 
   onClose: () => void; 
-  reward: { coins: number; bonus?: string } | null;
+  reward: { coins: number; hints?: number; bonus?: string; description?: string; streakMilestone?: { badge: string; coins: number; hints: number } } | null;
 }) {
   const scaleAnim = useRef(new Animated.Value(0.5)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -387,8 +387,19 @@ function RewardClaimedModal({
             <Text style={claimedStyles.coins}>+{reward.coins}</Text>
             <Text style={claimedStyles.coinLabel}>🪙</Text>
           </View>
-          {reward.bonus === 'free_hint' && (
-            <Text style={claimedStyles.bonus}>+1 Free Hint!</Text>
+          {reward.hints && reward.hints > 0 && (
+            <Text style={claimedStyles.bonus}>+{reward.hints} Hint{reward.hints > 1 ? 's' : ''}!</Text>
+          )}
+          {reward.description && (
+            <Text style={claimedStyles.description}>{reward.description}</Text>
+          )}
+          {reward.streakMilestone && (
+            <View style={claimedStyles.milestoneContainer}>
+              <Text style={claimedStyles.milestoneBadge}>🏅 {reward.streakMilestone.badge}</Text>
+              <Text style={claimedStyles.milestoneReward}>
+                +{reward.streakMilestone.coins} 🪙 +{reward.streakMilestone.hints} 💡
+              </Text>
+            </View>
           )}
           <TouchableOpacity style={claimedStyles.button} onPress={onClose}>
             <Text style={claimedStyles.buttonText}>Awesome!</Text>
@@ -448,6 +459,28 @@ const claimedStyles = StyleSheet.create({
     fontWeight: '600' as const,
     color: Colors.correct,
     marginBottom: 8,
+  },
+  description: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 8,
+  },
+  milestoneContainer: {
+    backgroundColor: '#FFD700' + '20',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  milestoneBadge: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#FFD700',
+  },
+  milestoneReward: {
+    fontSize: 14,
+    color: Colors.text,
+    marginTop: 4,
   },
   button: {
     backgroundColor: '#FFD700',

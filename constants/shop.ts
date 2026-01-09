@@ -263,19 +263,47 @@ export const SHOP_ITEMS: ShopItem[] = [
   },
 ];
 
-export const DAILY_REWARDS = [
-  { day: 1, coins: 25, icon: '🎵' },
-  { day: 2, coins: 50, icon: '🎶' },
-  { day: 3, coins: 75, icon: '🎸' },
-  { day: 4, coins: 100, icon: '🎹' },
-  { day: 5, coins: 150, icon: '🎺' },
-  { day: 6, coins: 200, icon: '🎻' },
-  { day: 7, coins: 500, bonus: 'free_hint', icon: '🏆' },
+export interface DailyRewardItem {
+  day: number;
+  coins: number;
+  hints?: number;
+  bonus?: 'free_hint' | 'double_coins' | 'premium_trial';
+  icon: string;
+  description: string;
+}
+
+export const DAILY_REWARDS: DailyRewardItem[] = [
+  { day: 1, coins: 25, icon: '🎵', description: 'Welcome back!' },
+  { day: 2, coins: 50, icon: '🎶', description: 'Keep it up!' },
+  { day: 3, coins: 75, hints: 1, icon: '🎸', description: '+1 Hint bonus!' },
+  { day: 4, coins: 100, icon: '🎹', description: 'Streak growing!' },
+  { day: 5, coins: 150, hints: 2, icon: '🎺', description: '+2 Hints bonus!' },
+  { day: 6, coins: 200, icon: '🎻', description: 'Almost there!' },
+  { day: 7, coins: 500, hints: 3, bonus: 'free_hint', icon: '🏆', description: 'Weekly champion!' },
 ];
 
-export function getDailyReward(consecutiveDays: number): typeof DAILY_REWARDS[0] {
-  const index = Math.min(consecutiveDays - 1, DAILY_REWARDS.length - 1);
-  return DAILY_REWARDS[Math.max(0, index)];
+export const STREAK_MILESTONES = [
+  { streak: 7, coins: 250, hints: 2, badge: 'Week Warrior' },
+  { streak: 14, coins: 500, hints: 3, badge: 'Two Week Titan' },
+  { streak: 30, coins: 1000, hints: 5, badge: 'Monthly Master' },
+  { streak: 100, coins: 2500, hints: 10, badge: 'Century Legend' },
+  { streak: 365, coins: 10000, hints: 25, badge: 'Year Champion' },
+];
+
+export function getStreakMilestone(streak: number): typeof STREAK_MILESTONES[0] | null {
+  return STREAK_MILESTONES.find(m => m.streak === streak) || null;
+}
+
+export function getDailyReward(consecutiveDays: number): DailyRewardItem {
+  const dayInCycle = ((consecutiveDays - 1) % DAILY_REWARDS.length);
+  const cycleMultiplier = Math.floor((consecutiveDays - 1) / DAILY_REWARDS.length) + 1;
+  const baseReward = DAILY_REWARDS[dayInCycle];
+  
+  return {
+    ...baseReward,
+    coins: Math.floor(baseReward.coins * Math.min(cycleMultiplier, 3)),
+    hints: baseReward.hints ? Math.floor(baseReward.hints * Math.min(cycleMultiplier, 2)) : undefined,
+  };
 }
 
 export function getSkinById(id: string): KeyboardSkin | undefined {

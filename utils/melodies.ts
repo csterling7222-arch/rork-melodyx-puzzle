@@ -9,6 +9,7 @@ export interface Melody {
   mood: string;
   country?: string;
   flag?: string;
+  artist?: string;
 }
 
 export const THEMES = [

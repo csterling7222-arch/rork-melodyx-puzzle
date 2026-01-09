@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
+import { initErrorTracking } from '@/utils/errorTracking';
 import { GameProvider } from '@/contexts/GameContext';
 import { FeverProvider } from '@/contexts/FeverContext';
 import { UserProvider } from '@/contexts/UserContext';
@@ -32,6 +33,8 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   useEffect(() => {
+    initErrorTracking();
+    console.log('[App] Error tracking initialized');
     SplashScreen.hideAsync();
   }, []);
 
