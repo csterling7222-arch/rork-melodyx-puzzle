@@ -13,6 +13,7 @@ import { EcoProvider } from '@/contexts/EcoContext';
 import { PlaylistProvider } from '@/contexts/PlaylistContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { PurchasesProvider } from '@/contexts/PurchasesContext';
+import { InstrumentProvider } from '@/contexts/InstrumentContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 SplashScreen.preventAutoHideAsync();
@@ -37,24 +38,26 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <PurchasesProvider>
-            <ThemeProvider>
-              <UserProvider>
-              <GameProvider>
+            <InstrumentProvider>
+              <ThemeProvider>
+                <UserProvider>
+                  <GameProvider>
                 <FeverProvider>
                   <DuelsProvider>
                     <EventsProvider>
                       <EcoProvider>
                           <PlaylistProvider>
-                            <StatusBar style="light" />
-                            <RootLayoutNav />
-                          </PlaylistProvider>
-                        </EcoProvider>
-                      </EventsProvider>
-                    </DuelsProvider>
-                  </FeverProvider>
-                </GameProvider>
-              </UserProvider>
-            </ThemeProvider>
+                              <StatusBar style="light" />
+                              <RootLayoutNav />
+                            </PlaylistProvider>
+                          </EcoProvider>
+                        </EventsProvider>
+                      </DuelsProvider>
+                    </FeverProvider>
+                  </GameProvider>
+                </UserProvider>
+              </ThemeProvider>
+            </InstrumentProvider>
           </PurchasesProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>

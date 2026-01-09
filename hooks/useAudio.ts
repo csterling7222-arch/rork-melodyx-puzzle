@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import { Audio } from 'expo-av';
+import { Instrument, getInstrumentById, DEFAULT_INSTRUMENT_ID } from '@/constants/instruments';
 
 const NOTE_FREQUENCIES: Record<string, number> = {
   'C': 261.63,
@@ -27,9 +28,10 @@ export interface PlaybackState {
 let audioContextInstance: AudioContext | null = null;
 let audioInitialized = false;
 
-const soundCache = new Map<string, Audio.Sound>();
+const soundCache = new Map<string, Map<string, Audio.Sound>>();
 const preloadQueue = new Set<string>();
 let isPreloading = false;
+let currentInstrumentId = DEFAULT_INSTRUMENT_ID;
 
 function getWebAudioContext(): AudioContext | null {
   if (Platform.OS !== 'web') return null;
@@ -75,54 +77,68 @@ const NOTE_TO_FILE: Record<string, string> = {
   'G#': 'Ab4', 'A': 'A4', 'A#': 'Bb4', 'B': 'B4',
 };
 
-async function preloadSound(note: string): Promise<Audio.Sound | null> {
+function getInstrumentCache(instrumentId: string): Map<string, Audio.Sound> {
+  if (!soundCache.has(instrumentId)) {
+    soundCache.set(instrumentId, new Map());
+  }
+  return soundCache.get(instrumentId)!;
+}
+
+async function preloadSound(note: string, instrumentId: string = currentInstrumentId): Promise<Audio.Sound | null> {
   if (Platform.OS === 'web') return null;
-  if (soundCache.has(note)) return soundCache.get(note) || null;
-  if (preloadQueue.has(note)) return null;
   
-  preloadQueue.add(note);
+  const cache = getInstrumentCache(instrumentId);
+  if (cache.has(note)) return cache.get(note) || null;
+  
+  const cacheKey = `${instrumentId}_${note}`;
+  if (preloadQueue.has(cacheKey)) return null;
+  
+  preloadQueue.add(cacheKey);
   
   try {
+    const instrument = getInstrumentById(instrumentId);
     const fileName = NOTE_TO_FILE[note] || 'C4';
-    const url = `https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_grand_piano-mp3/${fileName}.mp3`;
+    const url = `https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/${instrument.soundfontName}-mp3/${fileName}.mp3`;
     
     const { sound } = await Audio.Sound.createAsync(
       { uri: url },
       { shouldPlay: false, volume: 1.0 }
     );
     
-    soundCache.set(note, sound);
-    console.log(`Preloaded sound for ${note}`);
+    cache.set(note, sound);
+    console.log(`Preloaded ${instrumentId} sound for ${note}`);
     return sound;
   } catch (error) {
-    console.log(`Failed to preload ${note}:`, error);
+    console.log(`Failed to preload ${instrumentId} ${note}:`, error);
     return null;
   } finally {
-    preloadQueue.delete(note);
+    preloadQueue.delete(cacheKey);
   }
 }
 
-async function preloadAllSounds() {
+async function preloadAllSounds(instrumentId: string = currentInstrumentId) {
   if (Platform.OS === 'web' || isPreloading) return;
   isPreloading = true;
   
   const notes = Object.keys(NOTE_FREQUENCIES);
-  console.log('Starting audio preload...');
+  const cache = getInstrumentCache(instrumentId);
+  console.log(`Starting audio preload for ${instrumentId}...`);
   
   for (const note of notes) {
-    if (!soundCache.has(note)) {
-      await preloadSound(note);
+    if (!cache.has(note)) {
+      await preloadSound(note, instrumentId);
       await new Promise(resolve => setTimeout(resolve, 50));
     }
   }
   
-  console.log('Audio preload complete');
+  console.log(`Audio preload complete for ${instrumentId}`);
   isPreloading = false;
 }
 
-export function useAudio() {
+export function useAudio(instrumentId?: string) {
   const playbackTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const isLoadingRef = useRef<Set<string>>(new Set());
+  const currentInstrumentRef = useRef<Instrument>(getInstrumentById(instrumentId || DEFAULT_INSTRUMENT_ID));
   
   const [playbackState, setPlaybackState] = useState<PlaybackState>({
     isPlaying: false,
@@ -132,14 +148,21 @@ export function useAudio() {
   });
 
   useEffect(() => {
+    const instId = instrumentId || DEFAULT_INSTRUMENT_ID;
+    currentInstrumentRef.current = getInstrumentById(instId);
+    currentInstrumentId = instId;
+    
     if (Platform.OS !== 'web') {
       initNativeAudio().then(() => {
-        preloadAllSounds();
+        preloadAllSounds(instId);
       });
     }
     
+    console.log(`Audio hook using instrument: ${instId}`);
+  }, [instrumentId]);
+
+  useEffect(() => {
     const timeouts = playbackTimeoutsRef.current;
-    
     return () => {
       timeouts.forEach(clearTimeout);
     };
@@ -163,28 +186,36 @@ export function useAudio() {
         return;
       }
 
+      const instrument = currentInstrumentRef.current;
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
       const filterNode = ctx.createBiquadFilter();
 
       filterNode.type = 'lowpass';
-      filterNode.frequency.setValueAtTime(2000, ctx.currentTime);
+      filterNode.frequency.setValueAtTime(instrument.id === 'synth' ? 4000 : 2000, ctx.currentTime);
 
       oscillator.connect(filterNode);
       filterNode.connect(gainNode);
       gainNode.connect(ctx.destination);
 
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
+      oscillator.type = instrument.waveType;
+      
+      let adjustedFreq = frequency;
+      if (instrument.id === 'bass') {
+        adjustedFreq = frequency / 2;
+      }
+      oscillator.frequency.setValueAtTime(adjustedFreq, ctx.currentTime);
 
+      const { attackTime, sustainLevel, releaseTime } = instrument;
       gainNode.gain.setValueAtTime(0, ctx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.01);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+      gainNode.gain.linearRampToValueAtTime(0.5, ctx.currentTime + attackTime);
+      gainNode.gain.exponentialRampToValueAtTime(Math.max(0.01, sustainLevel * 0.5), ctx.currentTime + duration * 0.7);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration + releaseTime);
 
       oscillator.start(ctx.currentTime);
-      oscillator.stop(ctx.currentTime + duration + 0.05);
+      oscillator.stop(ctx.currentTime + duration + releaseTime + 0.05);
 
-      console.log(`Web: Playing ${note} at ${frequency}Hz`);
+      console.log(`Web: Playing ${note} on ${instrument.name} at ${adjustedFreq}Hz`);
     } catch (error) {
       console.log('Web audio error:', error);
     }
@@ -204,12 +235,15 @@ export function useAudio() {
         return;
       }
 
-      let sound = soundCache.get(note);
+      const instId = currentInstrumentRef.current.id;
+      const cache = getInstrumentCache(instId);
+      let sound = cache.get(note);
       
-      if (!sound && !isLoadingRef.current.has(note)) {
-        isLoadingRef.current.add(note);
-        sound = await preloadSound(note) || undefined;
-        isLoadingRef.current.delete(note);
+      const loadKey = `${instId}_${note}`;
+      if (!sound && !isLoadingRef.current.has(loadKey)) {
+        isLoadingRef.current.add(loadKey);
+        sound = await preloadSound(note, instId) || undefined;
+        isLoadingRef.current.delete(loadKey);
       }
 
       if (sound) {
@@ -221,7 +255,7 @@ export function useAudio() {
           }
         } catch (playError) {
           console.log(`Play error for ${note}:`, playError);
-          soundCache.delete(note);
+          cache.delete(note);
         }
       }
     } catch (error) {

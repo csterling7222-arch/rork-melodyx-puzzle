@@ -8,6 +8,10 @@ export const Colors = {
   textSecondary: '#9CA3AF',
   textMuted: '#6B7280',
   
+  primary: '#8B5CF6',
+  warning: '#F59E0B',
+  border: '#333333',
+  
   correct: '#22C55E',
   present: '#EAB308',
   absent: '#374151',

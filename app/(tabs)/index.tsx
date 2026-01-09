@@ -14,8 +14,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/colors';
 import { useGame } from '@/contexts/GameContext';
 import { useScreenTheme } from '@/contexts/ThemeContext';
+import { useInstrument } from '@/contexts/InstrumentContext';
 import ThemedBackground from '@/components/ThemedBackground';
 import { useAudio } from '@/hooks/useAudio';
+import InstrumentSelector from '@/components/InstrumentSelector';
 import GuessGrid from '@/components/GuessGrid';
 import PianoKeyboard from '@/components/PianoKeyboard';
 import GameModal from '@/components/GameModal';
@@ -118,7 +120,8 @@ export default function GameScreen() {
     stats,
   } = useGame();
 
-  const { playNote, playMelody, playHintNotes, playbackState } = useAudio();
+  const { currentInstrument } = useInstrument();
+  const { playNote, playMelody, playHintNotes, playbackState } = useAudio(currentInstrument.id);
   const [audioHintPlayed, setAudioHintPlayed] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
@@ -182,7 +185,10 @@ export default function GameScreen() {
               <Text style={styles.winsText}>{stats.gamesWon}</Text>
             </View>
           </View>
-          <CountdownBadge />
+          <View style={styles.topRowRight}>
+            <InstrumentSelector compact />
+            <CountdownBadge />
+          </View>
         </View>
         
         <View style={styles.titleContainer}>
@@ -336,6 +342,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600' as const,
     color: Colors.correct,
+  },
+  topRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   titleContainer: {
     flexDirection: 'row',

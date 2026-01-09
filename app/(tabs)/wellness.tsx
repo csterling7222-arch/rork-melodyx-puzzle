@@ -15,7 +15,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Heart, Leaf, Wind, Moon, Star, ChevronRight, X, Play } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { WellnessProvider, useWellness } from '@/contexts/WellnessContext';
+import { useInstrument } from '@/contexts/InstrumentContext';
 import { BREATHING_PATTERNS, BreathingPatternKey } from '@/constants/wellness';
+import { useAudio } from '@/hooks/useAudio';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
@@ -43,6 +45,18 @@ function WellnessContent() {
     getBreathingPattern,
     achievements,
   } = useWellness();
+
+  const { currentInstrument, setWellnessModeActive } = useInstrument();
+  const { playNote } = useAudio(currentInstrument.id);
+
+  useEffect(() => {
+    setWellnessModeActive(true);
+    console.log('Wellness mode activated - using calm synth sounds');
+    return () => {
+      setWellnessModeActive(false);
+      console.log('Wellness mode deactivated');
+    };
+  }, [setWellnessModeActive]);
 
   const [showBreathingModal, setShowBreathingModal] = useState(false);
   const [breathPhase, setBreathPhase] = useState<'inhale' | 'hold' | 'exhale'>('inhale');
@@ -137,6 +151,7 @@ function WellnessContent() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
+    playNote(note);
     addNote(note);
   };
 
