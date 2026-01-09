@@ -48,9 +48,13 @@ export const [FeverProvider, useFever] = createContextHook(() => {
   const statsQuery = useQuery({
     queryKey: ['feverStats'],
     queryFn: async (): Promise<FeverStats> => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        return JSON.parse(stored);
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (error) {
+        console.log('Error loading fever stats:', error);
       }
       return DEFAULT_FEVER_STATS;
     },

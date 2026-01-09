@@ -56,9 +56,13 @@ export const [WellnessProvider, useWellness] = createContextHook(() => {
   const statsQuery = useQuery({
     queryKey: ['wellnessStats'],
     queryFn: async (): Promise<WellnessStats> => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.WELLNESS_STATS);
-      if (stored) {
-        return JSON.parse(stored);
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEYS.WELLNESS_STATS);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (error) {
+        console.log('Error loading wellness stats:', error);
       }
       return DEFAULT_STATS;
     },
@@ -67,9 +71,13 @@ export const [WellnessProvider, useWellness] = createContextHook(() => {
   const gameQuery = useQuery({
     queryKey: ['zenGame'],
     queryFn: async (): Promise<ZenGameState> => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.ZEN_GAME);
-      if (stored) {
-        return JSON.parse(stored);
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEYS.ZEN_GAME);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (error) {
+        console.log('Error loading zen game:', error);
       }
       return {
         currentPuzzleIndex: 0,

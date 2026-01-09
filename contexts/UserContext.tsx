@@ -107,14 +107,18 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const userQuery = useQuery({
     queryKey: ['userState'],
     queryFn: async (): Promise<UserState> => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as UserState;
-        const today = getTodayString();
-        if (parsed.dailyReward.lastClaimDate !== today) {
-          parsed.dailyReward.claimedToday = false;
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored) as UserState;
+          const today = getTodayString();
+          if (parsed.dailyReward.lastClaimDate !== today) {
+            parsed.dailyReward.claimedToday = false;
+          }
+          return parsed;
         }
-        return parsed;
+      } catch (error) {
+        console.log('Error loading user state:', error);
       }
       return DEFAULT_USER_STATE;
     },

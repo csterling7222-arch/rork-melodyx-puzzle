@@ -30,13 +30,17 @@ export const [InstrumentProvider, useInstrument] = createContextHook(() => {
   const instrumentQuery = useQuery({
     queryKey: ['selectedInstrument'],
     queryFn: async (): Promise<InstrumentState> => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (isInstrumentLocked(parsed.selectedId, isPremium)) {
-          return { selectedId: DEFAULT_INSTRUMENT_ID, wellnessOverride: false };
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (isInstrumentLocked(parsed.selectedId, isPremium)) {
+            return { selectedId: DEFAULT_INSTRUMENT_ID, wellnessOverride: false };
+          }
+          return parsed;
         }
-        return parsed;
+      } catch (error) {
+        console.log('Error loading instrument state:', error);
       }
       return { selectedId: DEFAULT_INSTRUMENT_ID, wellnessOverride: false };
     },

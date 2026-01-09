@@ -36,9 +36,13 @@ export const [EventsProvider, useEvents] = createContextHook(() => {
   const eventsQuery = useQuery({
     queryKey: ['events'],
     queryFn: async (): Promise<EventsState> => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        return JSON.parse(stored);
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (error) {
+        console.log('Error loading events:', error);
       }
       return DEFAULT_STATE;
     },

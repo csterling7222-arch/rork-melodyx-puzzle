@@ -44,9 +44,13 @@ export const [CampaignProvider, useCampaign] = createContextHook(() => {
   const statsQuery = useQuery({
     queryKey: ['campaignStats'],
     queryFn: async (): Promise<PlayerCampaignStats> => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.CAMPAIGN_STATS);
-      if (stored) {
-        return JSON.parse(stored);
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEYS.CAMPAIGN_STATS);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (error) {
+        console.log('Error loading campaign stats:', error);
       }
       return DEFAULT_STATS;
     },
@@ -55,9 +59,13 @@ export const [CampaignProvider, useCampaign] = createContextHook(() => {
   const progressQuery = useQuery({
     queryKey: ['campaignProgress'],
     queryFn: async (): Promise<CampaignProgress[]> => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.CAMPAIGN_PROGRESS);
-      if (stored) {
-        return JSON.parse(stored);
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEYS.CAMPAIGN_PROGRESS);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (error) {
+        console.log('Error loading campaign progress:', error);
       }
       return [];
     },
@@ -66,9 +74,13 @@ export const [CampaignProvider, useCampaign] = createContextHook(() => {
   const gameQuery = useQuery({
     queryKey: ['campaignGame'],
     queryFn: async (): Promise<CampaignGameState> => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.CAMPAIGN_GAME);
-      if (stored) {
-        return JSON.parse(stored);
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEYS.CAMPAIGN_GAME);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (error) {
+        console.log('Error loading campaign game:', error);
       }
       return {
         currentPuzzleId: null,

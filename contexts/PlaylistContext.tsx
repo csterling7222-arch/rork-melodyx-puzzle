@@ -42,9 +42,13 @@ export const [PlaylistProvider, usePlaylist] = createContextHook(() => {
   const playlistQuery = useQuery({
     queryKey: ['playlistState'],
     queryFn: async (): Promise<PlaylistState> => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        return JSON.parse(stored);
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (error) {
+        console.log('Error loading playlist state:', error);
       }
       return DEFAULT_PLAYLIST_STATE;
     },

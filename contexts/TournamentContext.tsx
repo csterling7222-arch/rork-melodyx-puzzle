@@ -51,9 +51,13 @@ export const [TournamentProvider, useTournament] = createContextHook(() => {
   const statsQuery = useQuery({
     queryKey: ['tournamentStats'],
     queryFn: async (): Promise<PlayerTournamentStats> => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.TOURNAMENT_STATS);
-      if (stored) {
-        return JSON.parse(stored);
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEYS.TOURNAMENT_STATS);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (error) {
+        console.log('Error loading tournament stats:', error);
       }
       return DEFAULT_STATS;
     },

@@ -72,9 +72,13 @@ export const [DuelsProvider, useDuels] = createContextHook(() => {
   const duelsQuery = useQuery({
     queryKey: ['duels'],
     queryFn: async (): Promise<DuelsState> => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        return JSON.parse(stored);
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (error) {
+        console.log('Error loading duels:', error);
       }
       return DEFAULT_STATE;
     },

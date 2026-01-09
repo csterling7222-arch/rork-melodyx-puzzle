@@ -62,9 +62,13 @@ export const [GameProvider, useGame] = createContextHook(() => {
   const statsQuery = useQuery({
     queryKey: ['stats'],
     queryFn: async (): Promise<GameStats> => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.STATS);
-      if (stored) {
-        return JSON.parse(stored);
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEYS.STATS);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (error) {
+        console.log('Error loading stats:', error);
       }
       return DEFAULT_STATS;
     },
@@ -73,12 +77,16 @@ export const [GameProvider, useGame] = createContextHook(() => {
   const dailyGameQuery = useQuery({
     queryKey: ['dailyGame'],
     queryFn: async (): Promise<DailyGameState | null> => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_GAME);
-      if (stored) {
-        const parsed = JSON.parse(stored) as DailyGameState;
-        if (parsed.date === getTodayString()) {
-          return parsed;
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_GAME);
+        if (stored) {
+          const parsed = JSON.parse(stored) as DailyGameState;
+          if (parsed.date === getTodayString()) {
+            return parsed;
+          }
         }
+      } catch (error) {
+        console.log('Error loading daily game:', error);
       }
       return null;
     },

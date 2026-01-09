@@ -48,9 +48,13 @@ export const [EcoProvider, useEco] = createContextHook(() => {
   const ecoQuery = useQuery({
     queryKey: ['ecoState'],
     queryFn: async (): Promise<EcoState> => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        return JSON.parse(stored);
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (error) {
+        console.log('Error loading eco state:', error);
       }
       return DEFAULT_ECO_STATE;
     },
