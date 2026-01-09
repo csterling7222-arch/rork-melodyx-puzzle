@@ -647,11 +647,18 @@ export default function HomeScreen() {
             </Text>
           </View>
 
+          <View style={styles.dailyCardWrapper}>
+          <View style={styles.dailyCardGlow} />
           <View style={styles.dailyCard}>
             <View style={styles.dailyHeader}>
               <View style={styles.dailyTitleRow}>
-                <Music size={22} color={Colors.accent} />
-                <Text style={styles.dailyTitle}>Daily #{puzzleNumber}</Text>
+                <View style={styles.dailyIconContainer}>
+                  <Music size={24} color={Colors.accent} />
+                </View>
+                <View>
+                  <Text style={styles.dailyLabel}>TODAY&apos;S CHALLENGE</Text>
+                  <Text style={styles.dailyTitle}>Daily #{puzzleNumber}</Text>
+                </View>
               </View>
               {gameCompleted ? (
                 <View style={[
@@ -671,9 +678,8 @@ export default function HomeScreen() {
                   </Text>
                 </View>
               ) : (
-                <View style={styles.playBadge}>
-                  <Play size={12} color={Colors.text} fill={Colors.text} />
-                  <Text style={styles.playText}>Play Now</Text>
+                <View style={styles.newBadge}>
+                  <Text style={styles.newBadgeText}>NEW</Text>
                 </View>
               )}
             </View>
@@ -710,14 +716,24 @@ export default function HomeScreen() {
                 <CountdownTimer />
               </View>
             ) : (
-              <TouchableOpacity
-                style={styles.playButton}
-                onPress={() => navigateTo('/(tabs)/daily')}
-              >
-                <Play size={24} color={Colors.background} fill={Colors.background} />
-                <Text style={styles.playButtonText}>Start Puzzle</Text>
-              </TouchableOpacity>
+              <View style={styles.dailyPlaySection}>
+                <Text style={styles.dailyDescription}>
+                  Guess the {melodyLength}-note melody in 6 tries
+                </Text>
+                <TouchableOpacity
+                  style={styles.playButton}
+                  onPress={() => navigateTo('/(tabs)/daily')}
+                >
+                  <Play size={24} color={Colors.background} fill={Colors.background} />
+                  <Text style={styles.playButtonText}>Start Daily Puzzle</Text>
+                </TouchableOpacity>
+                <View style={styles.dailyHintRow}>
+                  <Clock size={12} color={Colors.textMuted} />
+                  <Text style={styles.dailyHintText}>New puzzle every day at midnight</Text>
+                </View>
+              </View>
             )}
+          </View>
           </View>
 
           <View style={styles.statsSection}>
@@ -914,13 +930,42 @@ const styles = StyleSheet.create({
     color: '#10B981',
     opacity: 0.8,
   },
+  dailyCardWrapper: {
+    position: 'relative',
+    marginBottom: 24,
+  },
+  dailyCardGlow: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    right: 4,
+    bottom: 4,
+    backgroundColor: Colors.accent,
+    borderRadius: 22,
+    opacity: 0.15,
+  },
   dailyCard: {
     backgroundColor: Colors.surface,
     borderRadius: 20,
     padding: 20,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: Colors.accent + '30',
+    borderWidth: 2,
+    borderColor: Colors.accent + '50',
+  },
+  dailyIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: Colors.accent + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  dailyLabel: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: Colors.accent,
+    letterSpacing: 1,
+    marginBottom: 2,
   },
   dailyHeader: {
     flexDirection: 'row',
@@ -931,7 +976,37 @@ const styles = StyleSheet.create({
   dailyTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+  },
+  newBadge: {
+    backgroundColor: Colors.accent,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  newBadgeText: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+    color: Colors.background,
+    letterSpacing: 0.5,
+  },
+  dailyPlaySection: {
+    alignItems: 'center',
+  },
+  dailyDescription: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 16,
+    textAlign: 'center' as const,
+  },
+  dailyHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 14,
+  },
+  dailyHintText: {
+    fontSize: 12,
+    color: Colors.textMuted,
   },
   dailyTitle: {
     fontSize: 20,
@@ -1051,13 +1126,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     backgroundColor: Colors.accent,
-    paddingVertical: 16,
-    borderRadius: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    borderRadius: 16,
+    width: '100%',
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   playButtonText: {
     fontSize: 18,
-    fontWeight: '700' as const,
+    fontWeight: '800' as const,
     color: Colors.background,
+    letterSpacing: 0.3,
   },
   statsSection: {
     marginBottom: 24,

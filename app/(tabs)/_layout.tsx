@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, Music, Flame, User, Trophy, Map } from 'lucide-react-native';
+import { Home, Flame, User, Trophy, Map } from 'lucide-react-native';
 import React from 'react';
 import { Colors } from '@/constants/colors';
 
@@ -34,8 +34,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="daily"
         options={{
-          title: 'Daily',
-          tabBarIcon: ({ color, size }) => <Music size={size} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen

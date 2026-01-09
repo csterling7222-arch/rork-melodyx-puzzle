@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -22,10 +22,14 @@ import {
   Sparkles,
   RotateCcw,
   Home,
+  Volume2,
 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { CampaignProvider, useCampaign } from '@/contexts/CampaignContext';
 import { CAMPAIGN_WORLDS } from '@/constants/campaign';
+import { useInstrument } from '@/contexts/InstrumentContext';
+import { useAudio } from '@/hooks/useAudio';
+import InstrumentSelector from '@/components/InstrumentSelector';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
@@ -55,23 +59,42 @@ function CampaignContent() {
     setShowReward,
   } = useCampaign();
 
+  const { currentInstrument } = useInstrument();
+  const { playNote, playMelody, playbackState } = useAudio(currentInstrument.id);
   const [selectedWorld, setSelectedWorld] = useState<string | null>(null);
 
-  const handleNotePress = (note: string) => {
+  const handleNotePress = useCallback((note: string) => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
+    playNote(note);
     addNote(note);
-  };
+  }, [playNote, addNote]);
 
-  const handleSubmit = () => {
-    if (currentPuzzle && currentGuess.length === currentPuzzle.notes.length) {
+  const handlePlayMelody = useCallback(() => {
+    if (currentPuzzle) {
+      playMelody(currentPuzzle.notes);
       if (Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
+    }
+  }, [currentPuzzle, playMelody]);
+
+  const handleSubmit = useCallback(() => {
+    if (currentPuzzle && currentGuess.length === currentPuzzle.notes.length) {
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
       submitGuess();
     }
-  };
+  }, [currentPuzzle, currentGuess.length, submitGuess]);
+
+  const handleRemoveNote = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    removeNote();
+  }, [removeNote]);
 
   const renderStars = (earned: number, max: number = 3) => {
     return (
@@ -150,9 +173,12 @@ function CampaignContent() {
                 {currentPuzzle.difficulty.toUpperCase()}
               </Text>
             </View>
-            <View style={styles.puzzleRewards}>
-              <Coins size={16} color="#FBBF24" />
-              <Text style={styles.rewardText}>{currentPuzzle.rewards.coins}</Text>
+            <View style={styles.puzzleHeaderRight}>
+              <InstrumentSelector compact />
+              <View style={styles.puzzleRewards}>
+                <Coins size={16} color="#FBBF24" />
+                <Text style={styles.rewardText}>{currentPuzzle.rewards.coins}</Text>
+              </View>
             </View>
           </View>
 
@@ -171,6 +197,16 @@ function CampaignContent() {
               <View style={styles.resultContainer}>
                 <Text style={styles.wonText}>🎉 Puzzle Complete!</Text>
                 {renderStars(gameState.starsEarned)}
+                <TouchableOpacity
+                  style={styles.playMelodyButton}
+                  onPress={handlePlayMelody}
+                  disabled={playbackState.isPlaying}
+                >
+                  <Volume2 size={18} color={Colors.text} />
+                  <Text style={styles.playMelodyText}>
+                    {playbackState.isPlaying ? 'Playing...' : 'Play Melody'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -180,6 +216,16 @@ function CampaignContent() {
                 <Text style={styles.solutionText}>
                   The melody was: {currentPuzzle.notes.join(' - ')}
                 </Text>
+                <TouchableOpacity
+                  style={styles.playMelodyButton}
+                  onPress={handlePlayMelody}
+                  disabled={playbackState.isPlaying}
+                >
+                  <Volume2 size={18} color={Colors.text} />
+                  <Text style={styles.playMelodyText}>
+                    {playbackState.isPlaying ? 'Playing...' : 'Hear the Melody'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -222,7 +268,7 @@ function CampaignContent() {
                   </View>
                 </View>
                 <View style={styles.actionButtons}>
-                  <TouchableOpacity style={styles.deleteBtn} onPress={removeNote}>
+                  <TouchableOpacity style={styles.deleteBtn} onPress={handleRemoveNote}>
                     <Text style={styles.actionBtnText}>⌫</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -822,6 +868,11 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 2,
   },
+  puzzleHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   puzzleRewards: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -912,6 +963,23 @@ const styles = StyleSheet.create({
   solutionText: {
     fontSize: 14,
     color: Colors.textMuted,
+  },
+  playMelodyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(167, 139, 250, 0.2)',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#A78BFA',
+  },
+  playMelodyText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.text,
   },
   keyboardSection: {
     marginTop: 20,
