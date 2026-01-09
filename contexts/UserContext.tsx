@@ -1,14 +1,16 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { ACHIEVEMENTS, Achievement } from '@/constants/achievements';
 import { getDailyReward } from '@/constants/shop';
 import { usePurchases } from './PurchasesContext';
+import { useAuth } from './AuthContext';
 
 export interface UserProfile {
   id: string;
   username: string;
+  email: string | null;
   createdAt: string;
   isPremium: boolean;
   premiumExpiresAt: string | null;
@@ -56,44 +58,57 @@ interface UserState {
   dailyReward: DailyRewardState;
 }
 
-const STORAGE_KEY = 'melodyx_user_state';
+const STORAGE_KEY_PREFIX = 'melodyx_user_state';
 
-const DEFAULT_USER_STATE: UserState = {
-  profile: {
-    id: `user_${Date.now()}`,
-    username: 'MelodyPlayer',
-    createdAt: new Date().toISOString(),
-    isPremium: false,
-    premiumExpiresAt: null,
-  },
-  inventory: {
-    coins: 100,
-    hints: 3,
-    ownedSkins: ['default'],
-    equippedSkin: 'default',
-    ownedBadges: [],
-  },
-  progress: {
-    totalWins: 0,
-    perfectSolves: 0,
-    feverSolves: 0,
-    feverHighScore: 0,
-    totalFeverPoints: 0,
-    countriesPlayed: [],
-    sharesCount: 0,
-    duelsPlayed: 0,
-    duelsWon: 0,
-    eventsCompleted: 0,
-    createdMelodies: 0,
-    featuredMelodies: 0,
-  },
-  achievements: [],
-  dailyReward: {
-    lastClaimDate: null,
-    consecutiveDays: 0,
-    claimedToday: false,
-  },
-};
+function getStorageKey(userId: string | null): string {
+  return userId ? `${STORAGE_KEY_PREFIX}_${userId}` : STORAGE_KEY_PREFIX;
+}
+
+function createDefaultUserState(userId: string, username: string, email: string | null): UserState {
+  return {
+    profile: {
+      id: userId,
+      username,
+      email,
+      createdAt: new Date().toISOString(),
+      isPremium: false,
+      premiumExpiresAt: null,
+    },
+    inventory: {
+      coins: 100,
+      hints: 3,
+      ownedSkins: ['default'],
+      equippedSkin: 'default',
+      ownedBadges: [],
+    },
+    progress: {
+      totalWins: 0,
+      perfectSolves: 0,
+      feverSolves: 0,
+      feverHighScore: 0,
+      totalFeverPoints: 0,
+      countriesPlayed: [],
+      sharesCount: 0,
+      duelsPlayed: 0,
+      duelsWon: 0,
+      eventsCompleted: 0,
+      createdMelodies: 0,
+      featuredMelodies: 0,
+    },
+    achievements: [],
+    dailyReward: {
+      lastClaimDate: null,
+      consecutiveDays: 0,
+      claimedToday: false,
+    },
+  };
+}
+
+const FALLBACK_USER_STATE: UserState = createDefaultUserState(
+  `guest_${Date.now()}`,
+  'MelodyPlayer',
+  null
+);
 
 function getTodayString(): string {
   return new Date().toISOString().split('T')[0];
@@ -103,38 +118,67 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const queryClient = useQueryClient();
   const [newAchievement, setNewAchievement] = useState<Achievement | null>(null);
   const { isPremium: rcIsPremium } = usePurchases();
+  const { user: authUser, isAuthenticated, isAnonymous } = useAuth();
+
+  const storageKey = useMemo(() => {
+    return getStorageKey(authUser?.uid ?? null);
+  }, [authUser?.uid]);
+
+  const authUid = authUser?.uid;
+  const authEmail = authUser?.email;
+  const authDisplayName = authUser?.displayName;
 
   const userQuery = useQuery({
-    queryKey: ['userState'],
+    queryKey: ['userState', authUid, authEmail, authDisplayName, storageKey],
     queryFn: async (): Promise<UserState> => {
       try {
-        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        const stored = await AsyncStorage.getItem(storageKey);
         if (stored) {
           const parsed = JSON.parse(stored) as UserState;
           const today = getTodayString();
           if (parsed.dailyReward.lastClaimDate !== today) {
             parsed.dailyReward.claimedToday = false;
           }
+          if (authUid) {
+            parsed.profile.id = authUid;
+            parsed.profile.email = authEmail ?? null;
+            if (authDisplayName && parsed.profile.username === 'MelodyPlayer') {
+              parsed.profile.username = authDisplayName;
+            }
+          }
+          console.log('[User] Loaded user state for:', authUid || 'guest');
           return parsed;
         }
       } catch (error) {
-        console.log('Error loading user state:', error);
+        console.log('[User] Error loading user state:', error);
       }
-      return DEFAULT_USER_STATE;
+      
+      if (authUid) {
+        console.log('[User] Creating new user state for:', authUid);
+        return createDefaultUserState(
+          authUid,
+          authDisplayName || 'MelodyPlayer',
+          authEmail ?? null
+        );
+      }
+      
+      return FALLBACK_USER_STATE;
     },
+    enabled: true,
   });
 
   const { mutate: saveUserState } = useMutation({
     mutationFn: async (state: UserState) => {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      await AsyncStorage.setItem(storageKey, JSON.stringify(state));
+      console.log('[User] Saved user state for:', state.profile.id);
       return state;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userState'] });
+      queryClient.invalidateQueries({ queryKey: ['userState', authUid] });
     },
   });
 
-  const userState = userQuery.data ?? DEFAULT_USER_STATE;
+  const userState = userQuery.data ?? FALLBACK_USER_STATE;
 
   const checkAndUnlockAchievements = useCallback((currentState: UserState): Achievement[] => {
     const newUnlocks: Achievement[] = [];
@@ -418,6 +462,9 @@ export const [UserProvider, useUser] = createContextHook(() => {
     dailyReward: userState.dailyReward,
     isLoading: userQuery.isLoading,
     newAchievement,
+    isAuthenticated,
+    isAnonymous,
+    authUser,
     updateProgress,
     checkStreakAchievement,
     addCoins,

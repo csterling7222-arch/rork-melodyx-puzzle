@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GameProvider } from '@/contexts/GameContext';
 import { FeverProvider } from '@/contexts/FeverContext';
 import { UserProvider } from '@/contexts/UserContext';
+import { AuthProvider } from '@/contexts/AuthContext';
 import { DuelsProvider } from '@/contexts/DuelsContext';
 import { EventsProvider } from '@/contexts/EventsContext';
 import { EcoProvider } from '@/contexts/EcoContext';
@@ -24,6 +25,7 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="auth" options={{ headerShown: false, presentation: 'modal' }} />
     </Stack>
   );
 }
@@ -38,9 +40,10 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <PurchasesProvider>
-            <InstrumentProvider>
-              <ThemeProvider>
-                <UserProvider>
+            <AuthProvider>
+              <InstrumentProvider>
+                <ThemeProvider>
+                  <UserProvider>
                   <GameProvider>
                 <FeverProvider>
                   <DuelsProvider>
@@ -55,9 +58,10 @@ export default function RootLayout() {
                       </DuelsProvider>
                     </FeverProvider>
                   </GameProvider>
-                </UserProvider>
-              </ThemeProvider>
-            </InstrumentProvider>
+                  </UserProvider>
+                </ThemeProvider>
+              </InstrumentProvider>
+            </AuthProvider>
           </PurchasesProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>

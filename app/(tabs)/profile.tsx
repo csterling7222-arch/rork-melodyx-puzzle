@@ -13,11 +13,12 @@ import {
   User, Award, Gift, Settings, 
   Coins, Sparkles, Edit2, Check, X,
   Leaf, ListMusic, ChevronRight, Palette,
-  Sun, Moon, Eye, Zap
+  Sun, Moon, Eye, Zap, LogOut, UserPlus, Mail
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useUser } from '@/contexts/UserContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme, useScreenTheme } from '@/contexts/ThemeContext';
 import ThemedBackground from '@/components/ThemedBackground';
 import { BackgroundThemeId } from '@/constants/backgrounds';
@@ -120,6 +121,7 @@ export default function ProfileScreen() {
   } = useUser();
   const { ecoPoints, totalOffsetTons } = useEco();
   const { playlists, solvedMelodies } = usePlaylist();
+  const { user: authUser, isAnonymous, signOut, isSigningOut } = useAuth();
   
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(profile.username);
@@ -134,6 +136,25 @@ export default function ProfileScreen() {
       }
     }
   }, [editedName, updateUsername]);
+
+  const handleSignOut = useCallback(async () => {
+    try {
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+      await signOut();
+      router.replace('/auth');
+    } catch (error) {
+      console.log('Sign out error:', error);
+    }
+  }, [signOut, router]);
+
+  const handleSignUp = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    router.push('/auth');
+  }, [router]);
 
   const handleClaimReward = useCallback(() => {
     const result = claimDailyReward();
@@ -233,6 +254,21 @@ export default function ProfileScreen() {
               <Text style={styles.walletValue}>{inventory.hints}</Text>
             </View>
           </View>
+
+          {authUser && (
+            <View style={styles.accountInfo}>
+              {authUser.email ? (
+                <View style={styles.emailRow}>
+                  <Mail size={14} color={Colors.textMuted} />
+                  <Text style={styles.emailText}>{authUser.email}</Text>
+                </View>
+              ) : (
+                <View style={styles.guestBadge}>
+                  <Text style={styles.guestText}>Guest Account</Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         <View style={styles.quickLinks}>
@@ -453,6 +489,42 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>Fever High</Text>
             </View>
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <User size={20} color={Colors.accent} />
+            <Text style={styles.sectionTitle}>Account</Text>
+          </View>
+
+          {isAnonymous && (
+            <TouchableOpacity
+              style={styles.signUpButton}
+              onPress={handleSignUp}
+              activeOpacity={0.8}
+            >
+              <UserPlus size={20} color={Colors.text} />
+              <View style={styles.signUpInfo}>
+                <Text style={styles.signUpTitle}>Create Account</Text>
+                <Text style={styles.signUpSubtitle}>Save your progress across devices</Text>
+              </View>
+              <ChevronRight size={20} color={Colors.text} />
+            </TouchableOpacity>
+          )}
+
+          {authUser && (
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleSignOut}
+              disabled={isSigningOut}
+              activeOpacity={0.8}
+            >
+              <LogOut size={20} color="#EF4444" />
+              <Text style={styles.logoutText}>
+                {isSigningOut ? 'Signing out...' : 'Sign Out'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
       </View>
@@ -743,6 +815,68 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     color: Colors.textSecondary,
+  },
+  accountInfo: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  emailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  emailText: {
+    fontSize: 13,
+    color: Colors.textMuted,
+  },
+  guestBadge: {
+    backgroundColor: Colors.surfaceLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  guestText: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    fontWeight: '600' as const,
+  },
+  signUpButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.accent,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+  },
+  signUpInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  signUpTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  signUpSubtitle: {
+    fontSize: 12,
+    color: Colors.text + 'AA',
+    marginTop: 2,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#EF4444' + '15',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#EF4444' + '30',
+  },
+  logoutText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: '#EF4444',
   },
   quickLinks: {
     gap: 10,

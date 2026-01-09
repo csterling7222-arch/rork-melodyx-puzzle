@@ -32,12 +32,14 @@ import {
   X,
   Gift,
   Star,
+  UserPlus,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/colors';
 import { useGame } from '@/contexts/GameContext';
 import { useUser } from '@/contexts/UserContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useScreenTheme } from '@/contexts/ThemeContext';
 import { useEco } from '@/contexts/EcoContext';
 import ThemedBackground from '@/components/ThemedBackground';
@@ -475,6 +477,7 @@ export default function HomeScreen() {
   } = useGame();
   const { inventory, dailyReward, claimDailyReward } = useUser();
   const { ecoPoints } = useEco();
+  const { isAnonymous } = useAuth();
 
   const [showConfetti, setShowConfetti] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -617,6 +620,23 @@ export default function HomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {isAnonymous && (
+            <TouchableOpacity
+              style={styles.signUpBanner}
+              onPress={() => navigateTo('/auth')}
+              activeOpacity={0.8}
+            >
+              <View style={styles.signUpIconContainer}>
+                <UserPlus size={20} color={Colors.accent} />
+              </View>
+              <View style={styles.signUpBannerText}>
+                <Text style={styles.signUpBannerTitle}>Create an Account</Text>
+                <Text style={styles.signUpBannerSubtitle}>Save progress & sync across devices</Text>
+              </View>
+              <ChevronRight size={18} color={Colors.textMuted} />
+            </TouchableOpacity>
+          )}
+
           <DailyRewardBanner
             onClaim={handleClaimReward}
             consecutiveDays={dailyReward.consecutiveDays}
@@ -1246,6 +1266,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600' as const,
     color: Colors.text,
+  },
+  signUpBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.accent + '15',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.accent + '30',
+  },
+  signUpIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: Colors.accent + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  signUpBannerText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  signUpBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  signUpBannerSubtitle: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
   },
 });
 
