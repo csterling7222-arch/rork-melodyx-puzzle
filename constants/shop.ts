@@ -1,0 +1,283 @@
+export interface ShopItem {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  type: 'skin' | 'hint_pack' | 'coins' | 'premium';
+  price: number;
+  currency: 'coins' | 'usd';
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  color: string;
+}
+
+export interface KeyboardSkin {
+  id: string;
+  name: string;
+  icon: string;
+  colors: Record<string, string>;
+  textColors: Record<string, string>;
+  preview: string;
+}
+
+export const KEYBOARD_SKINS: KeyboardSkin[] = [
+  {
+    id: 'default',
+    name: 'Classic',
+    icon: '🎹',
+    colors: {
+      C: '#EF4444', 'C#': '#1F1F1F',
+      D: '#F97316', 'D#': '#1F1F1F',
+      E: '#EAB308', F: '#22C55E',
+      'F#': '#1F1F1F', G: '#06B6D4',
+      'G#': '#1F1F1F', A: '#3B82F6',
+      'A#': '#1F1F1F', B: '#A855F7',
+    },
+    textColors: {
+      C: '#FFFFFF', 'C#': '#FFFFFF',
+      D: '#FFFFFF', 'D#': '#FFFFFF',
+      E: '#1F1F1F', F: '#FFFFFF',
+      'F#': '#FFFFFF', G: '#1F1F1F',
+      'G#': '#FFFFFF', A: '#FFFFFF',
+      'A#': '#FFFFFF', B: '#FFFFFF',
+    },
+    preview: 'Rainbow gradient',
+  },
+  {
+    id: 'neon',
+    name: 'Neon Glow',
+    icon: '💜',
+    colors: {
+      C: '#FF00FF', 'C#': '#1A0A1A',
+      D: '#FF00AA', 'D#': '#1A0A1A',
+      E: '#FF0066', F: '#FF3300',
+      'F#': '#1A0A1A', G: '#FF6600',
+      'G#': '#1A0A1A', A: '#FFCC00',
+      'A#': '#1A0A1A', B: '#00FFFF',
+    },
+    textColors: {
+      C: '#FFFFFF', 'C#': '#FF00FF',
+      D: '#FFFFFF', 'D#': '#FF00AA',
+      E: '#FFFFFF', F: '#FFFFFF',
+      'F#': '#FF3300', G: '#000000',
+      'G#': '#FF6600', A: '#000000',
+      'A#': '#FFCC00', B: '#000000',
+    },
+    preview: 'Vibrant neon colors',
+  },
+  {
+    id: 'ocean',
+    name: 'Ocean Wave',
+    icon: '🌊',
+    colors: {
+      C: '#0077B6', 'C#': '#03045E',
+      D: '#0096C7', 'D#': '#03045E',
+      E: '#00B4D8', F: '#48CAE4',
+      'F#': '#03045E', G: '#90E0EF',
+      'G#': '#03045E', A: '#ADE8F4',
+      'A#': '#03045E', B: '#CAF0F8',
+    },
+    textColors: {
+      C: '#FFFFFF', 'C#': '#48CAE4',
+      D: '#FFFFFF', 'D#': '#48CAE4',
+      E: '#000000', F: '#000000',
+      'F#': '#48CAE4', G: '#000000',
+      'G#': '#48CAE4', A: '#000000',
+      'A#': '#48CAE4', B: '#000000',
+    },
+    preview: 'Cool ocean blues',
+  },
+  {
+    id: 'sunset',
+    name: 'Sunset Blaze',
+    icon: '🌅',
+    colors: {
+      C: '#FF6B6B', 'C#': '#2D1B1B',
+      D: '#FF8E72', 'D#': '#2D1B1B',
+      E: '#FFA07A', F: '#FFB347',
+      'F#': '#2D1B1B', G: '#FFC857',
+      'G#': '#2D1B1B', A: '#FFDA77',
+      'A#': '#2D1B1B', B: '#FFE4B5',
+    },
+    textColors: {
+      C: '#FFFFFF', 'C#': '#FF8E72',
+      D: '#000000', 'D#': '#FF8E72',
+      E: '#000000', F: '#000000',
+      'F#': '#FFB347', G: '#000000',
+      'G#': '#FFC857', A: '#000000',
+      'A#': '#FFDA77', B: '#000000',
+    },
+    preview: 'Warm sunset tones',
+  },
+  {
+    id: 'midnight',
+    name: 'Midnight Galaxy',
+    icon: '🌌',
+    colors: {
+      C: '#4A0E4E', 'C#': '#0D0D1A',
+      D: '#5C1365', 'D#': '#0D0D1A',
+      E: '#6B1D7C', F: '#7B2791',
+      'F#': '#0D0D1A', G: '#8B31A6',
+      'G#': '#0D0D1A', A: '#9B3BBB',
+      'A#': '#0D0D1A', B: '#AB45D0',
+    },
+    textColors: {
+      C: '#FFFFFF', 'C#': '#8B31A6',
+      D: '#FFFFFF', 'D#': '#8B31A6',
+      E: '#FFFFFF', F: '#FFFFFF',
+      'F#': '#8B31A6', G: '#FFFFFF',
+      'G#': '#8B31A6', A: '#FFFFFF',
+      'A#': '#8B31A6', B: '#FFFFFF',
+    },
+    preview: 'Deep purple cosmos',
+  },
+];
+
+export const SHOP_ITEMS: ShopItem[] = [
+  // Skins
+  {
+    id: 'skin_neon',
+    name: 'Neon Glow Keyboard',
+    description: 'Vibrant neon colors for your piano',
+    icon: '💜',
+    type: 'skin',
+    price: 500,
+    currency: 'coins',
+    rarity: 'rare',
+    color: '#FF00FF',
+  },
+  {
+    id: 'skin_ocean',
+    name: 'Ocean Wave Keyboard',
+    description: 'Cool ocean blues',
+    icon: '🌊',
+    type: 'skin',
+    price: 500,
+    currency: 'coins',
+    rarity: 'rare',
+    color: '#00B4D8',
+  },
+  {
+    id: 'skin_sunset',
+    name: 'Sunset Blaze Keyboard',
+    description: 'Warm sunset tones',
+    icon: '🌅',
+    type: 'skin',
+    price: 750,
+    currency: 'coins',
+    rarity: 'epic',
+    color: '#FF8E72',
+  },
+  {
+    id: 'skin_midnight',
+    name: 'Midnight Galaxy Keyboard',
+    description: 'Deep purple cosmos',
+    icon: '🌌',
+    type: 'skin',
+    price: 1000,
+    currency: 'coins',
+    rarity: 'legendary',
+    color: '#8B31A6',
+  },
+  
+  // Hint packs
+  {
+    id: 'hints_5',
+    name: '5 Hint Pack',
+    description: 'Get 5 extra hints',
+    icon: '💡',
+    type: 'hint_pack',
+    price: 100,
+    currency: 'coins',
+    rarity: 'common',
+    color: '#EAB308',
+  },
+  {
+    id: 'hints_15',
+    name: '15 Hint Pack',
+    description: 'Get 15 extra hints (save 20%)',
+    icon: '💡',
+    type: 'hint_pack',
+    price: 240,
+    currency: 'coins',
+    rarity: 'common',
+    color: '#EAB308',
+  },
+  {
+    id: 'hints_50',
+    name: '50 Hint Pack',
+    description: 'Get 50 extra hints (save 40%)',
+    icon: '🌟',
+    type: 'hint_pack',
+    price: 600,
+    currency: 'coins',
+    rarity: 'rare',
+    color: '#FFD700',
+  },
+
+  // Coin packs (real money)
+  {
+    id: 'coins_500',
+    name: '500 Coins',
+    description: 'Starter coin pack',
+    icon: '💰',
+    type: 'coins',
+    price: 0.99,
+    currency: 'usd',
+    rarity: 'common',
+    color: '#FFD700',
+  },
+  {
+    id: 'coins_1500',
+    name: '1500 Coins',
+    description: 'Value coin pack (+20% bonus)',
+    icon: '💰',
+    type: 'coins',
+    price: 2.99,
+    currency: 'usd',
+    rarity: 'rare',
+    color: '#FFD700',
+  },
+  {
+    id: 'coins_5000',
+    name: '5000 Coins',
+    description: 'Premium coin pack (+50% bonus)',
+    icon: '💎',
+    type: 'coins',
+    price: 7.99,
+    currency: 'usd',
+    rarity: 'epic',
+    color: '#00CED1',
+  },
+
+  // Premium subscription
+  {
+    id: 'premium_monthly',
+    name: 'Melodyx Premium',
+    description: 'Ad-free, unlimited practice, exclusive skins',
+    icon: '👑',
+    type: 'premium',
+    price: 4.99,
+    currency: 'usd',
+    rarity: 'legendary',
+    color: '#FFD700',
+  },
+];
+
+export const DAILY_REWARDS = [
+  { day: 1, coins: 25, icon: '🎵' },
+  { day: 2, coins: 50, icon: '🎶' },
+  { day: 3, coins: 75, icon: '🎸' },
+  { day: 4, coins: 100, icon: '🎹' },
+  { day: 5, coins: 150, icon: '🎺' },
+  { day: 6, coins: 200, icon: '🎻' },
+  { day: 7, coins: 500, bonus: 'free_hint', icon: '🏆' },
+];
+
+export function getDailyReward(consecutiveDays: number): typeof DAILY_REWARDS[0] {
+  const index = Math.min(consecutiveDays - 1, DAILY_REWARDS.length - 1);
+  return DAILY_REWARDS[Math.max(0, index)];
+}
+
+export function getSkinById(id: string): KeyboardSkin | undefined {
+  return KEYBOARD_SKINS.find(s => s.id === id);
+}
