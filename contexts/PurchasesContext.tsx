@@ -2,6 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Platform, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Purchases, {
   PurchasesOffering,
   PurchasesPackage,
@@ -9,7 +10,7 @@ import Purchases, {
   LOG_LEVEL,
   PurchasesError,
 } from 'react-native-purchases';
-import { captureError } from '@/utils/errorTracking';
+import { captureError, addBreadcrumb } from '@/utils/errorTracking';
 
 function getRCApiKey(): string {
   if (__DEV__ || Platform.OS === 'web') {
@@ -34,7 +35,7 @@ function configureRevenueCat() {
   
   const apiKey = getRCApiKey();
   if (!apiKey) {
-    console.log('[RevenueCat] No API key available, skipping configuration');
+    console.log('[RevenueCat] No API key available, running in demo mode');
     return false;
   }
   
@@ -43,6 +44,7 @@ function configureRevenueCat() {
     Purchases.configure({ apiKey });
     isConfigured = true;
     console.log('[RevenueCat] Configured successfully');
+    addBreadcrumb({ category: 'purchases', message: 'RevenueCat configured', level: 'info' });
     return true;
   } catch (error) {
     console.error('[RevenueCat] Configuration error:', error);
@@ -66,11 +68,15 @@ export const ENTITLEMENTS = {
   UNLIMITED_PRACTICE: 'unlimited_practice',
   ALL_INSTRUMENTS: 'all_instruments',
   EXCLUSIVE_SKINS: 'exclusive_skins',
+  LEARNING_ADVANCED: 'learning_advanced',
+  PRIORITY_SUPPORT: 'priority_support',
 } as const;
 
 export type EntitlementKey = keyof typeof ENTITLEMENTS;
 
 const DEMO_MODE_ENABLED = true;
+const TRIAL_STORAGE_KEY = 'melodyx_premium_trial';
+const TRIAL_DURATION_DAYS = 7;
 
 export const PACKAGE_IDENTIFIERS = {
   MONTHLY: '$rc_monthly',
@@ -89,7 +95,15 @@ export interface PromoOffer {
   discount: number;
   expiresAt: string;
   type: 'percentage' | 'fixed';
+  description: string;
 }
+
+const ACTIVE_PROMOS: PromoOffer[] = [
+  { code: 'MELODYX20', discount: 20, expiresAt: '2025-12-31', type: 'percentage', description: '20% off first month' },
+  { code: 'WELCOME50', discount: 50, expiresAt: '2025-06-30', type: 'percentage', description: '50% off first year' },
+  { code: 'PREMIUM25', discount: 25, expiresAt: '2025-12-31', type: 'percentage', description: '25% off lifetime' },
+  { code: 'NEWYEAR30', discount: 30, expiresAt: '2025-02-28', type: 'percentage', description: 'New Year 30% off' },
+];
 
 export interface MockPackage {
   identifier: string;
@@ -195,10 +209,50 @@ const MOCK_PACKAGES: MockPackage[] = [
   },
 ];
 
+interface TrialState {
+  isActive: boolean;
+  startedAt: string | null;
+  expiresAt: string | null;
+}
+
 export const [PurchasesProvider, usePurchases] = createContextHook(() => {
   const queryClient = useQueryClient();
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [appliedPromo, setAppliedPromo] = useState<PromoOffer | null>(null);
+
+  const trialQuery = useQuery({
+    queryKey: ['premiumTrial'],
+    queryFn: async (): Promise<TrialState> => {
+      try {
+        const stored = await AsyncStorage.getItem(TRIAL_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored) as TrialState;
+          if (parsed.expiresAt && new Date(parsed.expiresAt) > new Date()) {
+            return { ...parsed, isActive: true };
+          }
+          return { isActive: false, startedAt: parsed.startedAt, expiresAt: parsed.expiresAt };
+        }
+      } catch (error) {
+        console.log('[RevenueCat] Error loading trial state:', error);
+      }
+      return { isActive: false, startedAt: null, expiresAt: null };
+    },
+  });
+
+  const { mutate: saveTrial } = useMutation({
+    mutationFn: async (trial: TrialState) => {
+      await AsyncStorage.setItem(TRIAL_STORAGE_KEY, JSON.stringify(trial));
+      return trial;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['premiumTrial'] });
+    },
+  });
+
+  const trialState = useMemo(() => 
+    trialQuery.data ?? { isActive: false, startedAt: null, expiresAt: null }
+  , [trialQuery.data]);
 
   const customerInfoQuery = useQuery({
     queryKey: ['customerInfo'],
@@ -212,6 +266,11 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
         console.log('[RevenueCat] Customer info fetched:', {
           activeSubscriptions: info.activeSubscriptions,
           entitlements: Object.keys(info.entitlements.active),
+        });
+        addBreadcrumb({ 
+          category: 'purchases', 
+          message: `Customer info: ${info.activeSubscriptions.length} active subs`, 
+          level: 'info' 
         });
         return info;
       } catch (error) {
@@ -235,9 +294,11 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
       try {
         const offerings = await Purchases.getOfferings();
         console.log('[RevenueCat] Offerings fetched:', offerings.current?.identifier);
+        console.log('[RevenueCat] Available packages:', offerings.current?.availablePackages.map(p => p.identifier));
         return offerings.current ?? null;
       } catch (error) {
         console.error('[RevenueCat] Error fetching offerings:', error);
+        captureError(error, { tags: { component: 'RevenueCat', action: 'getOfferings' } });
         return null;
       }
     },
@@ -254,8 +315,10 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
       setPurchaseError(null);
       
       try {
+        addBreadcrumb({ category: 'purchases', message: `Starting purchase: ${pkg.identifier}`, level: 'info' });
         const { customerInfo } = await Purchases.purchasePackage(pkg);
         console.log('[RevenueCat] Purchase successful:', pkg.identifier);
+        addBreadcrumb({ category: 'purchases', message: `Purchase complete: ${pkg.identifier}`, level: 'info' });
         
         queryClient.invalidateQueries({ queryKey: ['customerInfo'] });
         
@@ -269,6 +332,7 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
         console.error('[RevenueCat] Purchase error:', error);
         
         if (error.userCancelled) {
+          addBreadcrumb({ category: 'purchases', message: 'Purchase cancelled by user', level: 'info' });
           return { success: false, error: 'cancelled' };
         }
         
@@ -294,12 +358,14 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
       }
       
       try {
+        addBreadcrumb({ category: 'purchases', message: 'Restoring purchases', level: 'info' });
         const info = await Purchases.restorePurchases();
         console.log('[RevenueCat] Purchases restored');
         queryClient.invalidateQueries({ queryKey: ['customerInfo'] });
         return info;
       } catch (err) {
         console.error('[RevenueCat] Restore error:', err);
+        captureError(err, { tags: { component: 'RevenueCat', action: 'restore' } });
         throw err;
       }
     },
@@ -312,8 +378,19 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
 
   const isPremium = useMemo(() => {
     if (demoPremium) return true;
+    if (trialState.isActive) return true;
     return customerInfo?.entitlements.active[ENTITLEMENTS.PREMIUM]?.isActive ?? false;
-  }, [customerInfo, demoPremium]);
+  }, [customerInfo, demoPremium, trialState.isActive]);
+
+  const isTrialActive = useMemo(() => trialState.isActive, [trialState.isActive]);
+
+  const trialDaysRemaining = useMemo(() => {
+    if (!trialState.expiresAt) return 0;
+    const remaining = new Date(trialState.expiresAt).getTime() - Date.now();
+    return Math.max(0, Math.ceil(remaining / (1000 * 60 * 60 * 24)));
+  }, [trialState.expiresAt]);
+
+  const hasUsedTrial = useMemo(() => trialState.startedAt !== null, [trialState.startedAt]);
 
   const hasAdFree = useMemo(() => {
     return isPremium || customerInfo?.entitlements.active[ENTITLEMENTS.AD_FREE]?.isActive || false;
@@ -331,13 +408,36 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     return isPremium || customerInfo?.entitlements.active[ENTITLEMENTS.EXCLUSIVE_SKINS]?.isActive || false;
   }, [customerInfo, isPremium]);
 
+  const hasLearningAdvanced = useMemo(() => {
+    return isPremium || customerInfo?.entitlements.active[ENTITLEMENTS.LEARNING_ADVANCED]?.isActive || false;
+  }, [customerInfo, isPremium]);
+
+  const hasPrioritySupport = useMemo(() => {
+    return isPremium || customerInfo?.entitlements.active[ENTITLEMENTS.PRIORITY_SUPPORT]?.isActive || false;
+  }, [customerInfo, isPremium]);
+
+  const subscriptionStatus = useMemo(() => {
+    if (!customerInfo) return null;
+    const premiumEntitlement = customerInfo.entitlements.active[ENTITLEMENTS.PREMIUM];
+    if (!premiumEntitlement) return null;
+    
+    return {
+      isActive: premiumEntitlement.isActive,
+      willRenew: premiumEntitlement.willRenew,
+      expirationDate: premiumEntitlement.expirationDate,
+      productIdentifier: premiumEntitlement.productIdentifier,
+      isSandbox: premiumEntitlement.isSandbox,
+    };
+  }, [customerInfo]);
+
   const hasPremiumEntitlement = useCallback(() => {
     return customerInfo?.entitlements.active[ENTITLEMENTS.PREMIUM]?.isActive ?? false;
   }, [customerInfo]);
 
   const hasEntitlement = useCallback((entitlementId: string) => {
+    if (isPremium) return true;
     return customerInfo?.entitlements.active[entitlementId]?.isActive ?? false;
-  }, [customerInfo]);
+  }, [customerInfo, isPremium]);
 
   const purchasePackage = useCallback(async (pkg: PurchasesPackage): Promise<PurchaseResult> => {
     return purchaseAsync(pkg);
@@ -345,12 +445,38 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
 
   const restorePurchases = useCallback(async () => {
     try {
-      await restoreAsync();
-      Alert.alert('Success', 'Your purchases have been restored!');
+      const info = await restoreAsync();
+      if (info?.entitlements.active[ENTITLEMENTS.PREMIUM]?.isActive) {
+        Alert.alert('Success', 'Your premium subscription has been restored!');
+      } else {
+        Alert.alert('Restore Complete', 'No active subscriptions found. Your purchases have been synced.');
+      }
     } catch {
       Alert.alert('Error', 'Failed to restore purchases. Please try again.');
     }
   }, [restoreAsync]);
+
+  const startFreeTrial = useCallback(() => {
+    if (hasUsedTrial) {
+      Alert.alert('Trial Already Used', 'You have already used your free trial. Subscribe to continue enjoying premium features!');
+      return false;
+    }
+
+    const startDate = new Date();
+    const expiresAt = new Date(startDate.getTime() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000);
+    
+    const newTrial: TrialState = {
+      isActive: true,
+      startedAt: startDate.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+    };
+    
+    saveTrial(newTrial);
+    addBreadcrumb({ category: 'purchases', message: 'Free trial started', level: 'info' });
+    console.log('[RevenueCat] Free trial started, expires:', expiresAt.toISOString());
+    
+    return true;
+  }, [hasUsedTrial, saveTrial]);
 
   const getPackageByIdentifier = useCallback((identifier: string): PurchasesPackage | undefined => {
     return currentOffering?.availablePackages.find(
@@ -375,21 +501,28 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     return Math.round(((yearlyEquivalent - yearlyPrice) / yearlyEquivalent) * 100);
   }, []);
 
-  const applyPromoCode = useCallback(async (code: string): Promise<{ success: boolean; message: string }> => {
+  const applyPromoCode = useCallback(async (code: string): Promise<{ success: boolean; message: string; promo?: PromoOffer }> => {
     console.log('[RevenueCat] Applying promo code:', code);
-    if (!isConfigured) {
-      return { success: false, message: 'Store not available' };
-    }
-    try {
-      const validCodes = ['MELODYX20', 'WELCOME50', 'PREMIUM25'];
-      if (validCodes.includes(code.toUpperCase())) {
-        return { success: true, message: 'Promo code applied! Discount will be shown at checkout.' };
+    const upperCode = code.toUpperCase().trim();
+    
+    const promo = ACTIVE_PROMOS.find(p => p.code === upperCode);
+    if (promo) {
+      const expiryDate = new Date(promo.expiresAt);
+      if (expiryDate > new Date()) {
+        setAppliedPromo(promo);
+        return { 
+          success: true, 
+          message: `🎉 ${promo.description} applied! Discount will be shown at checkout.`,
+          promo 
+        };
       }
-      return { success: false, message: 'Invalid or expired promo code' };
-    } catch (err) {
-      console.error('[RevenueCat] Promo code error:', err);
-      return { success: false, message: 'Failed to apply promo code' };
+      return { success: false, message: 'This promo code has expired.' };
     }
+    return { success: false, message: 'Invalid promo code. Please check and try again.' };
+  }, []);
+
+  const clearPromoCode = useCallback(() => {
+    setAppliedPromo(null);
   }, []);
 
   const getMockPackage = useCallback((identifier: string): MockPackage | undefined => {
@@ -403,12 +536,42 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     return mock?.product.priceString ?? '---';
   }, [getMockPackage]);
 
+  const getDiscountedPrice = useCallback((originalPrice: number): number => {
+    if (!appliedPromo) return originalPrice;
+    if (appliedPromo.type === 'percentage') {
+      return originalPrice * (1 - appliedPromo.discount / 100);
+    }
+    return Math.max(0, originalPrice - appliedPromo.discount);
+  }, [appliedPromo]);
+
   const clearPurchaseError = useCallback(() => {
     setPurchaseError(null);
   }, []);
 
   const refreshCustomerInfo = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['customerInfo'] });
+  }, [queryClient]);
+
+  const identifyUser = useCallback(async (userId: string) => {
+    if (!isConfigured) return;
+    try {
+      await Purchases.logIn(userId);
+      console.log('[RevenueCat] User identified:', userId);
+      queryClient.invalidateQueries({ queryKey: ['customerInfo'] });
+    } catch (error) {
+      console.error('[RevenueCat] Error identifying user:', error);
+    }
+  }, [queryClient]);
+
+  const logoutUser = useCallback(async () => {
+    if (!isConfigured) return;
+    try {
+      await Purchases.logOut();
+      console.log('[RevenueCat] User logged out');
+      queryClient.invalidateQueries({ queryKey: ['customerInfo'] });
+    } catch (error) {
+      console.error('[RevenueCat] Error logging out:', error);
+    }
   }, [queryClient]);
 
   useEffect(() => {
@@ -440,10 +603,15 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     isConfigured,
     isDemoMode: !isConfigured && DEMO_MODE_ENABLED,
     isPremium,
+    isTrialActive,
+    trialDaysRemaining,
+    hasUsedTrial,
     hasAdFree,
     hasUnlimitedPractice,
     hasAllInstruments,
     hasExclusiveSkins,
+    hasLearningAdvanced,
+    hasPrioritySupport,
     isPurchasing,
     isLoading: customerInfoQuery.isLoading || offeringsQuery.isLoading,
     isRestoring,
@@ -451,19 +619,26 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     currentOffering,
     availablePackages: currentOffering?.availablePackages ?? [],
     mockPackages: MOCK_PACKAGES,
+    subscriptionStatus,
+    appliedPromo,
     hasPremiumEntitlement,
     hasEntitlement,
     purchasePackage,
     restorePurchases,
+    startFreeTrial,
     getPackageByIdentifier,
     getMonthlyPackage,
     getYearlyPackage,
     getLifetimePackage,
     calculateSavings,
     applyPromoCode,
+    clearPromoCode,
     getMockPackage,
     getMockPrice,
+    getDiscountedPrice,
     refreshCustomerInfo,
+    identifyUser,
+    logoutUser,
     purchaseError,
     clearPurchaseError,
     enableDemoPremium,

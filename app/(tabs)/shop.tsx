@@ -9,16 +9,179 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
-  Coins, Palette, Lightbulb, Crown, Check, RotateCcw, Sparkles, Star, Tag
+  Coins, Palette, Lightbulb, Crown, Check, RotateCcw, Sparkles, Star, Tag, Gift, Clock, X, Zap
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useUser } from '@/contexts/UserContext';
 import { usePurchases, PACKAGE_IDENTIFIERS } from '@/contexts/PurchasesContext';
 import { KEYBOARD_SKINS, KeyboardSkin } from '@/constants/shop';
+
+function TrialBanner({ daysRemaining, onUpgrade }: { daysRemaining: number; onUpgrade: () => void }) {
+  if (daysRemaining <= 0) return null;
+  
+  return (
+    <View style={trialStyles.container}>
+      <View style={trialStyles.content}>
+        <View style={trialStyles.iconContainer}>
+          <Clock size={24} color="#FFD700" />
+        </View>
+        <View style={trialStyles.textContainer}>
+          <Text style={trialStyles.title}>Premium Trial Active</Text>
+          <Text style={trialStyles.subtitle}>
+            {daysRemaining} day{daysRemaining !== 1 ? 's' : ''} remaining
+          </Text>
+        </View>
+        <TouchableOpacity style={trialStyles.upgradeButton} onPress={onUpgrade}>
+          <Text style={trialStyles.upgradeText}>Upgrade</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const trialStyles = StyleSheet.create({
+  container: {
+    marginBottom: 16,
+    backgroundColor: '#FFD700' + '15',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FFD700' + '40',
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#FFD700' + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  textContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  title: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: '#FFD700',
+    marginTop: 2,
+  },
+  upgradeButton: {
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  upgradeText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: Colors.background,
+  },
+});
+
+function SubscriptionStatusCard({ status, onManage }: { 
+  status: { isActive: boolean; willRenew: boolean; expirationDate: string | null; productIdentifier: string } | null;
+  onManage: () => void;
+}) {
+  if (!status) return null;
+  
+  const expirationDate = status.expirationDate ? new Date(status.expirationDate) : null;
+  const formattedDate = expirationDate?.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric', 
+    year: 'numeric' 
+  });
+  
+  return (
+    <View style={subStatusStyles.container}>
+      <View style={subStatusStyles.header}>
+        <Crown size={20} color="#FFD700" />
+        <Text style={subStatusStyles.title}>Premium Active</Text>
+        <View style={[subStatusStyles.badge, status.willRenew ? subStatusStyles.badgeActive : subStatusStyles.badgeCancelled]}>
+          <Text style={subStatusStyles.badgeText}>
+            {status.willRenew ? 'Auto-Renew' : 'Cancelled'}
+          </Text>
+        </View>
+      </View>
+      {expirationDate && (
+        <Text style={subStatusStyles.expiration}>
+          {status.willRenew ? 'Renews' : 'Expires'} {formattedDate}
+        </Text>
+      )}
+      <TouchableOpacity style={subStatusStyles.manageButton} onPress={onManage}>
+        <Text style={subStatusStyles.manageText}>Manage Subscription</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const subStatusStyles = StyleSheet.create({
+  container: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FFD700' + '30',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    flex: 1,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  badgeActive: {
+    backgroundColor: Colors.correct + '20',
+  },
+  badgeCancelled: {
+    backgroundColor: '#EF4444' + '20',
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  expiration: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginTop: 8,
+  },
+  manageButton: {
+    backgroundColor: Colors.surfaceLight,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  manageText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.text,
+  },
+});
 
 function SkinPreview({ skin, isOwned, isEquipped, onBuy, onEquip }: { 
   skin: KeyboardSkin; 
@@ -83,9 +246,10 @@ interface IAPItemCardProps {
   onPurchase: () => void;
   isLoading?: boolean;
   disabled?: boolean;
+  bonus?: string;
 }
 
-function IAPItemCard({ icon, name, description, price, rarity, onPurchase, isLoading, disabled }: IAPItemCardProps) {
+function IAPItemCard({ icon, name, description, price, rarity, onPurchase, isLoading, disabled, bonus }: IAPItemCardProps) {
   const rarityColors: Record<string, string> = {
     common: '#9CA3AF',
     rare: '#3B82F6',
@@ -111,6 +275,11 @@ function IAPItemCard({ icon, name, description, price, rarity, onPurchase, isLoa
         <Text style={styles.itemDesc}>{description}</Text>
       </View>
       <View style={styles.itemPriceSection}>
+        {bonus && (
+          <View style={styles.bonusBadge}>
+            <Text style={styles.bonusBadgeText}>{bonus}</Text>
+          </View>
+        )}
         <View style={[styles.rarityBadge, { backgroundColor: rarityColors[rarity] + '20' }]}>
           <Text style={[styles.rarityText, { color: rarityColors[rarity] }]}>
             {rarity.toUpperCase()}
@@ -122,9 +291,170 @@ function IAPItemCard({ icon, name, description, price, rarity, onPurchase, isLoa
   );
 }
 
+function UpsellModal({ visible, onClose, onSubscribe, onStartTrial, hasUsedTrial }: {
+  visible: boolean;
+  onClose: () => void;
+  onSubscribe: () => void;
+  onStartTrial: () => void;
+  hasUsedTrial: boolean;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={upsellStyles.overlay}>
+        <View style={upsellStyles.modal}>
+          <TouchableOpacity style={upsellStyles.closeButton} onPress={onClose}>
+            <X size={24} color={Colors.textSecondary} />
+          </TouchableOpacity>
+          
+          <View style={upsellStyles.iconContainer}>
+            <Crown size={48} color="#FFD700" />
+            <Sparkles size={20} color="#FFD700" style={upsellStyles.sparkle} />
+          </View>
+          
+          <Text style={upsellStyles.title}>Unlock Everything!</Text>
+          <Text style={upsellStyles.subtitle}>
+            Get unlimited access to all premium features
+          </Text>
+          
+          <View style={upsellStyles.features}>
+            {[
+              'All 5 instruments',
+              'Unlimited practice',
+              'Ad-free experience',
+              'Exclusive skins',
+              'Advanced lessons',
+            ].map((feature, idx) => (
+              <View key={idx} style={upsellStyles.featureRow}>
+                <Zap size={16} color={Colors.correct} />
+                <Text style={upsellStyles.featureText}>{feature}</Text>
+              </View>
+            ))}
+          </View>
+          
+          {!hasUsedTrial && (
+            <TouchableOpacity style={upsellStyles.trialButton} onPress={onStartTrial}>
+              <Gift size={18} color="#000" />
+              <Text style={upsellStyles.trialButtonText}>Start 7-Day Free Trial</Text>
+            </TouchableOpacity>
+          )}
+          
+          <TouchableOpacity style={upsellStyles.subscribeButton} onPress={onSubscribe}>
+            <Text style={upsellStyles.subscribeButtonText}>
+              {hasUsedTrial ? 'Subscribe Now' : 'View Plans'}
+            </Text>
+          </TouchableOpacity>
+          
+          <Text style={upsellStyles.note}>Cancel anytime. No commitment.</Text>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const upsellStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modal: {
+    backgroundColor: Colors.surface,
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    padding: 4,
+    zIndex: 10,
+  },
+  iconContainer: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: '#FFD700' + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    position: 'relative',
+  },
+  sparkle: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '800' as const,
+    color: Colors.text,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  features: {
+    width: '100%',
+    gap: 10,
+    marginBottom: 24,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  featureText: {
+    fontSize: 14,
+    color: Colors.text,
+  },
+  trialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FFD700',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    width: '100%',
+    marginBottom: 12,
+  },
+  trialButtonText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#000',
+  },
+  subscribeButton: {
+    backgroundColor: Colors.surfaceLight,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+  },
+  subscribeButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.text,
+  },
+  note: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 12,
+  },
+});
+
 export default function ShopScreen() {
   const insets = useSafeAreaInsets();
-  const { inventory, spendCoins, purchaseSkin, equipSkin, addHints, addCoins, isPremium } = useUser();
+  const { inventory, spendCoins, purchaseSkin, equipSkin, addHints, addCoins } = useUser();
   const { 
     purchasePackage, 
     restorePurchases, 
@@ -136,14 +466,23 @@ export default function ShopScreen() {
     getMockPrice,
     calculateSavings,
     applyPromoCode,
+    clearPromoCode,
+    appliedPromo,
+    isPremium,
+    isTrialActive,
+    trialDaysRemaining,
+    hasUsedTrial,
+    startFreeTrial,
+    subscriptionStatus,
   } = usePurchases();
   
-  const [selectedTab, setSelectedTab] = useState<'skins' | 'hints' | 'coins' | 'premium'>('skins');
+  const [selectedTab, setSelectedTab] = useState<'skins' | 'hints' | 'coins' | 'premium'>('premium');
   const [purchasingPackage, setPurchasingPackage] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
   const [promoCode, setPromoCode] = useState('');
   const [promoResult, setPromoResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
+  const [showUpsellModal, setShowUpsellModal] = useState(false);
 
   const handleBuySkin = useCallback((skinId: string, price: number) => {
     if (inventory.coins < price) {
@@ -243,7 +582,8 @@ export default function ShopScreen() {
             `You received ${rewardAmount} hints! Use them wisely.`,
             [{ text: 'Great!', style: 'default' }]
           );
-        } else if (packageId === PACKAGE_IDENTIFIERS.MONTHLY || packageId === '$rc_monthly') {
+        } else if (packageId === PACKAGE_IDENTIFIERS.MONTHLY || packageId === '$rc_monthly' || 
+                   packageId === PACKAGE_IDENTIFIERS.YEARLY || packageId === '$rc_annual') {
           Alert.alert(
             '👑 Welcome to Premium!', 
             'Enjoy ad-free gameplay, unlimited practice, exclusive skins, and all premium features!',
@@ -265,11 +605,36 @@ export default function ShopScreen() {
     await restorePurchases();
   }, [restorePurchases]);
 
+  const handleManageSubscription = useCallback(() => {
+    Alert.alert(
+      'Manage Subscription',
+      'To manage or cancel your subscription, go to your device settings.',
+      [
+        { text: 'OK', style: 'default' },
+      ]
+    );
+  }, []);
+
+  const handleStartTrial = useCallback(() => {
+    const success = startFreeTrial();
+    if (success) {
+      setShowUpsellModal(false);
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      Alert.alert(
+        '🎉 Trial Started!',
+        'Enjoy 7 days of premium features for free!',
+        [{ text: 'Awesome!', style: 'default' }]
+      );
+    }
+  }, [startFreeTrial]);
+
   const tabs = [
+    { key: 'premium' as const, label: 'Premium', icon: <Crown size={18} /> },
     { key: 'skins' as const, label: 'Skins', icon: <Palette size={18} /> },
     { key: 'hints' as const, label: 'Hints', icon: <Lightbulb size={18} /> },
     { key: 'coins' as const, label: 'Coins', icon: <Coins size={18} /> },
-    { key: 'premium' as const, label: 'Premium', icon: <Crown size={18} /> },
   ];
 
   const getPackagePrice = (identifier: string): string => {
@@ -288,6 +653,12 @@ export default function ShopScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   }, [promoCode, applyPromoCode]);
+
+  const handleClearPromo = useCallback(() => {
+    clearPromoCode();
+    setPromoCode('');
+    setPromoResult(null);
+  }, [clearPromoCode]);
 
   const monthlyPrice = 4.99;
   const yearlyPrice = 39.99;
@@ -344,6 +715,20 @@ export default function ShopScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {isTrialActive && !isPremium && selectedTab === 'premium' && (
+            <TrialBanner 
+              daysRemaining={trialDaysRemaining} 
+              onUpgrade={() => setSelectedPlan('yearly')} 
+            />
+          )}
+
+          {subscriptionStatus && selectedTab === 'premium' && (
+            <SubscriptionStatusCard 
+              status={subscriptionStatus}
+              onManage={handleManageSubscription}
+            />
+          )}
+
           {selectedTab === 'skins' && (
             <View style={styles.skinsGrid}>
               {KEYBOARD_SKINS.map(skin => (
@@ -380,6 +765,7 @@ export default function ShopScreen() {
                 onPurchase={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.HINTS_LARGE, 'hints', 50)}
                 isLoading={purchasingPackage === PACKAGE_IDENTIFIERS.HINTS_LARGE}
                 disabled={isPurchasing}
+                bonus="+10 FREE"
               />
             </View>
           )}
@@ -399,54 +785,69 @@ export default function ShopScreen() {
               <IAPItemCard
                 icon="💰"
                 name="1500 Coins"
-                description="Value pack with +20% bonus"
+                description="Value pack with bonus"
                 price={getPackagePrice(PACKAGE_IDENTIFIERS.COINS_1500)}
                 rarity="rare"
                 onPurchase={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.COINS_1500, 'coins', 1500)}
                 isLoading={purchasingPackage === PACKAGE_IDENTIFIERS.COINS_1500}
                 disabled={isPurchasing}
+                bonus="+20%"
               />
               <IAPItemCard
                 icon="💎"
                 name="5000 Coins"
-                description="Premium pack with +50% bonus"
+                description="Premium pack with mega bonus"
                 price={getPackagePrice(PACKAGE_IDENTIFIERS.COINS_5000)}
                 rarity="epic"
                 onPurchase={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.COINS_5000, 'coins', 5000)}
                 isLoading={purchasingPackage === PACKAGE_IDENTIFIERS.COINS_5000}
                 disabled={isPurchasing}
+                bonus="+50%"
               />
             </View>
           )}
 
           {selectedTab === 'premium' && (
             <View style={styles.premiumSection}>
-              {isPremium ? (
+              {isPremium && !subscriptionStatus ? (
                 <View style={styles.premiumActiveCard}>
                   <View style={styles.premiumActiveIconContainer}>
                     <Crown size={48} color="#FFD700" />
                     <Sparkles size={20} color="#FFD700" style={styles.sparkleIcon} />
                   </View>
-                  <Text style={styles.premiumActiveTitle}>You&apos;re Premium!</Text>
+                  <Text style={styles.premiumActiveTitle}>
+                    {isTrialActive ? 'Premium Trial Active' : 'You\'re Premium!'}
+                  </Text>
                   <Text style={styles.premiumActiveDesc}>
-                    Enjoy all premium benefits including ad-free gameplay, unlimited practice, and exclusive features.
+                    {isTrialActive 
+                      ? `${trialDaysRemaining} day${trialDaysRemaining !== 1 ? 's' : ''} remaining in your trial`
+                      : 'Enjoy all premium benefits including ad-free gameplay, unlimited practice, and exclusive features.'
+                    }
                   </Text>
                   <View style={styles.premiumBenefitsList}>
-                    <View style={styles.benefitItem}>
-                      <Star size={16} color="#FFD700" fill="#FFD700" />
-                      <Text style={styles.benefitText}>Ad-free forever</Text>
-                    </View>
-                    <View style={styles.benefitItem}>
-                      <Star size={16} color="#FFD700" fill="#FFD700" />
-                      <Text style={styles.benefitText}>All instruments unlocked</Text>
-                    </View>
-                    <View style={styles.benefitItem}>
-                      <Star size={16} color="#FFD700" fill="#FFD700" />
-                      <Text style={styles.benefitText}>Exclusive skins access</Text>
-                    </View>
+                    {[
+                      'Ad-free forever',
+                      'All instruments unlocked',
+                      'Exclusive skins access',
+                      'Advanced learning lessons',
+                      'Priority support',
+                    ].map((benefit, idx) => (
+                      <View key={idx} style={styles.benefitItem}>
+                        <Star size={16} color="#FFD700" fill="#FFD700" />
+                        <Text style={styles.benefitText}>{benefit}</Text>
+                      </View>
+                    ))}
                   </View>
+                  {isTrialActive && (
+                    <TouchableOpacity 
+                      style={styles.upgradeTrialButton}
+                      onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.YEARLY)}
+                    >
+                      <Text style={styles.upgradeTrialButtonText}>Upgrade Now - Save {savings}%</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
-              ) : (
+              ) : !isPremium && (
                 <View style={styles.premiumCard}>
                   <Crown size={48} color="#FFD700" />
                   <Text style={styles.premiumTitle}>Melodyx Premium</Text>
@@ -454,6 +855,13 @@ export default function ShopScreen() {
                     <View style={styles.sandboxBadge}>
                       <Text style={styles.sandboxText}>SANDBOX MODE</Text>
                     </View>
+                  )}
+
+                  {!hasUsedTrial && (
+                    <TouchableOpacity style={styles.freeTrialBanner} onPress={handleStartTrial}>
+                      <Gift size={18} color="#000" />
+                      <Text style={styles.freeTrialText}>Start 7-Day Free Trial</Text>
+                    </TouchableOpacity>
                   )}
 
                   <View style={styles.planSelector}>
@@ -478,30 +886,19 @@ export default function ShopScreen() {
                   </View>
                   
                   <View style={styles.premiumFeatures}>
-                    <View style={styles.featureRow}>
-                      <Check size={18} color={Colors.correct} />
-                      <Text style={styles.featureText}>Ad-free experience</Text>
-                    </View>
-                    <View style={styles.featureRow}>
-                      <Check size={18} color={Colors.correct} />
-                      <Text style={styles.featureText}>Unlimited practice mode</Text>
-                    </View>
-                    <View style={styles.featureRow}>
-                      <Check size={18} color={Colors.correct} />
-                      <Text style={styles.featureText}>All instruments unlocked</Text>
-                    </View>
-                    <View style={styles.featureRow}>
-                      <Check size={18} color={Colors.correct} />
-                      <Text style={styles.featureText}>Exclusive keyboard skins</Text>
-                    </View>
-                    <View style={styles.featureRow}>
-                      <Check size={18} color={Colors.correct} />
-                      <Text style={styles.featureText}>Priority access to events</Text>
-                    </View>
-                    <View style={styles.featureRow}>
-                      <Check size={18} color={Colors.correct} />
-                      <Text style={styles.featureText}>Unlimited melody creation</Text>
-                    </View>
+                    {[
+                      'Ad-free experience',
+                      'Unlimited practice mode',
+                      'All instruments unlocked',
+                      'Exclusive keyboard skins',
+                      'Priority access to events',
+                      'Advanced learning lessons',
+                    ].map((feature, idx) => (
+                      <View key={idx} style={styles.featureRow}>
+                        <Check size={18} color={Colors.correct} />
+                        <Text style={styles.featureText}>{feature}</Text>
+                      </View>
+                    ))}
                   </View>
 
                   <View style={styles.promoCodeSection}>
@@ -515,22 +912,34 @@ export default function ShopScreen() {
                         onChangeText={setPromoCode}
                         autoCapitalize="characters"
                       />
-                      <TouchableOpacity
-                        style={[styles.promoApplyButton, (!promoCode.trim() || isApplyingPromo) && styles.promoApplyButtonDisabled]}
-                        onPress={handleApplyPromo}
-                        disabled={!promoCode.trim() || isApplyingPromo}
-                      >
-                        {isApplyingPromo ? (
-                          <ActivityIndicator size="small" color={Colors.text} />
-                        ) : (
-                          <Text style={styles.promoApplyText}>Apply</Text>
-                        )}
-                      </TouchableOpacity>
+                      {appliedPromo ? (
+                        <TouchableOpacity style={styles.promoClearButton} onPress={handleClearPromo}>
+                          <X size={16} color={Colors.textSecondary} />
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity
+                          style={[styles.promoApplyButton, (!promoCode.trim() || isApplyingPromo) && styles.promoApplyButtonDisabled]}
+                          onPress={handleApplyPromo}
+                          disabled={!promoCode.trim() || isApplyingPromo}
+                        >
+                          {isApplyingPromo ? (
+                            <ActivityIndicator size="small" color={Colors.text} />
+                          ) : (
+                            <Text style={styles.promoApplyText}>Apply</Text>
+                          )}
+                        </TouchableOpacity>
+                      )}
                     </View>
                     {promoResult && (
                       <Text style={[styles.promoResultText, promoResult.success ? styles.promoSuccess : styles.promoError]}>
                         {promoResult.message}
                       </Text>
+                    )}
+                    {appliedPromo && (
+                      <View style={styles.appliedPromoContainer}>
+                        <Check size={14} color={Colors.correct} />
+                        <Text style={styles.appliedPromoText}>{appliedPromo.description}</Text>
+                      </View>
                     )}
                   </View>
 
@@ -557,6 +966,17 @@ export default function ShopScreen() {
           )}
         </ScrollView>
       )}
+
+      <UpsellModal
+        visible={showUpsellModal}
+        onClose={() => setShowUpsellModal(false)}
+        onSubscribe={() => {
+          setShowUpsellModal(false);
+          setSelectedTab('premium');
+        }}
+        onStartTrial={handleStartTrial}
+        hasUsedTrial={hasUsedTrial}
+      />
     </View>
   );
 }
@@ -767,6 +1187,17 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 6,
   },
+  bonusBadge: {
+    backgroundColor: Colors.correct + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  bonusBadgeText: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: Colors.correct,
+  },
   rarityBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -834,20 +1265,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.text,
   },
-  premiumBadge: {
-    position: 'absolute',
-    top: -12,
-    right: 20,
-    backgroundColor: Colors.correct,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+  upgradeTrialButton: {
+    backgroundColor: '#FFD700',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    marginTop: 20,
+    width: '100%',
+    alignItems: 'center',
   },
-  premiumBadgeText: {
-    fontSize: 10,
+  upgradeTrialButtonText: {
+    fontSize: 15,
     fontWeight: '700' as const,
-    color: Colors.text,
-    letterSpacing: 0.5,
+    color: '#000',
   },
   premiumTitle: {
     fontSize: 24,
@@ -856,11 +1286,22 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
   },
-  premiumPrice: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    color: '#FFD700',
-    marginBottom: 24,
+  freeTrialBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FFD700',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 16,
+    width: '100%',
+  },
+  freeTrialText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: '#000',
   },
   premiumFeatures: {
     width: '100%',
@@ -1000,6 +1441,9 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: Colors.text,
   },
+  promoClearButton: {
+    padding: 8,
+  },
   promoResultText: {
     fontSize: 12,
     marginTop: 8,
@@ -1010,5 +1454,21 @@ const styles = StyleSheet.create({
   },
   promoError: {
     color: '#EF4444',
+  },
+  appliedPromoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    backgroundColor: Colors.correct + '15',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'center',
+  },
+  appliedPromoText: {
+    fontSize: 12,
+    color: Colors.correct,
+    fontWeight: '600' as const,
   },
 });

@@ -13,7 +13,7 @@ import {
   isInstrumentLocked,
   PREMIUM_INSTRUMENTS,
 } from '@/constants/instruments';
-import { usePurchases } from './PurchasesContext';
+import { usePurchases, ENTITLEMENTS } from './PurchasesContext';
 
 const STORAGE_KEY = 'melodyx_selected_instrument';
 const TRIAL_STORAGE_KEY = 'melodyx_instrument_trial';
@@ -32,7 +32,7 @@ interface TrialState {
 
 export const [InstrumentProvider, useInstrument] = createContextHook(() => {
   const queryClient = useQueryClient();
-  const { isPremium, isDemoMode } = usePurchases();
+  const { isPremium, isDemoMode, hasEntitlement, isTrialActive: isPremiumTrialActive, trialDaysRemaining } = usePurchases();
   const [wellnessMode, setWellnessMode] = useState(false);
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -128,7 +128,8 @@ export const [InstrumentProvider, useInstrument] = createContextHook(() => {
   const currentInstrument = getInstrumentById(currentInstrumentId);
 
   const selectInstrument = useCallback((instrumentId: string) => {
-    const isLocked = isInstrumentLocked(instrumentId, isPremium);
+    const hasAllInstruments = hasEntitlement(ENTITLEMENTS.ALL_INSTRUMENTS) || isPremiumTrialActive;
+    const isLocked = isInstrumentLocked(instrumentId, hasAllInstruments);
     const hasActiveTrial = isTrialActive(instrumentId);
     
     if (isLocked && !hasActiveTrial) {
@@ -150,9 +151,9 @@ export const [InstrumentProvider, useInstrument] = createContextHook(() => {
       selectedId: instrumentId, 
       wellnessOverride: state.wellnessOverride 
     });
-    console.log(`Selected instrument: ${instrumentId}${hasActiveTrial ? ' (trial)' : ''}`);
+    console.log(`Selected instrument: ${instrumentId}${hasActiveTrial ? ' (trial)' : isPremiumTrialActive ? ' (premium trial)' : ''}`);
     return true;
-  }, [isPremium, state.wellnessOverride, saveInstrument, isTrialActive]);
+  }, [isPremiumTrialActive, hasEntitlement, state.wellnessOverride, saveInstrument, isTrialActive]);
 
   const toggleWellnessOverride = useCallback(() => {
     const newOverride = !state.wellnessOverride;
@@ -167,13 +168,15 @@ export const [InstrumentProvider, useInstrument] = createContextHook(() => {
     console.log(`Wellness mode: ${active ? 'enabled' : 'disabled'}`);
   }, []);
 
-  const getAvailableInstruments = useCallback((): (Instrument & { locked: boolean; hasActiveTrial: boolean })[] => {
+  const getAvailableInstruments = useCallback((): (Instrument & { locked: boolean; hasActiveTrial: boolean; hasPremiumTrial: boolean })[] => {
+    const hasAllInstruments = hasEntitlement(ENTITLEMENTS.ALL_INSTRUMENTS) || isPremiumTrialActive;
     return INSTRUMENTS.map(instrument => ({
       ...instrument,
-      locked: isInstrumentLocked(instrument.id, isPremium) && !isTrialActive(instrument.id),
+      locked: isInstrumentLocked(instrument.id, hasAllInstruments) && !isTrialActive(instrument.id),
       hasActiveTrial: isTrialActive(instrument.id),
+      hasPremiumTrial: isPremiumTrialActive && instrument.isPremium,
     }));
-  }, [isPremium, isTrialActive]);
+  }, [isPremiumTrialActive, hasEntitlement, isTrialActive]);
 
   const startTrial = useCallback((instrumentId: string) => {
     const instrument = getInstrumentById(instrumentId);
@@ -229,13 +232,14 @@ export const [InstrumentProvider, useInstrument] = createContextHook(() => {
   }, [trialState]);
 
   useEffect(() => {
-    if (isInstrumentLocked(state.selectedId, isPremium) && !isTrialActive(state.selectedId)) {
+    const hasAllInstruments = hasEntitlement(ENTITLEMENTS.ALL_INSTRUMENTS) || isPremiumTrialActive;
+    if (isInstrumentLocked(state.selectedId, hasAllInstruments) && !isTrialActive(state.selectedId)) {
       saveInstrument({ 
         selectedId: DEFAULT_INSTRUMENT_ID, 
         wellnessOverride: state.wellnessOverride 
       });
     }
-  }, [isPremium, state.selectedId, state.wellnessOverride, saveInstrument, isTrialActive]);
+  }, [isPremium, isPremiumTrialActive, hasEntitlement, state.selectedId, state.wellnessOverride, saveInstrument, isTrialActive]);
 
   return {
     currentInstrument,
@@ -260,5 +264,7 @@ export const [InstrumentProvider, useInstrument] = createContextHook(() => {
     trialTimeRemaining,
     isTrialActive,
     isDemoMode,
+    isPremiumTrialActive,
+    premiumTrialDaysRemaining: trialDaysRemaining,
   };
 });
