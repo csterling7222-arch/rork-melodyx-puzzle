@@ -9,7 +9,7 @@ import {
   Share,
   Platform,
 } from 'react-native';
-import { X, Share2, Trophy, Music, Play, Square, Sparkles, Clock, Flame, Leaf, Map, ChevronRight } from 'lucide-react-native';
+import { X, Share2, Trophy, Music, Play, Square, Sparkles, Clock, Flame, Leaf, Map, ChevronRight, Home } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Confetti from '@/components/Confetti';
@@ -275,6 +275,17 @@ export default function GameModal() {
     setShowModal(false);
   }, [stopPlayback, setShowModal]);
 
+  const handleGoToDashboard = useCallback(() => {
+    stopPlayback();
+    setShowModal(false);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setTimeout(() => {
+      router.push('/(tabs)/home');
+    }, 200);
+  }, [stopPlayback, setShowModal, router]);
+
   const navigateToMode = useCallback((route: string) => {
     handleClose();
     if (Platform.OS !== 'web') {
@@ -426,12 +437,18 @@ export default function GameModal() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-            <Share2 size={20} color={Colors.background} />
-            <Text style={styles.shareButtonText}>
-              {copied ? 'Copied!' : 'Share Result'}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+              <Share2 size={18} color={Colors.background} />
+              <Text style={styles.shareButtonText}>
+                {copied ? 'Copied!' : 'Share'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.dashboardButton} onPress={handleGoToDashboard}>
+              <Home size={18} color={Colors.text} />
+              <Text style={styles.dashboardButtonText}>Dashboard</Text>
+            </TouchableOpacity>
+          </View>
 
           <CountdownTimer />
 
@@ -646,21 +663,40 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: Colors.background,
   },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
   shareButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.correct,
     paddingVertical: 14,
-    paddingHorizontal: 32,
     borderRadius: 14,
-    gap: 8,
-    width: '100%',
+    gap: 6,
   },
   shareButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700' as const,
     color: Colors.background,
+  },
+  dashboardButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.accent,
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 6,
+  },
+  dashboardButtonText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: Colors.text,
   },
   divider: {
     width: '100%',

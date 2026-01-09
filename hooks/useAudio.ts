@@ -27,6 +27,10 @@ export interface PlaybackState {
 let audioContextInstance: AudioContext | null = null;
 let audioInitialized = false;
 
+const soundCache = new Map<string, Audio.Sound>();
+const preloadQueue = new Set<string>();
+let isPreloading = false;
+
 function getWebAudioContext(): AudioContext | null {
   if (Platform.OS !== 'web') return null;
   
@@ -65,9 +69,59 @@ async function initNativeAudio() {
   }
 }
 
+const NOTE_TO_FILE: Record<string, string> = {
+  'C': 'C4', 'C#': 'Db4', 'D': 'D4', 'D#': 'Eb4',
+  'E': 'E4', 'F': 'F4', 'F#': 'Gb4', 'G': 'G4',
+  'G#': 'Ab4', 'A': 'A4', 'A#': 'Bb4', 'B': 'B4',
+};
+
+async function preloadSound(note: string): Promise<Audio.Sound | null> {
+  if (Platform.OS === 'web') return null;
+  if (soundCache.has(note)) return soundCache.get(note) || null;
+  if (preloadQueue.has(note)) return null;
+  
+  preloadQueue.add(note);
+  
+  try {
+    const fileName = NOTE_TO_FILE[note] || 'C4';
+    const url = `https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_grand_piano-mp3/${fileName}.mp3`;
+    
+    const { sound } = await Audio.Sound.createAsync(
+      { uri: url },
+      { shouldPlay: false, volume: 1.0 }
+    );
+    
+    soundCache.set(note, sound);
+    console.log(`Preloaded sound for ${note}`);
+    return sound;
+  } catch (error) {
+    console.log(`Failed to preload ${note}:`, error);
+    return null;
+  } finally {
+    preloadQueue.delete(note);
+  }
+}
+
+async function preloadAllSounds() {
+  if (Platform.OS === 'web' || isPreloading) return;
+  isPreloading = true;
+  
+  const notes = Object.keys(NOTE_FREQUENCIES);
+  console.log('Starting audio preload...');
+  
+  for (const note of notes) {
+    if (!soundCache.has(note)) {
+      await preloadSound(note);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+  }
+  
+  console.log('Audio preload complete');
+  isPreloading = false;
+}
+
 export function useAudio() {
   const playbackTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const soundsRef = useRef<Map<string, Audio.Sound>>(new Map());
   const isLoadingRef = useRef<Set<string>>(new Set());
   
   const [playbackState, setPlaybackState] = useState<PlaybackState>({
@@ -79,17 +133,15 @@ export function useAudio() {
 
   useEffect(() => {
     if (Platform.OS !== 'web') {
-      initNativeAudio();
+      initNativeAudio().then(() => {
+        preloadAllSounds();
+      });
     }
     
     const timeouts = playbackTimeoutsRef.current;
-    const sounds = soundsRef.current;
     
     return () => {
       timeouts.forEach(clearTimeout);
-      sounds.forEach(sound => {
-        sound.unloadAsync().catch(() => {});
-      });
     };
   }, []);
 
@@ -152,34 +204,12 @@ export function useAudio() {
         return;
       }
 
-      let sound = soundsRef.current.get(note);
+      let sound = soundCache.get(note);
       
       if (!sound && !isLoadingRef.current.has(note)) {
         isLoadingRef.current.add(note);
-        
-        const noteToFile: Record<string, string> = {
-          'C': 'C4', 'C#': 'Db4', 'D': 'D4', 'D#': 'Eb4',
-          'E': 'E4', 'F': 'F4', 'F#': 'Gb4', 'G': 'G4',
-          'G#': 'Ab4', 'A': 'A4', 'A#': 'Bb4', 'B': 'B4',
-        };
-        
-        const fileName = noteToFile[note] || 'C4';
-        const url = `https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_grand_piano-mp3/${fileName}.mp3`;
-        
-        try {
-          console.log(`Loading sound for ${note}...`);
-          const { sound: newSound } = await Audio.Sound.createAsync(
-            { uri: url },
-            { shouldPlay: false, volume: 1.0 }
-          );
-          soundsRef.current.set(note, newSound);
-          sound = newSound;
-          console.log(`Sound loaded for ${note}`);
-        } catch (loadError) {
-          console.log(`Failed to load sound for ${note}:`, loadError);
-        } finally {
-          isLoadingRef.current.delete(note);
-        }
+        sound = await preloadSound(note) || undefined;
+        isLoadingRef.current.delete(note);
       }
 
       if (sound) {
@@ -188,11 +218,10 @@ export function useAudio() {
           if (status.isLoaded) {
             await sound.setPositionAsync(0);
             await sound.playAsync();
-            console.log(`Playing note ${note}`);
           }
         } catch (playError) {
           console.log(`Play error for ${note}:`, playError);
-          soundsRef.current.delete(note);
+          soundCache.delete(note);
         }
       }
     } catch (error) {

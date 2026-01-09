@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Music, Flame, User, Trophy, Map, Leaf } from 'lucide-react-native';
+import { Home, Music, Flame, User, Trophy, Map } from 'lucide-react-native';
 import React from 'react';
 import { Colors } from '@/constants/colors';
 
@@ -14,10 +14,23 @@ export default function TabLayout() {
           borderTopColor: Colors.surfaceLight,
           borderTopWidth: 1,
           paddingTop: 4,
+          height: 56,
+          paddingBottom: 6,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
         },
         headerShown: false,
       }}
     >
+      <Tabs.Screen
+        name="home"
+        options={{
+          title: 'Home',
+          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+        }}
+      />
       <Tabs.Screen
         name="index"
         options={{
@@ -44,13 +57,6 @@ export default function TabLayout() {
         options={{
           title: 'Quest',
           tabBarIcon: ({ color, size }) => <Map size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="wellness"
-        options={{
-          title: 'Zen',
-          tabBarIcon: ({ color, size }) => <Leaf size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -98,6 +104,12 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="shop"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="wellness"
         options={{
           href: null,
         }}

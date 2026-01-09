@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useRef, memo } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   Animated,
   Platform,
 } from 'react-native';
-import { Delete, Check, Volume2 } from 'lucide-react-native';
+import { Delete, Check } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { NOTE_SCALE } from '@/utils/melodies';
@@ -42,9 +42,10 @@ const NOTE_COLORS: Record<string, { bg: string; text: string; glow: string }> = 
   'B': { bg: '#A855F7', text: '#FFFFFF', glow: '#A855F780' },
 };
 
-function PianoKey({ note, onPress, disabled }: PianoKeyProps) {
+const PianoKey = memo(function PianoKey({ note, onPress, disabled }: PianoKeyProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
+  const brightnessAnim = useRef(new Animated.Value(1)).current;
   const isSharp = note.includes('#');
   const colors = NOTE_COLORS[note] || { bg: '#FAFAFA', text: '#000', glow: '#00000040' };
 
@@ -58,37 +59,49 @@ function PianoKey({ note, onPress, disabled }: PianoKeyProps) {
     Animated.parallel([
       Animated.sequence([
         Animated.timing(scaleAnim, {
-          toValue: 0.88,
-          duration: 40,
+          toValue: 0.85,
+          duration: 30,
           useNativeDriver: true,
         }),
         Animated.spring(scaleAnim, {
           toValue: 1,
-          tension: 300,
-          friction: 10,
+          tension: 400,
+          friction: 8,
           useNativeDriver: true,
         }),
       ]),
       Animated.sequence([
         Animated.timing(glowAnim, {
           toValue: 1,
-          duration: 50,
+          duration: 40,
           useNativeDriver: true,
         }),
         Animated.timing(glowAnim, {
           toValue: 0,
-          duration: 200,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.sequence([
+        Animated.timing(brightnessAnim, {
+          toValue: 1.3,
+          duration: 50,
+          useNativeDriver: true,
+        }),
+        Animated.timing(brightnessAnim, {
+          toValue: 1,
+          duration: 150,
           useNativeDriver: true,
         }),
       ]),
     ]).start();
 
     onPress(note);
-  }, [note, onPress, disabled, scaleAnim, glowAnim]);
+  }, [note, onPress, disabled, scaleAnim, glowAnim, brightnessAnim]);
 
   const glowOpacity = glowAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 0.6],
+    outputRange: [0, 0.7],
   });
 
   return (
@@ -101,8 +114,9 @@ function PianoKey({ note, onPress, disabled }: PianoKeyProps) {
           disabled && styles.keyDisabled,
         ]}
         onPress={handlePress}
-        activeOpacity={0.8}
+        activeOpacity={0.9}
         disabled={disabled}
+        testID={`piano-key-${note}`}
       >
         <Animated.View 
           style={[
@@ -113,18 +127,18 @@ function PianoKey({ note, onPress, disabled }: PianoKeyProps) {
             }
           ]} 
         />
-        <View style={styles.keyContent}>
+        <Animated.View style={[styles.keyContent, { opacity: brightnessAnim }]}>
           <Text style={[styles.keyText, { color: colors.text }]}>
             {note}
           </Text>
-          <Volume2 size={10} color={colors.text} style={{ opacity: 0.5 }} />
-        </View>
+          <View style={[styles.noteIndicator, { backgroundColor: colors.text + '30' }]} />
+        </Animated.View>
       </TouchableOpacity>
     </Animated.View>
   );
-}
+});
 
-export default function PianoKeyboard({
+function PianoKeyboard({
   onNotePress,
   onDelete,
   onSubmit,
@@ -132,6 +146,10 @@ export default function PianoKeyboard({
   disabled,
   playNote,
 }: PianoKeyboardProps) {
+  const deleteScaleAnim = useRef(new Animated.Value(1)).current;
+  const submitScaleAnim = useRef(new Animated.Value(1)).current;
+  const submitGlowAnim = useRef(new Animated.Value(0)).current;
+
   const handleNotePress = useCallback((note: string) => {
     onNotePress(note);
     playNote(note);
@@ -141,19 +159,68 @@ export default function PianoKeyboard({
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
+    
+    Animated.sequence([
+      Animated.timing(deleteScaleAnim, {
+        toValue: 0.9,
+        duration: 50,
+        useNativeDriver: true,
+      }),
+      Animated.spring(deleteScaleAnim, {
+        toValue: 1,
+        tension: 300,
+        friction: 10,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    
     onDelete();
-  }, [onDelete]);
+  }, [onDelete, deleteScaleAnim]);
 
   const handleSubmit = useCallback(() => {
     if (!canSubmit) return;
     if (Platform.OS !== 'web') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
+    
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(submitScaleAnim, {
+          toValue: 0.92,
+          duration: 60,
+          useNativeDriver: true,
+        }),
+        Animated.spring(submitScaleAnim, {
+          toValue: 1,
+          tension: 200,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.sequence([
+        Animated.timing(submitGlowAnim, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(submitGlowAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+    
     onSubmit();
-  }, [canSubmit, onSubmit]);
+  }, [canSubmit, onSubmit, submitScaleAnim, submitGlowAnim]);
 
   const topRow = NOTE_SCALE.slice(0, 6);
   const bottomRow = NOTE_SCALE.slice(6);
+
+  const submitGlowOpacity = submitGlowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.4],
+  });
 
   return (
     <View style={styles.container}>
@@ -181,35 +248,51 @@ export default function PianoKeyboard({
       </View>
 
       <View style={styles.actionRow}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={handleDelete}
-          disabled={disabled}
-        >
-          <Delete size={22} color={Colors.text} />
-        </TouchableOpacity>
+        <Animated.View style={{ transform: [{ scale: deleteScaleAnim }] }}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.deleteButton]}
+            onPress={handleDelete}
+            disabled={disabled}
+            testID="delete-button"
+          >
+            <Delete size={22} color={Colors.text} />
+          </TouchableOpacity>
+        </Animated.View>
 
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            styles.submitButton,
-            canSubmit && styles.submitButtonActive,
-          ]}
-          onPress={handleSubmit}
-          disabled={!canSubmit || disabled}
-        >
-          <Check size={22} color={canSubmit ? Colors.background : Colors.textMuted} />
-          <Text style={[
-            styles.submitText,
-            canSubmit && styles.submitTextActive,
-          ]}>
-            Submit
-          </Text>
-        </TouchableOpacity>
+        <Animated.View style={{ transform: [{ scale: submitScaleAnim }], flex: 1, maxWidth: 200 }}>
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              styles.submitButton,
+              canSubmit && styles.submitButtonActive,
+            ]}
+            onPress={handleSubmit}
+            disabled={!canSubmit || disabled}
+            testID="submit-button"
+          >
+            {canSubmit && (
+              <Animated.View 
+                style={[
+                  styles.submitGlow,
+                  { opacity: submitGlowOpacity }
+                ]} 
+              />
+            )}
+            <Check size={22} color={canSubmit ? Colors.background : Colors.textMuted} />
+            <Text style={[
+              styles.submitText,
+              canSubmit && styles.submitTextActive,
+            ]}>
+              Submit
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
       </View>
     </View>
   );
 }
+
+export default memo(PianoKeyboard);
 
 const styles = StyleSheet.create({
   container: {
@@ -233,9 +316,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 6,
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    elevation: 8,
   },
   sharpKey: {
     width: 50,
@@ -250,7 +333,7 @@ const styles = StyleSheet.create({
   keyContent: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    gap: 4,
   },
   keyDisabled: {
     opacity: 0.4,
@@ -260,9 +343,15 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     letterSpacing: -0.3,
   },
+  noteIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
   actionRow: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     gap: 12,
     marginTop: 18,
   },
@@ -274,6 +363,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 14,
     gap: 8,
+    overflow: 'hidden',
   },
   deleteButton: {
     backgroundColor: Colors.surfaceLight,
@@ -281,11 +371,14 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: Colors.surfaceLight,
-    flex: 1,
-    maxWidth: 200,
+    width: '100%',
   },
   submitButtonActive: {
     backgroundColor: Colors.correct,
+  },
+  submitGlow: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#FFFFFF',
   },
   submitText: {
     color: Colors.textMuted,

@@ -1,0 +1,754 @@
+import React, { useCallback, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Animated,
+  Share,
+  Platform,
+  Dimensions,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import {
+  Music,
+  Flame,
+  Trophy,
+  Map,
+  Leaf,
+  Share2,
+  Play,
+  Clock,
+  Target,
+  Zap,
+  ChevronRight,
+  BarChart3,
+  Crown,
+  Sparkles,
+  Check,
+  X,
+} from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+import { Colors } from '@/constants/colors';
+import { useGame } from '@/contexts/GameContext';
+import { useUser } from '@/contexts/UserContext';
+import { useScreenTheme } from '@/contexts/ThemeContext';
+import { useEco } from '@/contexts/EcoContext';
+import ThemedBackground from '@/components/ThemedBackground';
+import Confetti from '@/components/Confetti';
+import { generateShareText } from '@/utils/gameLogic';
+
+const { width } = Dimensions.get('window');
+
+function AnimatedStatCard({ 
+  value, 
+  label, 
+  icon, 
+  color, 
+  delay = 0 
+}: { 
+  value: string | number; 
+  label: string; 
+  icon: React.ReactNode; 
+  color: string;
+  delay?: number;
+}) {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.delay(delay),
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, [delay, scaleAnim, opacityAnim]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.statCard,
+        {
+          opacity: opacityAnim,
+          transform: [{ scale: scaleAnim }],
+        },
+      ]}
+    >
+      <View style={[styles.statIconContainer, { backgroundColor: color + '20' }]}>
+        {icon}
+      </View>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </Animated.View>
+  );
+}
+
+function ModeCard({
+  icon,
+  title,
+  subtitle,
+  color,
+  onPress,
+  badge,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  color: string;
+  onPress: () => void;
+  badge?: string;
+}) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.96,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity
+        style={[styles.modeCard, { borderColor: color + '30' }]}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={0.9}
+      >
+        <View style={[styles.modeIconContainer, { backgroundColor: color + '20' }]}>
+          {icon}
+        </View>
+        <View style={styles.modeInfo}>
+          <Text style={styles.modeTitle}>{title}</Text>
+          <Text style={styles.modeSubtitle}>{subtitle}</Text>
+        </View>
+        {badge && (
+          <View style={[styles.modeBadge, { backgroundColor: color }]}>
+            <Text style={styles.modeBadgeText}>{badge}</Text>
+          </View>
+        )}
+        <ChevronRight size={20} color={Colors.textMuted} />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+function CountdownTimer() {
+  const [timeLeft, setTimeLeft] = React.useState({ hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    const updateTimer = () => {
+      const now = new Date();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+
+      const diff = tomorrow.getTime() - now.getTime();
+      setTimeLeft({
+        hours: Math.floor(diff / (1000 * 60 * 60)),
+        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((diff % (1000 * 60)) / 1000),
+      });
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <View style={styles.countdownContainer}>
+      <Clock size={14} color={Colors.accent} />
+      <Text style={styles.countdownText}>
+        Next puzzle in{' '}
+        <Text style={styles.countdownTime}>
+          {String(timeLeft.hours).padStart(2, '0')}:
+          {String(timeLeft.minutes).padStart(2, '0')}:
+          {String(timeLeft.seconds).padStart(2, '0')}
+        </Text>
+      </Text>
+    </View>
+  );
+}
+
+export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { theme, isDarkMode, animationsEnabled } = useScreenTheme('home');
+  const {
+    puzzleNumber,
+    gameStatus,
+    guesses,
+    stats,
+    melody,
+    melodyLength,
+  } = useGame();
+  const { inventory } = useUser();
+  const { ecoPoints } = useEco();
+
+  const [showConfetti, setShowConfetti] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+  const headerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(headerAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+
+    if (gameStatus === 'won') {
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 3000);
+    }
+  }, [gameStatus, headerAnim]);
+
+  const handleShare = useCallback(async () => {
+    if (gameStatus === 'playing') return;
+
+    const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength);
+
+    if (Platform.OS === 'web') {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareText);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } else {
+      await Share.share({ message: shareText });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  }, [gameStatus, guesses, puzzleNumber, melodyLength]);
+
+  const navigateTo = useCallback((route: string) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    router.push(route as any);
+  }, [router]);
+
+  const gameCompleted = gameStatus !== 'playing';
+  const winRate = stats.gamesPlayed > 0 
+    ? Math.round((stats.gamesWon / stats.gamesPlayed) * 100) 
+    : 0;
+
+  return (
+    <ThemedBackground theme={theme} isDark={isDarkMode} animated={animationsEnabled}>
+      <Confetti isActive={showConfetti} count={100} />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <Animated.View
+          style={[
+            styles.header,
+            {
+              opacity: headerAnim,
+              transform: [
+                {
+                  translateY: headerAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-20, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <View style={styles.logoRow}>
+            <Text style={styles.logo}>Melodyx</Text>
+            <View style={styles.coinsContainer}>
+              <Text style={styles.coinsText}>🪙 {inventory.coins}</Text>
+            </View>
+          </View>
+          <Text style={styles.tagline}>Daily Melody Puzzle</Text>
+        </Animated.View>
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.dailyCard}>
+            <View style={styles.dailyHeader}>
+              <View style={styles.dailyTitleRow}>
+                <Music size={22} color={Colors.accent} />
+                <Text style={styles.dailyTitle}>Daily #{puzzleNumber}</Text>
+              </View>
+              {gameCompleted ? (
+                <View style={[
+                  styles.statusBadge,
+                  { backgroundColor: gameStatus === 'won' ? Colors.correct + '20' : Colors.absent + '20' }
+                ]}>
+                  {gameStatus === 'won' ? (
+                    <Check size={14} color={Colors.correct} />
+                  ) : (
+                    <X size={14} color={Colors.textMuted} />
+                  )}
+                  <Text style={[
+                    styles.statusText,
+                    { color: gameStatus === 'won' ? Colors.correct : Colors.textMuted }
+                  ]}>
+                    {gameStatus === 'won' ? 'Solved!' : 'Missed'}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.playBadge}>
+                  <Play size={12} color={Colors.text} fill={Colors.text} />
+                  <Text style={styles.playText}>Play Now</Text>
+                </View>
+              )}
+            </View>
+
+            {gameCompleted ? (
+              <View style={styles.completedContent}>
+                <View style={styles.melodyReveal}>
+                  <Text style={styles.melodyEmoji}>{melody.flag || '🎵'}</Text>
+                  <View>
+                    <Text style={styles.melodyName}>{melody.name}</Text>
+                    <Text style={styles.melodyMeta}>{melody.genre} • {melody.era}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.resultStats}>
+                  <View style={styles.resultStatItem}>
+                    <Text style={styles.resultStatValue}>{guesses.length}/6</Text>
+                    <Text style={styles.resultStatLabel}>Guesses</Text>
+                  </View>
+                  <View style={styles.resultDivider} />
+                  <View style={styles.resultStatItem}>
+                    <Text style={styles.resultStatValue}>{stats.currentStreak}🔥</Text>
+                    <Text style={styles.resultStatLabel}>Streak</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+                  <Share2 size={18} color={Colors.text} />
+                  <Text style={styles.shareButtonText}>
+                    {copied ? 'Copied!' : 'Share Result'}
+                  </Text>
+                </TouchableOpacity>
+
+                <CountdownTimer />
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.playButton}
+                onPress={() => navigateTo('/(tabs)/')}
+              >
+                <Play size={24} color={Colors.background} fill={Colors.background} />
+                <Text style={styles.playButtonText}>Start Puzzle</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.statsSection}>
+            <Text style={styles.sectionTitle}>Your Stats</Text>
+            <View style={styles.statsGrid}>
+              <AnimatedStatCard
+                value={stats.currentStreak}
+                label="Current Streak"
+                icon={<Flame size={20} color="#FF6B35" />}
+                color="#FF6B35"
+                delay={0}
+              />
+              <AnimatedStatCard
+                value={stats.maxStreak}
+                label="Best Streak"
+                icon={<Crown size={20} color="#FFD700" />}
+                color="#FFD700"
+                delay={100}
+              />
+              <AnimatedStatCard
+                value={stats.gamesWon}
+                label="Total Wins"
+                icon={<Trophy size={20} color={Colors.correct} />}
+                color={Colors.correct}
+                delay={200}
+              />
+              <AnimatedStatCard
+                value={`${winRate}%`}
+                label="Win Rate"
+                icon={<Target size={20} color={Colors.accent} />}
+                color={Colors.accent}
+                delay={300}
+              />
+            </View>
+          </View>
+
+          <View style={styles.modesSection}>
+            <Text style={styles.sectionTitle}>Game Modes</Text>
+            <View style={styles.modesGrid}>
+              <ModeCard
+                icon={<Flame size={22} color="#FF6B35" />}
+                title="Sound Fever"
+                subtitle="Endless chains & multipliers"
+                color="#FF6B35"
+                onPress={() => navigateTo('/(tabs)/fever')}
+                badge="HOT"
+              />
+              <ModeCard
+                icon={<Trophy size={22} color="#FFD700" />}
+                title="Tournaments"
+                subtitle="Weekly competitions"
+                color="#FFD700"
+                onPress={() => navigateTo('/(tabs)/tournaments')}
+              />
+              <ModeCard
+                icon={<Map size={22} color={Colors.accent} />}
+                title="Melody Quest"
+                subtitle="Story adventure campaign"
+                color={Colors.accent}
+                onPress={() => navigateTo('/(tabs)/campaign')}
+              />
+              <ModeCard
+                icon={<Leaf size={22} color="#10B981" />}
+                title="Zen Mode"
+                subtitle="Calming puzzles"
+                color="#10B981"
+                onPress={() => navigateTo('/(tabs)/wellness')}
+              />
+            </View>
+          </View>
+
+          <View style={styles.quickActions}>
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => navigateTo('/(tabs)/stats')}
+            >
+              <BarChart3 size={20} color={Colors.accent} />
+              <Text style={styles.quickActionText}>Statistics</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => navigateTo('/(tabs)/shop')}
+            >
+              <Sparkles size={20} color="#FFD700" />
+              <Text style={styles.quickActionText}>Shop</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => navigateTo('/(tabs)/eco')}
+            >
+              <Zap size={20} color="#10B981" />
+              <Text style={styles.quickActionText}>{ecoPoints} Eco</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    </ThemedBackground>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  logo: {
+    fontSize: 34,
+    fontWeight: '800' as const,
+    color: Colors.text,
+    letterSpacing: -1,
+  },
+  coinsContainer: {
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  coinsText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#FFD700',
+  },
+  tagline: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginTop: 4,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  dailyCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: Colors.accent + '30',
+  },
+  dailyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  dailyTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  dailyTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  playBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.accent,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  playText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.text,
+  },
+  completedContent: {
+    alignItems: 'center',
+  },
+  melodyReveal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.surfaceLight,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    width: '100%',
+    marginBottom: 16,
+  },
+  melodyEmoji: {
+    fontSize: 32,
+  },
+  melodyName: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  melodyMeta: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  resultStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  resultStatItem: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  resultStatValue: {
+    fontSize: 22,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  resultStatLabel: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  resultDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: Colors.surfaceLight,
+  },
+  shareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.correct,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 14,
+    width: '100%',
+  },
+  shareButtonText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  countdownContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+  },
+  countdownText: {
+    fontSize: 13,
+    color: Colors.textMuted,
+  },
+  countdownTime: {
+    fontWeight: '700' as const,
+    color: Colors.accent,
+  },
+  playButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: Colors.accent,
+    paddingVertical: 16,
+    borderRadius: 14,
+  },
+  playButtonText: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.background,
+  },
+  statsSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    marginBottom: 14,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  statCard: {
+    width: (width - 52) / 2,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+  },
+  statIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '800' as const,
+    color: Colors.text,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  modesSection: {
+    marginBottom: 24,
+  },
+  modesGrid: {
+    gap: 10,
+  },
+  modeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+  },
+  modeIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modeInfo: {
+    flex: 1,
+    marginLeft: 14,
+  },
+  modeTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  modeSubtitle: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  modeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  modeBadgeText: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  quickActionCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.surface,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  quickActionText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.text,
+  },
+});
