@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Mail, Lock, Eye, EyeOff, Music, UserPlus, LogIn, User } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, Music, UserPlus, LogIn, User, UserCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
@@ -30,6 +30,7 @@ export default function AuthScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -84,13 +85,19 @@ export default function AuthScreen() {
       return;
     }
 
+    if (mode === 'signup' && !displayName.trim()) {
+      setLocalError('Please enter your name');
+      shakeForm();
+      return;
+    }
+
     try {
       if (Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
 
       if (mode === 'signup') {
-        await signUp(email.trim(), password);
+        await signUp(email.trim(), password, displayName.trim());
       } else {
         await signIn(email.trim(), password);
       }
@@ -105,7 +112,7 @@ export default function AuthScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
     }
-  }, [email, password, confirmPassword, mode, signUp, signIn, clearError, shakeForm, router]);
+  }, [email, password, confirmPassword, displayName, mode, signUp, signIn, clearError, shakeForm, router]);
 
   const handleGuestLogin = useCallback(async () => {
     try {
@@ -186,6 +193,25 @@ export default function AuthScreen() {
             {displayError && (
               <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>{displayError}</Text>
+              </View>
+            )}
+
+            {mode === 'signup' && (
+              <View style={styles.inputContainer}>
+                <View style={styles.inputIcon}>
+                  <UserCircle size={20} color={Colors.textMuted} />
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Your name"
+                  placeholderTextColor={Colors.textMuted}
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  editable={!isLoading}
+                  maxLength={30}
+                />
               </View>
             )}
 

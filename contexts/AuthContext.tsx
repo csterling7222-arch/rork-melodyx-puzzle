@@ -20,6 +20,7 @@ interface AuthState {
 interface AuthCredentials {
   email: string;
   password: string;
+  displayName?: string;
 }
 
 const AUTH_STORAGE_KEY = 'melodyx_auth_state';
@@ -104,7 +105,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const authState = authQuery.data ?? { user: null, isAuthenticated: false, isAnonymous: false };
 
   const signUpMutation = useMutation({
-    mutationFn: async ({ email, password }: AuthCredentials): Promise<AuthUser> => {
+    mutationFn: async ({ email, password, displayName }: AuthCredentials): Promise<AuthUser> => {
       setAuthError(null);
       
       if (!validateEmail(email)) {
@@ -122,11 +123,12 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }
 
       const uid = generateUid();
+      const userName = displayName?.trim() || email.split('@')[0];
       const newUser: StoredUser = {
         uid,
         email: email.toLowerCase(),
         passwordHash: simpleHash(password),
-        displayName: email.split('@')[0],
+        displayName: userName,
         createdAt: new Date().toISOString(),
       };
 
@@ -146,7 +148,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         isAnonymous: false,
       });
 
-      console.log('[Auth] User signed up:', email);
+      console.log('[Auth] User signed up:', email, 'as', userName);
       return authUser;
     },
     onError: (error: Error) => {
@@ -330,8 +332,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const { mutateAsync: doUpdateProfile } = updateProfileMutation;
   const { mutateAsync: doLinkAccount } = linkAnonymousAccountMutation;
 
-  const signUp = useCallback(async (email: string, password: string) => {
-    return doSignUp({ email, password });
+  const signUp = useCallback(async (email: string, password: string, displayName?: string) => {
+    return doSignUp({ email, password, displayName });
   }, [doSignUp]);
 
   const signIn = useCallback(async (email: string, password: string) => {
