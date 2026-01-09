@@ -62,7 +62,15 @@ export interface PurchaseResult {
 
 export const ENTITLEMENTS = {
   PREMIUM: 'premium',
+  AD_FREE: 'ad_free',
+  UNLIMITED_PRACTICE: 'unlimited_practice',
+  ALL_INSTRUMENTS: 'all_instruments',
+  EXCLUSIVE_SKINS: 'exclusive_skins',
 } as const;
+
+export type EntitlementKey = keyof typeof ENTITLEMENTS;
+
+const DEMO_MODE_ENABLED = true;
 
 export const PACKAGE_IDENTIFIERS = {
   MONTHLY: '$rc_monthly',
@@ -300,9 +308,28 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
   const customerInfo = customerInfoQuery.data;
   const currentOffering = offeringsQuery.data;
 
+  const [demoPremium, setDemoPremium] = useState(false);
+
   const isPremium = useMemo(() => {
+    if (demoPremium) return true;
     return customerInfo?.entitlements.active[ENTITLEMENTS.PREMIUM]?.isActive ?? false;
-  }, [customerInfo]);
+  }, [customerInfo, demoPremium]);
+
+  const hasAdFree = useMemo(() => {
+    return isPremium || customerInfo?.entitlements.active[ENTITLEMENTS.AD_FREE]?.isActive || false;
+  }, [customerInfo, isPremium]);
+
+  const hasUnlimitedPractice = useMemo(() => {
+    return isPremium || customerInfo?.entitlements.active[ENTITLEMENTS.UNLIMITED_PRACTICE]?.isActive || false;
+  }, [customerInfo, isPremium]);
+
+  const hasAllInstruments = useMemo(() => {
+    return isPremium || customerInfo?.entitlements.active[ENTITLEMENTS.ALL_INSTRUMENTS]?.isActive || false;
+  }, [customerInfo, isPremium]);
+
+  const hasExclusiveSkins = useMemo(() => {
+    return isPremium || customerInfo?.entitlements.active[ENTITLEMENTS.EXCLUSIVE_SKINS]?.isActive || false;
+  }, [customerInfo, isPremium]);
 
   const hasPremiumEntitlement = useCallback(() => {
     return customerInfo?.entitlements.active[ENTITLEMENTS.PREMIUM]?.isActive ?? false;
@@ -399,9 +426,24 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     };
   }, [queryClient]);
 
+  const enableDemoPremium = useCallback(() => {
+    setDemoPremium(true);
+    console.log('[RevenueCat] Demo premium enabled');
+  }, []);
+
+  const disableDemoPremium = useCallback(() => {
+    setDemoPremium(false);
+    console.log('[RevenueCat] Demo premium disabled');
+  }, []);
+
   return {
     isConfigured,
+    isDemoMode: !isConfigured && DEMO_MODE_ENABLED,
     isPremium,
+    hasAdFree,
+    hasUnlimitedPractice,
+    hasAllInstruments,
+    hasExclusiveSkins,
     isPurchasing,
     isLoading: customerInfoQuery.isLoading || offeringsQuery.isLoading,
     isRestoring,
@@ -424,6 +466,8 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     refreshCustomerInfo,
     purchaseError,
     clearPurchaseError,
+    enableDemoPremium,
+    disableDemoPremium,
     ENTITLEMENTS,
     PACKAGE_IDENTIFIERS,
   };

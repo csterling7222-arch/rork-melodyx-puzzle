@@ -25,6 +25,20 @@ export interface PlaybackState {
   progress: number;
 }
 
+export interface AudioSettings {
+  volume: number;
+  playbackSpeed: number;
+  fadeIn: boolean;
+  fadeOut: boolean;
+}
+
+const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
+  volume: 1.0,
+  playbackSpeed: 1.0,
+  fadeIn: false,
+  fadeOut: true,
+};
+
 let audioContextInstance: AudioContext | null = null;
 let audioInitialized = false;
 let webAudioUnlocked = false;
@@ -214,10 +228,11 @@ function cleanupOldCaches(currentInstrumentId: string) {
   }
 }
 
-export function useAudio(instrumentId?: string) {
+export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings>) {
   const playbackTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const isLoadingRef = useRef<Set<string>>(new Set());
   const currentInstrumentRef = useRef<Instrument>(getInstrumentById(instrumentId || DEFAULT_INSTRUMENT_ID));
+  const audioSettingsRef = useRef<AudioSettings>({ ...DEFAULT_AUDIO_SETTINGS, ...settings });
   
   const [playbackState, setPlaybackState] = useState<PlaybackState>({
     isPlaying: false,
@@ -225,6 +240,13 @@ export function useAudio(instrumentId?: string) {
     totalNotes: 0,
     progress: 0,
   });
+
+  const [volume, setVolume] = useState(settings?.volume ?? 1.0);
+  const [playbackSpeed, setPlaybackSpeed] = useState(settings?.playbackSpeed ?? 1.0);
+
+  useEffect(() => {
+    audioSettingsRef.current = { ...audioSettingsRef.current, volume, playbackSpeed };
+  }, [volume, playbackSpeed]);
 
   useEffect(() => {
     const instId = instrumentId || DEFAULT_INSTRUMENT_ID;
@@ -268,6 +290,8 @@ export function useAudio(instrumentId?: string) {
       }
 
       const instrument = currentInstrumentRef.current;
+      const { volume: vol, fadeIn, fadeOut } = audioSettingsRef.current;
+      
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
       const filterNode = ctx.createBiquadFilter();
@@ -288,15 +312,29 @@ export function useAudio(instrumentId?: string) {
       oscillator.frequency.setValueAtTime(adjustedFreq, ctx.currentTime);
 
       const { attackTime, sustainLevel, releaseTime } = instrument;
+      const maxGain = 0.5 * vol;
+      const sustainGain = Math.max(0.01, sustainLevel * 0.5 * vol);
+      
       gainNode.gain.setValueAtTime(0, ctx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.5, ctx.currentTime + attackTime);
-      gainNode.gain.exponentialRampToValueAtTime(Math.max(0.01, sustainLevel * 0.5), ctx.currentTime + duration * 0.7);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration + releaseTime);
+      
+      if (fadeIn) {
+        gainNode.gain.linearRampToValueAtTime(maxGain, ctx.currentTime + attackTime + 0.1);
+      } else {
+        gainNode.gain.linearRampToValueAtTime(maxGain, ctx.currentTime + attackTime);
+      }
+      
+      gainNode.gain.exponentialRampToValueAtTime(sustainGain, ctx.currentTime + duration * 0.7);
+      
+      if (fadeOut) {
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration + releaseTime + 0.1);
+      } else {
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration + releaseTime);
+      }
 
       oscillator.start(ctx.currentTime);
-      oscillator.stop(ctx.currentTime + duration + releaseTime + 0.05);
+      oscillator.stop(ctx.currentTime + duration + releaseTime + 0.15);
 
-      console.log(`[Audio] Web: Playing ${note} on ${instrument.name}`);
+      console.log(`[Audio] Web: Playing ${note} on ${instrument.name} (vol: ${vol})`);
     } catch (error) {
       console.log('[Audio] Web audio error:', error);
     }
@@ -370,7 +408,8 @@ export function useAudio(instrumentId?: string) {
 
   const playMelody = useCallback((notes: string[], tempo: number = 400) => {
     stopPlayback();
-    console.log(`Playing melody: ${notes.join(', ')}`);
+    const adjustedTempo = tempo / audioSettingsRef.current.playbackSpeed;
+    console.log(`Playing melody: ${notes.join(', ')} at speed ${audioSettingsRef.current.playbackSpeed}x`);
     
     setPlaybackState({
       isPlaying: true,
@@ -387,7 +426,7 @@ export function useAudio(instrumentId?: string) {
           currentNoteIndex: index,
           progress: (index + 1) / notes.length,
         }));
-      }, index * tempo);
+      }, index * adjustedTempo);
       playbackTimeoutsRef.current.push(timeout);
     });
 
@@ -398,7 +437,7 @@ export function useAudio(instrumentId?: string) {
         totalNotes: 0,
         progress: 1,
       });
-    }, notes.length * tempo + 300);
+    }, notes.length * adjustedTempo + 300);
     playbackTimeoutsRef.current.push(endTimeout);
   }, [playNote, stopPlayback]);
 
@@ -497,6 +536,32 @@ export function useAudio(instrumentId?: string) {
     }
   }, []);
 
+  const updateVolume = useCallback((newVolume: number) => {
+    const clampedVolume = Math.max(0, Math.min(1, newVolume));
+    setVolume(clampedVolume);
+    console.log(`[Audio] Volume set to ${clampedVolume}`);
+  }, []);
+
+  const updatePlaybackSpeed = useCallback((speed: number) => {
+    const clampedSpeed = Math.max(0.5, Math.min(2, speed));
+    setPlaybackSpeed(clampedSpeed);
+    console.log(`[Audio] Playback speed set to ${clampedSpeed}x`);
+  }, []);
+
+  const fadeToVolume = useCallback((targetVolume: number, durationMs: number = 500) => {
+    const startVolume = volume;
+    const steps = 20;
+    const stepDuration = durationMs / steps;
+    const volumeStep = (targetVolume - startVolume) / steps;
+    
+    for (let i = 1; i <= steps; i++) {
+      setTimeout(() => {
+        const newVol = startVolume + (volumeStep * i);
+        setVolume(Math.max(0, Math.min(1, newVol)));
+      }, stepDuration * i);
+    }
+  }, [volume]);
+
   return { 
     playNote, 
     playMelody, 
@@ -507,5 +572,10 @@ export function useAudio(instrumentId?: string) {
     preloadNotes,
     isNoteCached,
     initAudio,
+    volume,
+    playbackSpeed,
+    updateVolume,
+    updatePlaybackSpeed,
+    fadeToVolume,
   };
 }

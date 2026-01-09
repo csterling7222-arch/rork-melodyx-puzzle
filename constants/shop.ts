@@ -263,35 +263,98 @@ export const SHOP_ITEMS: ShopItem[] = [
   },
 ];
 
+export type PowerUpType = 'skip_note' | 'reveal_note' | 'extra_guess' | 'audio_hint' | 'slow_motion' | 'double_xp';
+
 export interface DailyRewardItem {
   day: number;
   coins: number;
   hints?: number;
-  bonus?: 'free_hint' | 'double_coins' | 'premium_trial';
+  powerUp?: PowerUpType;
+  powerUpCount?: number;
+  bonus?: 'free_hint' | 'double_coins' | 'premium_trial' | 'mystery_box';
   icon: string;
   description: string;
 }
 
 export const DAILY_REWARDS: DailyRewardItem[] = [
   { day: 1, coins: 25, icon: '🎵', description: 'Welcome back!' },
-  { day: 2, coins: 50, icon: '🎶', description: 'Keep it up!' },
+  { day: 2, coins: 50, powerUp: 'audio_hint', powerUpCount: 1, icon: '🎶', description: 'Audio hint unlocked!' },
   { day: 3, coins: 75, hints: 1, icon: '🎸', description: '+1 Hint bonus!' },
-  { day: 4, coins: 100, icon: '🎹', description: 'Streak growing!' },
-  { day: 5, coins: 150, hints: 2, icon: '🎺', description: '+2 Hints bonus!' },
-  { day: 6, coins: 200, icon: '🎻', description: 'Almost there!' },
-  { day: 7, coins: 500, hints: 3, bonus: 'free_hint', icon: '🏆', description: 'Weekly champion!' },
+  { day: 4, coins: 100, powerUp: 'reveal_note', powerUpCount: 1, icon: '🎹', description: 'Reveal power-up!' },
+  { day: 5, coins: 150, hints: 2, powerUp: 'extra_guess', powerUpCount: 1, icon: '🎺', description: '+2 Hints & Extra Guess!' },
+  { day: 6, coins: 200, powerUp: 'double_xp', powerUpCount: 1, icon: '🎻', description: 'Double XP active!' },
+  { day: 7, coins: 500, hints: 3, bonus: 'mystery_box', icon: '🏆', description: 'Weekly champion + Mystery Box!' },
 ];
 
-export const STREAK_MILESTONES = [
-  { streak: 7, coins: 250, hints: 2, badge: 'Week Warrior' },
-  { streak: 14, coins: 500, hints: 3, badge: 'Two Week Titan' },
-  { streak: 30, coins: 1000, hints: 5, badge: 'Monthly Master' },
-  { streak: 100, coins: 2500, hints: 10, badge: 'Century Legend' },
-  { streak: 365, coins: 10000, hints: 25, badge: 'Year Champion' },
+export const POWER_UP_INFO: Record<PowerUpType, { name: string; icon: string; description: string }> = {
+  skip_note: { name: 'Skip Note', icon: '⏭️', description: 'Skip one note in your guess' },
+  reveal_note: { name: 'Reveal Note', icon: '👁️', description: 'Reveal one correct note position' },
+  extra_guess: { name: 'Extra Guess', icon: '➕', description: 'Get one additional guess attempt' },
+  audio_hint: { name: 'Audio Hint', icon: '🎧', description: 'Hear the first 3 notes' },
+  slow_motion: { name: 'Slow Motion', icon: '🐢', description: 'Slow down melody playback' },
+  double_xp: { name: 'Double XP', icon: '⚡', description: 'Earn double coins for 24 hours' },
+};
+
+export interface StreakMilestone {
+  streak: number;
+  coins: number;
+  hints: number;
+  badge: string;
+  powerUp?: PowerUpType;
+  powerUpCount?: number;
+  skinUnlock?: string;
+  premiumDays?: number;
+}
+
+export const STREAK_MILESTONES: StreakMilestone[] = [
+  { streak: 3, coins: 100, hints: 1, badge: '3-Day Starter', powerUp: 'audio_hint', powerUpCount: 2 },
+  { streak: 7, coins: 250, hints: 2, badge: 'Week Warrior', powerUp: 'reveal_note', powerUpCount: 2 },
+  { streak: 14, coins: 500, hints: 3, badge: 'Two Week Titan', powerUp: 'extra_guess', powerUpCount: 3 },
+  { streak: 21, coins: 750, hints: 4, badge: 'Three Week Pro', skinUnlock: 'ocean' },
+  { streak: 30, coins: 1000, hints: 5, badge: 'Monthly Master', premiumDays: 3 },
+  { streak: 50, coins: 1500, hints: 7, badge: 'Dedication Hero', skinUnlock: 'sunset' },
+  { streak: 75, coins: 2000, hints: 8, badge: 'Melody Devotee', powerUp: 'double_xp', powerUpCount: 5 },
+  { streak: 100, coins: 2500, hints: 10, badge: 'Century Legend', skinUnlock: 'midnight', premiumDays: 7 },
+  { streak: 200, coins: 5000, hints: 15, badge: 'Bicentennial Star', premiumDays: 14 },
+  { streak: 365, coins: 10000, hints: 25, badge: 'Year Champion', premiumDays: 30 },
 ];
 
-export function getStreakMilestone(streak: number): typeof STREAK_MILESTONES[0] | null {
+export function getPremiumMultiplier(isPremium: boolean): number {
+  return isPremium ? 1.5 : 1;
+}
+
+export function getStreakMultiplier(streak: number): number {
+  if (streak >= 100) return 2.0;
+  if (streak >= 50) return 1.75;
+  if (streak >= 30) return 1.5;
+  if (streak >= 14) return 1.35;
+  if (streak >= 7) return 1.25;
+  if (streak >= 3) return 1.1;
+  return 1;
+}
+
+export function getStreakMilestone(streak: number): StreakMilestone | null {
   return STREAK_MILESTONES.find(m => m.streak === streak) || null;
+}
+
+export function getNextStreakMilestone(currentStreak: number): StreakMilestone | null {
+  return STREAK_MILESTONES.find(m => m.streak > currentStreak) || null;
+}
+
+export function calculateTotalReward(
+  baseReward: DailyRewardItem,
+  streak: number,
+  isPremium: boolean
+): { coins: number; hints: number; multiplier: number } {
+  const streakMult = getStreakMultiplier(streak);
+  const premiumMult = getPremiumMultiplier(isPremium);
+  const totalMult = streakMult * premiumMult;
+  
+  return {
+    coins: Math.floor(baseReward.coins * totalMult),
+    hints: baseReward.hints ? Math.floor(baseReward.hints * Math.min(premiumMult, 1.5)) : 0,
+    multiplier: totalMult,
+  };
 }
 
 export function getDailyReward(consecutiveDays: number): DailyRewardItem {

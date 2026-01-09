@@ -252,9 +252,11 @@ export default function GameModal() {
     setShouldAutoPlaySnippet,
   } = useGame();
 
-  const { playSnippet, stopPlayback, playbackState, initAudio } = useAudio();
+  const { playSnippet, playHintNotes, stopPlayback, playbackState, initAudio } = useAudio();
   const [hasPlayedSnippet, setHasPlayedSnippet] = useState(false);
+  const [hasPlayedLossReveal, setHasPlayedLossReveal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showFullReveal, setShowFullReveal] = useState(false);
 
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -312,6 +314,22 @@ export default function GameModal() {
     }
   }, [showModal, shouldAutoPlaySnippet, gameStatus, hasPlayedSnippet, melody.extendedNotes, playSnippet, setShouldAutoPlaySnippet, initAudio]);
 
+  useEffect(() => {
+    if (showModal && gameStatus === 'lost' && !hasPlayedLossReveal) {
+      initAudio();
+      
+      const revealTimeout = setTimeout(() => {
+        console.log('[GameModal] Auto-playing loss reveal hint:', melody.notes.slice(0, 3));
+        playHintNotes(melody.notes, 3);
+        setHasPlayedLossReveal(true);
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        }
+      }, 800);
+      return () => clearTimeout(revealTimeout);
+    }
+  }, [showModal, gameStatus, hasPlayedLossReveal, melody.notes, playHintNotes, initAudio]);
+
   const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength, stats.currentStreak);
 
   const handleCopyToClipboard = async () => {
@@ -359,7 +377,26 @@ export default function GameModal() {
   const handleClose = useCallback(() => {
     stopPlayback();
     setShowModal(false);
+    setShowFullReveal(false);
   }, [stopPlayback, setShowModal]);
+
+  const handlePlayLossReveal = useCallback(() => {
+    initAudio();
+    if (playbackState.isPlaying) {
+      stopPlayback();
+    } else {
+      if (showFullReveal) {
+        console.log('[GameModal] Playing full melody reveal:', melody.extendedNotes);
+        playSnippet(melody.extendedNotes);
+      } else {
+        console.log('[GameModal] Playing partial reveal:', melody.notes.slice(0, 4));
+        playHintNotes(melody.notes, 4);
+      }
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    }
+  }, [initAudio, playbackState.isPlaying, stopPlayback, showFullReveal, melody, playSnippet, playHintNotes]);
 
   const handleGoToDashboard = useCallback(() => {
     stopPlayback();
@@ -513,34 +550,92 @@ export default function GameModal() {
             </View>
           )}
 
-          <View style={styles.snippetSection}>
-            <Text style={styles.snippetLabel}>🎧 Extended Snippet</Text>
-            <WaveformVisualizer 
-              playbackState={playbackState} 
-              notes={melody.extendedNotes} 
-            />
-            <TouchableOpacity 
-              style={[
-                styles.playButton,
-                playbackState.isPlaying && styles.playButtonActive
-              ]} 
-              onPress={handlePlaySnippet}
-            >
-              {playbackState.isPlaying ? (
-                <>
-                  <Square size={18} color={Colors.background} fill={Colors.background} />
-                  <Text style={styles.playButtonText}>Stop</Text>
-                </>
-              ) : (
-                <>
-                  <Play size={18} color={Colors.background} fill={Colors.background} />
-                  <Text style={styles.playButtonText}>
-                    {hasPlayedSnippet ? 'Play Again' : 'Play Snippet'}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+          {won ? (
+            <View style={styles.snippetSection}>
+              <Text style={styles.snippetLabel}>🎧 Extended Snippet</Text>
+              <WaveformVisualizer 
+                playbackState={playbackState} 
+                notes={melody.extendedNotes} 
+              />
+              <TouchableOpacity 
+                style={[
+                  styles.playButton,
+                  playbackState.isPlaying && styles.playButtonActive
+                ]} 
+                onPress={handlePlaySnippet}
+              >
+                {playbackState.isPlaying ? (
+                  <>
+                    <Square size={18} color={Colors.background} fill={Colors.background} />
+                    <Text style={styles.playButtonText}>Stop</Text>
+                  </>
+                ) : (
+                  <>
+                    <Play size={18} color={Colors.background} fill={Colors.background} />
+                    <Text style={styles.playButtonText}>
+                      {hasPlayedSnippet ? 'Play Again' : 'Play Snippet'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.snippetSection}>
+              <Text style={styles.snippetLabel}>🎧 Hear the Melody</Text>
+              <WaveformVisualizer 
+                playbackState={playbackState} 
+                notes={showFullReveal ? melody.extendedNotes : melody.notes.slice(0, 4)} 
+              />
+              <View style={styles.lossRevealButtons}>
+                <TouchableOpacity 
+                  style={[
+                    styles.revealToggleButton,
+                    !showFullReveal && styles.revealToggleActive
+                  ]} 
+                  onPress={() => setShowFullReveal(false)}
+                >
+                  <Text style={[
+                    styles.revealToggleText,
+                    !showFullReveal && styles.revealToggleTextActive
+                  ]}>Teaser</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[
+                    styles.revealToggleButton,
+                    showFullReveal && styles.revealToggleActive
+                  ]} 
+                  onPress={() => setShowFullReveal(true)}
+                >
+                  <Text style={[
+                    styles.revealToggleText,
+                    showFullReveal && styles.revealToggleTextActive
+                  ]}>Full</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity 
+                style={[
+                  styles.playButton,
+                  styles.lossPlayButton,
+                  playbackState.isPlaying && styles.playButtonActive
+                ]} 
+                onPress={handlePlayLossReveal}
+              >
+                {playbackState.isPlaying ? (
+                  <>
+                    <Square size={18} color={Colors.background} fill={Colors.background} />
+                    <Text style={styles.playButtonText}>Stop</Text>
+                  </>
+                ) : (
+                  <>
+                    <Play size={18} color={Colors.background} fill={Colors.background} />
+                    <Text style={styles.playButtonText}>
+                      {showFullReveal ? 'Play Full Melody' : 'Play Teaser'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
 
           <View style={styles.shareSection}>
             <Text style={styles.shareSectionTitle}>Share Your Result</Text>
@@ -816,6 +911,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: Colors.background,
+  },
+  lossPlayButton: {
+    backgroundColor: Colors.present,
+  },
+  lossRevealButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  revealToggleButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: Colors.surfaceLight,
+  },
+  revealToggleActive: {
+    backgroundColor: Colors.present + '30',
+  },
+  revealToggleText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.textSecondary,
+  },
+  revealToggleTextActive: {
+    color: Colors.present,
   },
   shareSection: {
     width: '100%',

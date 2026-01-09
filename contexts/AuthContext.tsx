@@ -34,6 +34,18 @@ const PASSWORD_RESET_STORAGE_KEY = 'melodyx_password_resets';
 const AUTH_STORAGE_KEY = 'melodyx_auth_state';
 const USERS_STORAGE_KEY = 'melodyx_users_db';
 
+const ERROR_MESSAGES = {
+  NETWORK_ERROR: 'Network error. Please check your connection and try again.',
+  WEAK_PASSWORD: 'Password is too weak. Use at least 8 characters with uppercase, lowercase, and numbers.',
+  EMAIL_TAKEN: 'An account with this email already exists. Try signing in instead.',
+  INVALID_EMAIL: 'Please enter a valid email address.',
+  INVALID_CREDENTIALS: 'Invalid email or password. Please try again.',
+  USER_NOT_FOUND: 'No account found with this email. Would you like to sign up?',
+  TOO_MANY_ATTEMPTS: 'Too many failed attempts. Please try again in a few minutes.',
+  SESSION_EXPIRED: 'Your session has expired. Please sign in again.',
+  UNKNOWN_ERROR: 'Something went wrong. Please try again.',
+} as const;
+
 interface StoredUser {
   uid: string;
   email: string;
@@ -203,7 +215,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
       
       if (existingUser) {
-        throw new Error('An account with this email already exists');
+        throw new Error(ERROR_MESSAGES.EMAIL_TAKEN);
       }
 
       const uid = generateUid();
@@ -257,11 +269,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
 
       if (!user) {
-        throw new Error('No account found with this email');
+        throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
       }
 
       if (user.passwordHash !== simpleHash(password)) {
-        throw new Error('Incorrect password');
+        throw new Error(ERROR_MESSAGES.INVALID_CREDENTIALS);
       }
 
       const authUser: AuthUser = {
@@ -374,7 +386,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
       
       if (existingUser) {
-        throw new Error('An account with this email already exists');
+        throw new Error(ERROR_MESSAGES.EMAIL_TAKEN);
       }
 
       const newUser: StoredUser = {
