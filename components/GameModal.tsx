@@ -9,7 +9,7 @@ import {
   Share,
   Platform,
 } from 'react-native';
-import { X, Share2, Trophy, Music, Play, Square, Sparkles, Clock, Flame, Leaf, Map, ChevronRight, Home } from 'lucide-react-native';
+import { X, Share2, Trophy, Music, Play, Square, Sparkles, Clock, Flame, Leaf, Map, ChevronRight, Home, Timer } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Confetti from '@/components/Confetti';
@@ -209,6 +209,8 @@ export default function GameModal() {
     melodyLength,
     aiSelection,
     stats,
+    solveTimeSeconds,
+    clearNavigationFlag,
   } = useGame();
 
   const { playSnippet, stopPlayback, playbackState } = useAudio();
@@ -253,7 +255,7 @@ export default function GameModal() {
   }, [showModal, gameStatus, scaleAnim, opacityAnim, slideAnim]);
 
   const handleShare = async () => {
-    const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength);
+    const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength, stats.currentStreak);
     
     if (Platform.OS === 'web') {
       if (navigator.clipboard) {
@@ -278,13 +280,14 @@ export default function GameModal() {
   const handleGoToDashboard = useCallback(() => {
     stopPlayback();
     setShowModal(false);
+    clearNavigationFlag();
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     setTimeout(() => {
       router.push('/(tabs)/home');
     }, 200);
-  }, [stopPlayback, setShowModal, router]);
+  }, [stopPlayback, setShowModal, clearNavigationFlag, router]);
 
   const navigateToMode = useCallback((route: string) => {
     handleClose();
@@ -407,6 +410,15 @@ export default function GameModal() {
               <Text style={styles.statLabel}>Win Rate</Text>
             </View>
           </View>
+
+          {solveTimeSeconds > 0 && (
+            <View style={styles.timeRow}>
+              <Timer size={14} color={Colors.accent} />
+              <Text style={styles.timeText}>
+                Solved in {Math.floor(solveTimeSeconds / 60)}:{String(solveTimeSeconds % 60).padStart(2, '0')}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.snippetSection}>
             <Text style={styles.snippetLabel}>🎧 Extended Snippet</Text>
@@ -615,10 +627,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    marginBottom: 16,
+    marginBottom: 12,
     backgroundColor: Colors.background,
     borderRadius: 12,
     padding: 12,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: Colors.accent + '15',
+    borderRadius: 8,
+  },
+  timeText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.accent,
   },
   statItem: {
     alignItems: 'center',

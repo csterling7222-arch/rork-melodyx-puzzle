@@ -36,7 +36,8 @@ export function generateShareText(
   guesses: GuessResult[][],
   puzzleNumber: number,
   won: boolean,
-  melodyLength: number
+  melodyLength: number,
+  streakCount?: number
 ): string {
   const attemptText = won ? `${guesses.length}/6` : 'X/6';
   let grid = '';
@@ -49,8 +50,12 @@ export function generateShareText(
     }
     grid += '\n';
   }
+
+  const winEmoji = won ? (guesses.length <= 2 ? '🔥' : guesses.length <= 4 ? '✨' : '🎉') : '😢';
+  const streakText = streakCount && streakCount > 1 ? ` | ${streakCount}🔥 streak` : '';
+  const perfectText = won && guesses.length === 1 ? ' PERFECT!' : '';
   
-  return `🎵 Melodyx #${puzzleNumber} ${attemptText}\n\n${grid}\nPlay at melodyx.app`;
+  return `🎵 Melodyx #${puzzleNumber} ${attemptText}${perfectText} ${winEmoji}${streakText}\n\n${grid}\n🎹 Can you guess the melody?\nmelodyx.app`;
 }
 
 export function isWin(feedback: GuessResult[]): boolean {

@@ -1,7 +1,9 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
+import { Platform } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { getDailyMelody, getDailyPuzzleNumber } from '@/utils/melodies';
 import { getFeedback, isWin, GuessResult } from '@/utils/gameLogic';
 import { aiChooseSong, AISelection } from '@/utils/aiSongChooser';
@@ -47,6 +49,9 @@ export const [GameProvider, useGame] = createContextHook(() => {
   const [currentGuess, setCurrentGuess] = useState<string[]>([]);
   const [showHint, setShowHint] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [shouldNavigateHome, setShouldNavigateHome] = useState(false);
+  const [gameEndTime, setGameEndTime] = useState<number | null>(null);
+  const gameStartTimeRef = useRef<number>(Date.now());
 
   const aiSelection = useMemo<AISelection>(() => aiChooseSong(), []);
   const melody = useMemo(() => getDailyMelody(), []);
@@ -160,7 +165,20 @@ export const [GameProvider, useGame] = createContextHook(() => {
       };
 
       saveStats(newStats);
-      setTimeout(() => setShowModal(true), 1500);
+      setGameEndTime(Date.now());
+      
+      if (Platform.OS !== 'web') {
+        if (won) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        }
+      }
+      
+      setTimeout(() => {
+        setShowModal(true);
+        setShouldNavigateHome(true);
+      }, 1200);
     }
 
     setCurrentGuess([]);
@@ -203,6 +221,14 @@ export const [GameProvider, useGame] = createContextHook(() => {
   const canUseHint = guesses.length >= 3 && !hintUsed && gameStatus === 'playing';
   const canUseAudioHint = guesses.length >= 2 && !audioHintUsed && gameStatus === 'playing';
 
+  const solveTimeSeconds = gameEndTime && gameStartTimeRef.current 
+    ? Math.round((gameEndTime - gameStartTimeRef.current) / 1000)
+    : 0;
+
+  const clearNavigationFlag = useCallback(() => {
+    setShouldNavigateHome(false);
+  }, []);
+
   return {
     melody,
     puzzleNumber,
@@ -227,5 +253,8 @@ export const [GameProvider, useGame] = createContextHook(() => {
     audioHintUsed,
     activateAudioHint,
     canUseAudioHint,
+    shouldNavigateHome,
+    clearNavigationFlag,
+    solveTimeSeconds,
   };
 });
