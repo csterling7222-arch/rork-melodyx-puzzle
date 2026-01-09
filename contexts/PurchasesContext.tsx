@@ -66,12 +66,108 @@ export const ENTITLEMENTS = {
 
 export const PACKAGE_IDENTIFIERS = {
   MONTHLY: '$rc_monthly',
+  YEARLY: '$rc_annual',
   COINS_500: 'coins_500',
   COINS_1500: 'coins_1500',
   COINS_5000: 'coins_5000',
   HINTS_SMALL: 'hints_small',
   HINTS_LARGE: 'hints_large',
+  HINT_SINGLE: 'hint_single',
 } as const;
+
+export interface MockPackage {
+  identifier: string;
+  product: {
+    identifier: string;
+    priceString: string;
+    price: number;
+    title: string;
+    description: string;
+  };
+}
+
+const MOCK_PACKAGES: MockPackage[] = [
+  {
+    identifier: '$rc_monthly',
+    product: {
+      identifier: 'melodyx_premium_monthly',
+      priceString: '$4.99',
+      price: 4.99,
+      title: 'Melodyx Premium Monthly',
+      description: 'Ad-free, unlimited practice, all instruments',
+    },
+  },
+  {
+    identifier: '$rc_annual',
+    product: {
+      identifier: 'melodyx_premium_yearly',
+      priceString: '$39.99',
+      price: 39.99,
+      title: 'Melodyx Premium Yearly',
+      description: 'Save 33% with annual subscription',
+    },
+  },
+  {
+    identifier: 'coins_500',
+    product: {
+      identifier: 'melodyx_coins_500',
+      priceString: '$0.99',
+      price: 0.99,
+      title: '500 Coins',
+      description: 'Starter coin pack',
+    },
+  },
+  {
+    identifier: 'coins_1500',
+    product: {
+      identifier: 'melodyx_coins_1500',
+      priceString: '$2.99',
+      price: 2.99,
+      title: '1500 Coins',
+      description: 'Value pack with +20% bonus',
+    },
+  },
+  {
+    identifier: 'coins_5000',
+    product: {
+      identifier: 'melodyx_coins_5000',
+      priceString: '$7.99',
+      price: 7.99,
+      title: '5000 Coins',
+      description: 'Premium pack with +50% bonus',
+    },
+  },
+  {
+    identifier: 'hints_small',
+    product: {
+      identifier: 'melodyx_hints_5',
+      priceString: '$0.99',
+      price: 0.99,
+      title: '5 Hints Pack',
+      description: 'Get 5 extra hints',
+    },
+  },
+  {
+    identifier: 'hints_large',
+    product: {
+      identifier: 'melodyx_hints_50',
+      priceString: '$4.99',
+      price: 4.99,
+      title: '50 Hints Pack',
+      description: 'Best value - 50 hints!',
+    },
+  },
+  {
+    identifier: 'hint_single',
+    product: {
+      identifier: 'melodyx_hint_single',
+      priceString: '$0.49',
+      price: 0.49,
+      title: 'Single Hint',
+      description: 'One-time hint purchase',
+    },
+  },
+];
 
 export const [PurchasesProvider, usePurchases] = createContextHook(() => {
   const queryClient = useQueryClient();
@@ -221,6 +317,21 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     return currentOffering?.monthly ?? getPackageByIdentifier(PACKAGE_IDENTIFIERS.MONTHLY);
   }, [currentOffering, getPackageByIdentifier]);
 
+  const getYearlyPackage = useCallback((): PurchasesPackage | undefined => {
+    return currentOffering?.annual ?? getPackageByIdentifier(PACKAGE_IDENTIFIERS.YEARLY);
+  }, [currentOffering, getPackageByIdentifier]);
+
+  const getMockPackage = useCallback((identifier: string): MockPackage | undefined => {
+    return MOCK_PACKAGES.find(
+      (pkg) => pkg.identifier === identifier || pkg.identifier === `$rc_${identifier}`
+    );
+  }, []);
+
+  const getMockPrice = useCallback((identifier: string): string => {
+    const mock = getMockPackage(identifier);
+    return mock?.product.priceString ?? '---';
+  }, [getMockPackage]);
+
   const clearPurchaseError = useCallback(() => {
     setPurchaseError(null);
   }, []);
@@ -253,12 +364,16 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     customerInfo,
     currentOffering,
     availablePackages: currentOffering?.availablePackages ?? [],
+    mockPackages: MOCK_PACKAGES,
     hasPremiumEntitlement,
     hasEntitlement,
     purchasePackage,
     restorePurchases,
     getPackageByIdentifier,
     getMonthlyPackage,
+    getYearlyPackage,
+    getMockPackage,
+    getMockPrice,
     refreshCustomerInfo,
     purchaseError,
     clearPurchaseError,

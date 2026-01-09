@@ -20,12 +20,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 
-type AuthMode = 'login' | 'signup';
+type AuthMode = 'login' | 'signup' | 'forgot';
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { signUp, signIn, signInAnonymously, isSigningUp, isSigningIn, error, clearError } = useAuth();
+  const { signUp, signIn, signInAnonymously, requestPasswordReset, isSigningUp, isSigningIn, isResettingPassword, error, clearError } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
@@ -94,6 +94,28 @@ export default function AuthScreen() {
       return;
     }
 
+    if (mode === 'forgot') {
+      try {
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+        const result = await requestPasswordReset(email.trim());
+        if (result.success) {
+          setSuccessMessage({
+            title: 'Check Your Email',
+            subtitle: result.message,
+          });
+          setShowSuccessModal(true);
+        }
+      } catch {
+        shakeForm();
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
+      }
+      return;
+    }
+
     try {
       if (Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -119,7 +141,7 @@ export default function AuthScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
     }
-  }, [email, password, confirmPassword, displayName, mode, signUp, signIn, clearError, shakeForm, router]);
+  }, [email, password, confirmPassword, displayName, mode, signUp, signIn, requestPasswordReset, clearError, shakeForm, router]);
 
   const handleGuestLogin = useCallback(async () => {
     try {
@@ -153,8 +175,26 @@ export default function AuthScreen() {
     }
   }, [clearError]);
 
+  const goToForgotPassword = useCallback(() => {
+    clearError();
+    setLocalError(null);
+    setMode('forgot');
+    if (Platform.OS !== 'web') {
+      Haptics.selectionAsync();
+    }
+  }, [clearError]);
+
+  const goBackToLogin = useCallback(() => {
+    clearError();
+    setLocalError(null);
+    setMode('login');
+    if (Platform.OS !== 'web') {
+      Haptics.selectionAsync();
+    }
+  }, [clearError]);
+
   const displayError = localError || error;
-  const isLoading = isSigningUp || isSigningIn;
+  const isLoading = isSigningUp || isSigningIn || isResettingPassword;
 
   return (
     <View style={styles.container}>
@@ -200,12 +240,14 @@ export default function AuthScreen() {
             }
           ]}>
             <Text style={styles.formTitle}>
-              {mode === 'login' ? 'Welcome Back' : 'Create Account'}
+              {mode === 'login' ? 'Welcome Back' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
             </Text>
             <Text style={styles.formSubtitle}>
               {mode === 'login' 
                 ? 'Sign in to sync your progress' 
-                : 'Join the melody guessing community'}
+                : mode === 'signup'
+                ? 'Join the melody guessing community'
+                : 'Enter your email to receive reset instructions'}
             </Text>
 
             {displayError && (
@@ -294,6 +336,16 @@ export default function AuthScreen() {
               </View>
             )}
 
+            {mode === 'login' && (
+              <TouchableOpacity
+                style={styles.forgotPasswordButton}
+                onPress={goToForgotPassword}
+                disabled={isLoading}
+              >
+                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
               style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
               onPress={handleSubmit}
@@ -306,11 +358,13 @@ export default function AuthScreen() {
                 <>
                   {mode === 'login' ? (
                     <LogIn size={20} color={Colors.text} />
-                  ) : (
+                  ) : mode === 'signup' ? (
                     <UserPlus size={20} color={Colors.text} />
+                  ) : (
+                    <Mail size={20} color={Colors.text} />
                   )}
                   <Text style={styles.submitButtonText}>
-                    {mode === 'login' ? 'Sign In' : 'Create Account'}
+                    {mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Link'}
                   </Text>
                 </>
               )}
@@ -332,20 +386,32 @@ export default function AuthScreen() {
               <Text style={styles.guestButtonText}>Continue as Guest</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.toggleButton}
-              onPress={toggleMode}
-              disabled={isLoading}
-            >
-              <Text style={styles.toggleText}>
-                {mode === 'login' 
-                  ? "Don't have an account? " 
-                  : 'Already have an account? '}
-                <Text style={styles.toggleTextBold}>
-                  {mode === 'login' ? 'Sign Up' : 'Sign In'}
+            {mode === 'forgot' ? (
+              <TouchableOpacity
+                style={styles.toggleButton}
+                onPress={goBackToLogin}
+                disabled={isLoading}
+              >
+                <Text style={styles.toggleText}>
+                  Remember your password? <Text style={styles.toggleTextBold}>Sign In</Text>
                 </Text>
-              </Text>
-            </TouchableOpacity>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.toggleButton}
+                onPress={toggleMode}
+                disabled={isLoading}
+              >
+                <Text style={styles.toggleText}>
+                  {mode === 'login' 
+                    ? "Don't have an account? " 
+                    : 'Already have an account? '}
+                  <Text style={styles.toggleTextBold}>
+                    {mode === 'login' ? 'Sign Up' : 'Sign In'}
+                  </Text>
+                </Text>
+              </TouchableOpacity>
+            )}
           </Animated.View>
 
           <View style={styles.footer}>
@@ -491,6 +557,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
     color: Colors.text,
+  },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginBottom: 8,
+    marginTop: -4,
+  },
+  forgotPasswordText: {
+    fontSize: 13,
+    color: Colors.accent,
+    fontWeight: '500' as const,
   },
   divider: {
     flexDirection: 'row',

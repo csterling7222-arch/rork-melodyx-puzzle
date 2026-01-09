@@ -10,6 +10,8 @@ export interface FeverStats {
   totalGames: number;
   bestChain: number;
   totalSolved: number;
+  totalCoinsEarned: number;
+  longestFeverDuration: number;
 }
 
 const STORAGE_KEY = 'melodyx_fever_stats';
@@ -19,7 +21,19 @@ const DEFAULT_FEVER_STATS: FeverStats = {
   totalGames: 0,
   bestChain: 0,
   totalSolved: 0,
+  totalCoinsEarned: 0,
+  longestFeverDuration: 0,
 };
+
+const FEVER_REWARDS = {
+  basePoints: 1000,
+  guessBonus: 200,
+  feverBonus: 500,
+  chainBonusMultiplier: 50,
+  coinsPerSolve: 10,
+  coinsPerFeverSolve: 25,
+  hintsPerMilestone: 1,
+} as const;
 
 function getRandomMelody(excludeNames: string[] = []): Melody {
   const available = MELODIES.filter(m => !excludeNames.includes(m.name));
@@ -42,8 +56,14 @@ export const [FeverProvider, useFever] = createContextHook(() => {
   const [gameOver, setGameOver] = useState(false);
   const [recentMelodies, setRecentMelodies] = useState<string[]>([]);
   const [solvedCount, setSolvedCount] = useState(0);
+  const [coinsEarned, setCoinsEarned] = useState(0);
+  const [hintsEarned, setHintsEarned] = useState(0);
+  const [feverDuration, setFeverDuration] = useState(0);
+  const [showRewardPopup, setShowRewardPopup] = useState(false);
+  const [lastReward, setLastReward] = useState<{ coins: number; hints: number; type: string } | null>(null);
   
   const feverTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const feverStartTimeRef = useRef<number | null>(null);
 
   const statsQuery = useQuery({
     queryKey: ['feverStats'],
@@ -74,9 +94,18 @@ export const [FeverProvider, useFever] = createContextHook(() => {
 
   useEffect(() => {
     if (isFeverActive && feverTimeLeft > 0) {
+      if (!feverStartTimeRef.current) {
+        feverStartTimeRef.current = Date.now();
+      }
+      
       feverTimerRef.current = setInterval(() => {
         setFeverTimeLeft(prev => {
           if (prev <= 1) {
+            const duration = feverStartTimeRef.current 
+              ? Math.floor((Date.now() - feverStartTimeRef.current) / 1000)
+              : 30;
+            setFeverDuration(d => d + duration);
+            feverStartTimeRef.current = null;
             setIsFeverActive(false);
             setMultiplier(Math.max(1, multiplier - 1));
             return 0;
@@ -107,7 +136,13 @@ export const [FeverProvider, useFever] = createContextHook(() => {
     setGameOver(false);
     setIsPlaying(true);
     setSolvedCount(0);
-    console.log('Fever mode started with melody:', melody.name);
+    setCoinsEarned(0);
+    setHintsEarned(0);
+    setFeverDuration(0);
+    setShowRewardPopup(false);
+    setLastReward(null);
+    feverStartTimeRef.current = null;
+    console.log('[Fever] Game started with melody:', melody.name);
   }, []);
 
   const nextMelody = useCallback(() => {
@@ -142,13 +177,30 @@ export const [FeverProvider, useFever] = createContextHook(() => {
     setGuesses(newGuesses);
 
     if (won) {
-      const basePoints = 1000;
-      const guessBonus = Math.max(0, (6 - newGuesses.length) * 200);
-      const earnedPoints = (basePoints + guessBonus) * multiplier;
+      const { basePoints, guessBonus, feverBonus, chainBonusMultiplier, coinsPerSolve, coinsPerFeverSolve } = FEVER_REWARDS;
+      const guessPoints = Math.max(0, (6 - newGuesses.length) * guessBonus);
+      const chainBonus = chain * chainBonusMultiplier;
+      const feverPoints = isFeverActive ? feverBonus : 0;
+      const earnedPoints = (basePoints + guessPoints + chainBonus + feverPoints) * multiplier;
+      
+      const earnedCoins = isFeverActive ? coinsPerFeverSolve : coinsPerSolve;
+      const earnedHints = (chain + 1) % 5 === 0 ? 1 : 0;
       
       setScore(prev => prev + earnedPoints);
       setChain(prev => prev + 1);
       setSolvedCount(prev => prev + 1);
+      setCoinsEarned(prev => prev + earnedCoins);
+      setHintsEarned(prev => prev + earnedHints);
+      
+      if (earnedHints > 0 || isFeverActive) {
+        setLastReward({ 
+          coins: earnedCoins, 
+          hints: earnedHints, 
+          type: isFeverActive ? 'fever' : 'chain'
+        });
+        setShowRewardPopup(true);
+        setTimeout(() => setShowRewardPopup(false), 1500);
+      }
       
       const newChain = chain + 1;
       
@@ -156,10 +208,13 @@ export const [FeverProvider, useFever] = createContextHook(() => {
         setIsFeverActive(true);
         setFeverTimeLeft(30);
         setMultiplier(3);
+        feverStartTimeRef.current = Date.now();
+        console.log('[Fever] FEVER MODE ACTIVATED!');
       } else if (newChain >= 5 && newChain < 10) {
         setMultiplier(2);
       }
       
+      console.log(`[Fever] Solved! +${earnedPoints} pts, +${earnedCoins} coins, chain: ${newChain}`);
       setTimeout(() => nextMelody(), 1000);
     } else if (newGuesses.length >= 6) {
       setChain(0);
@@ -173,12 +228,15 @@ export const [FeverProvider, useFever] = createContextHook(() => {
         totalGames: currentStats.totalGames + 1,
         bestChain: Math.max(currentStats.bestChain, chain),
         totalSolved: currentStats.totalSolved + solvedCount,
+        totalCoinsEarned: currentStats.totalCoinsEarned + coinsEarned,
+        longestFeverDuration: Math.max(currentStats.longestFeverDuration, feverDuration),
       };
       saveStats(newStats);
+      console.log('[Fever] Game Over! Final stats:', newStats);
     }
 
     setCurrentGuess([]);
-  }, [currentMelody, currentGuess, melodyLength, gameOver, guesses, multiplier, chain, isFeverActive, nextMelody, score, solvedCount, statsQuery.data, saveStats]);
+  }, [currentMelody, currentGuess, melodyLength, gameOver, guesses, multiplier, chain, isFeverActive, nextMelody, score, solvedCount, coinsEarned, feverDuration, statsQuery.data, saveStats]);
 
   const endGame = useCallback(() => {
     const currentStats = statsQuery.data ?? DEFAULT_FEVER_STATS;
@@ -187,12 +245,19 @@ export const [FeverProvider, useFever] = createContextHook(() => {
       totalGames: currentStats.totalGames + 1,
       bestChain: Math.max(currentStats.bestChain, chain),
       totalSolved: currentStats.totalSolved + solvedCount,
+      totalCoinsEarned: currentStats.totalCoinsEarned + coinsEarned,
+      longestFeverDuration: Math.max(currentStats.longestFeverDuration, feverDuration),
     };
     saveStats(newStats);
     
     setIsPlaying(false);
     setGameOver(true);
-  }, [score, chain, solvedCount, statsQuery.data, saveStats]);
+    console.log('[Fever] Game ended manually. Earned:', { coins: coinsEarned, hints: hintsEarned });
+  }, [score, chain, solvedCount, coinsEarned, hintsEarned, feverDuration, statsQuery.data, saveStats]);
+
+  const dismissRewardPopup = useCallback(() => {
+    setShowRewardPopup(false);
+  }, []);
 
   return {
     isPlaying,
@@ -208,10 +273,15 @@ export const [FeverProvider, useFever] = createContextHook(() => {
     gameOver,
     stats: statsQuery.data ?? DEFAULT_FEVER_STATS,
     solvedCount,
+    coinsEarned,
+    hintsEarned,
+    showRewardPopup,
+    lastReward,
     startGame,
     addNote,
     removeNote,
     submitGuess,
     endGame,
+    dismissRewardPopup,
   };
 });

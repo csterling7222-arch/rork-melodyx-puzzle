@@ -33,6 +33,16 @@ interface ErrorEvent {
 const errorBuffer: ErrorEvent[] = [];
 const MAX_BUFFER_SIZE = 50;
 
+interface PerformanceMetric {
+  name: string;
+  duration: number;
+  timestamp: string;
+  tags?: Record<string, string>;
+}
+
+const performanceBuffer: PerformanceMetric[] = [];
+const MAX_PERF_BUFFER_SIZE = 100;
+
 class ErrorTracker {
   private isInitialized = false;
   private userId: string | null = null;
@@ -176,6 +186,57 @@ class ErrorTracker {
     return this.sessionId;
   }
 
+  trackPerformance(name: string, duration: number, tags?: Record<string, string>) {
+    const metric: PerformanceMetric = {
+      name,
+      duration,
+      timestamp: new Date().toISOString(),
+      tags,
+    };
+
+    performanceBuffer.push(metric);
+    if (performanceBuffer.length > MAX_PERF_BUFFER_SIZE) {
+      performanceBuffer.shift();
+    }
+
+    if (duration > 1000) {
+      console.warn(`[ErrorTracker] Slow operation: ${name} took ${duration}ms`);
+    } else {
+      console.log(`[ErrorTracker] Performance: ${name} - ${duration}ms`);
+    }
+  }
+
+  getPerformanceBuffer(): PerformanceMetric[] {
+    return [...performanceBuffer];
+  }
+
+  measureAsync<T>(name: string, fn: () => Promise<T>, tags?: Record<string, string>): Promise<T> {
+    const start = Date.now();
+    return fn()
+      .then((result) => {
+        this.trackPerformance(name, Date.now() - start, tags);
+        return result;
+      })
+      .catch((error) => {
+        this.trackPerformance(name, Date.now() - start, { ...tags, error: 'true' });
+        this.captureException(error, { tags: { ...tags, operation: name } });
+        throw error;
+      });
+  }
+
+  measureSync<T>(name: string, fn: () => T, tags?: Record<string, string>): T {
+    const start = Date.now();
+    try {
+      const result = fn();
+      this.trackPerformance(name, Date.now() - start, tags);
+      return result;
+    } catch (error) {
+      this.trackPerformance(name, Date.now() - start, { ...tags, error: 'true' });
+      this.captureException(error, { tags: { ...tags, operation: name } });
+      throw error;
+    }
+  }
+
   wrap<T extends (...args: unknown[]) => unknown>(fn: T, context?: ErrorContext): T {
     return ((...args: Parameters<T>) => {
       try {
@@ -220,3 +281,21 @@ export function addBreadcrumb(breadcrumb: BreadcrumbData) {
 export function wrapWithErrorTracking<T extends (...args: unknown[]) => unknown>(fn: T, context?: ErrorContext): T {
   return errorTracker.wrap(fn, context);
 }
+
+export function trackPerformance(name: string, duration: number, tags?: Record<string, string>) {
+  errorTracker.trackPerformance(name, duration, tags);
+}
+
+export function measureAsync<T>(name: string, fn: () => Promise<T>, tags?: Record<string, string>): Promise<T> {
+  return errorTracker.measureAsync(name, fn, tags);
+}
+
+export function measureSync<T>(name: string, fn: () => T, tags?: Record<string, string>): T {
+  return errorTracker.measureSync(name, fn, tags);
+}
+
+export function getPerformanceMetrics(): PerformanceMetric[] {
+  return errorTracker.getPerformanceBuffer();
+}
+
+export type { PerformanceMetric };

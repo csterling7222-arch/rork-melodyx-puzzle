@@ -158,11 +158,72 @@ function ScoreDisplay({ score, chain, multiplier }: { score: number; chain: numb
   );
 }
 
+function RewardPopup({ reward, visible }: { reward: { coins: number; hints: number; type: string } | null; visible: boolean }) {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible && reward) {
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(scaleAnim, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible, reward, scaleAnim, opacityAnim]);
+
+  if (!reward) return null;
+
+  return (
+    <Animated.View
+      style={[
+        styles.rewardPopup,
+        {
+          opacity: opacityAnim,
+          transform: [{ scale: scaleAnim }],
+        },
+      ]}
+      pointerEvents="none"
+    >
+      <Text style={styles.rewardPopupIcon}>
+        {reward.type === 'fever' ? '🔥' : '⭐'}
+      </Text>
+      <Text style={styles.rewardPopupText}>
+        +{reward.coins} 🪙
+        {reward.hints > 0 && ` +${reward.hints} 💡`}
+      </Text>
+    </Animated.View>
+  );
+}
+
 function GameOverModal({ 
   score, 
   chain, 
   highScore,
   solvedCount,
+  coinsEarned,
+  hintsEarned,
   onRestart, 
   onGoHome 
 }: { 
@@ -170,6 +231,8 @@ function GameOverModal({
   chain: number;
   highScore: number;
   solvedCount: number;
+  coinsEarned: number;
+  hintsEarned: number;
   onRestart: () => void; 
   onGoHome: () => void;
 }) {
@@ -232,6 +295,26 @@ function GameOverModal({
             </Text>
           </View>
         </View>
+
+        {(coinsEarned > 0 || hintsEarned > 0) && (
+          <View style={styles.earningsContainer}>
+            <Text style={styles.earningsTitle}>🎁 Session Rewards</Text>
+            <View style={styles.earningsRow}>
+              {coinsEarned > 0 && (
+                <View style={styles.earningItem}>
+                  <Text style={styles.earningValue}>+{coinsEarned}</Text>
+                  <Text style={styles.earningLabel}>🪙 Coins</Text>
+                </View>
+              )}
+              {hintsEarned > 0 && (
+                <View style={styles.earningItem}>
+                  <Text style={styles.earningValue}>+{hintsEarned}</Text>
+                  <Text style={styles.earningLabel}>💡 Hints</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
 
         <View style={styles.modalButtons}>
           <TouchableOpacity style={styles.restartButton} onPress={onRestart}>
@@ -316,6 +399,10 @@ export default function FeverScreen() {
     gameOver,
     stats,
     solvedCount,
+    coinsEarned,
+    hintsEarned,
+    showRewardPopup,
+    lastReward,
     startGame,
     addNote,
     removeNote,
@@ -537,12 +624,16 @@ export default function FeverScreen() {
           />
         </View>
 
+        <RewardPopup reward={lastReward} visible={showRewardPopup} />
+
         {gameOver && (
           <GameOverModal
             score={score}
             chain={chain}
             highScore={stats.highScore}
             solvedCount={solvedCount}
+            coinsEarned={coinsEarned}
+            hintsEarned={hintsEarned}
             onRestart={handleStart}
             onGoHome={handleGoHome}
           />
@@ -898,5 +989,67 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: Colors.text,
+  },
+  rewardPopup: {
+    position: 'absolute',
+    top: '40%',
+    alignSelf: 'center',
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 2,
+    borderColor: '#FFD700',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+    zIndex: 200,
+  },
+  rewardPopupIcon: {
+    fontSize: 28,
+  },
+  rewardPopupText: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: '#FFD700',
+  },
+  earningsContainer: {
+    backgroundColor: Colors.correct + '15',
+    borderRadius: 12,
+    padding: 14,
+    width: '100%',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.correct + '30',
+  },
+  earningsTitle: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.correct,
+    textAlign: 'center' as const,
+    marginBottom: 10,
+  },
+  earningsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 24,
+  },
+  earningItem: {
+    alignItems: 'center',
+  },
+  earningValue: {
+    fontSize: 20,
+    fontWeight: '800' as const,
+    color: Colors.text,
+  },
+  earningLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
 });

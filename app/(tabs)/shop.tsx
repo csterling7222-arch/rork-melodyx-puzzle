@@ -130,7 +130,9 @@ export default function ShopScreen() {
     isPurchasing,
     isRestoring,
     isLoading: isPurchasesLoading,
+    isConfigured,
     getPackageByIdentifier,
+    getMockPrice,
   } = usePurchases();
   
   const [selectedTab, setSelectedTab] = useState<'skins' | 'hints' | 'coins' | 'premium'>('skins');
@@ -232,7 +234,8 @@ export default function ShopScreen() {
 
   const getPackagePrice = (identifier: string): string => {
     const pkg = getPackageByIdentifier(identifier);
-    return pkg?.product.priceString ?? '---';
+    if (pkg?.product.priceString) return pkg.product.priceString;
+    return getMockPrice(identifier);
   };
 
   return (
@@ -396,6 +399,11 @@ export default function ShopScreen() {
                   <Crown size={48} color="#FFD700" />
                   <Text style={styles.premiumTitle}>Melodyx Premium</Text>
                   <Text style={styles.premiumPrice}>{getPackagePrice(PACKAGE_IDENTIFIERS.MONTHLY)}/month</Text>
+                  {!isConfigured && (
+                    <View style={styles.sandboxBadge}>
+                      <Text style={styles.sandboxText}>SANDBOX MODE</Text>
+                    </View>
+                  )}
                   
                   <View style={styles.premiumFeatures}>
                     <View style={styles.featureRow}>
@@ -786,5 +794,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
     paddingHorizontal: 20,
+  },
+  sandboxBadge: {
+    backgroundColor: '#FF6B35' + '20',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  sandboxText: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: '#FF6B35',
+    letterSpacing: 0.5,
   },
 });

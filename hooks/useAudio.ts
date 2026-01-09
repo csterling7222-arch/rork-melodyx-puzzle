@@ -36,6 +36,24 @@ const MAX_CACHE_SIZE = 60;
 const PRELOAD_BATCH_SIZE = 4;
 const PRELOAD_DELAY_MS = 30;
 
+const offlineCache = new Map<string, boolean>();
+let isOfflineMode = false;
+
+export function setOfflineMode(offline: boolean) {
+  isOfflineMode = offline;
+  console.log('[Audio] Offline mode:', offline);
+}
+
+export function getAudioCacheStatus(): { cached: number; total: number; instruments: string[] } {
+  let cached = 0;
+  const instruments: string[] = [];
+  soundCache.forEach((cache, instId) => {
+    cached += cache.size;
+    if (cache.size > 0) instruments.push(instId);
+  });
+  return { cached, total: Object.keys(NOTE_FREQUENCIES).length, instruments };
+}
+
 function getWebAudioContext(): AudioContext | null {
   if (Platform.OS !== 'web') return null;
   
@@ -91,10 +109,18 @@ async function preloadSound(note: string, instrumentId: string = currentInstrume
   if (Platform.OS === 'web') return null;
   
   const cache = getInstrumentCache(instrumentId);
-  if (cache.has(note)) return cache.get(note) || null;
+  if (cache.has(note)) {
+    offlineCache.set(`${instrumentId}_${note}`, true);
+    return cache.get(note) || null;
+  }
   
   const cacheKey = `${instrumentId}_${note}`;
   if (preloadQueue.has(cacheKey)) return null;
+  
+  if (isOfflineMode && !offlineCache.has(cacheKey)) {
+    console.log(`[Audio] Offline mode - skipping network request for ${note}`);
+    return null;
+  }
   
   preloadQueue.add(cacheKey);
   
@@ -105,14 +131,16 @@ async function preloadSound(note: string, instrumentId: string = currentInstrume
     
     const { sound } = await Audio.Sound.createAsync(
       { uri: url },
-      { shouldPlay: false, volume: 1.0 }
+      { shouldPlay: false, volume: 1.0, progressUpdateIntervalMillis: 100 }
     );
     
     cache.set(note, sound);
-    console.log(`Preloaded ${instrumentId} sound for ${note}`);
+    offlineCache.set(cacheKey, true);
+    console.log(`[Audio] Preloaded ${instrumentId} sound for ${note}`);
     return sound;
   } catch (error) {
-    console.log(`Failed to preload ${instrumentId} ${note}:`, error);
+    console.log(`[Audio] Failed to preload ${instrumentId} ${note}:`, error);
+    offlineCache.set(cacheKey, false);
     return null;
   } finally {
     preloadQueue.delete(cacheKey);
@@ -419,6 +447,19 @@ export function useAudio(instrumentId?: string) {
     playbackTimeoutsRef.current.push(endTimeout);
   }, [playNote, stopPlayback]);
 
+  const preloadNotes = useCallback(async (notes: string[]) => {
+    if (Platform.OS === 'web') return;
+    const instId = currentInstrumentRef.current.id;
+    console.log(`[Audio] Preloading ${notes.length} notes for ${instId}`);
+    await Promise.all(notes.map(note => preloadSound(note, instId)));
+  }, []);
+
+  const isNoteCached = useCallback((note: string): boolean => {
+    const instId = currentInstrumentRef.current.id;
+    const cache = getInstrumentCache(instId);
+    return cache.has(note);
+  }, []);
+
   return { 
     playNote, 
     playMelody, 
@@ -426,5 +467,7 @@ export function useAudio(instrumentId?: string) {
     playHintNotes,
     stopPlayback,
     playbackState,
+    preloadNotes,
+    isNoteCached,
   };
 }

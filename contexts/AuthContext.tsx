@@ -23,6 +23,14 @@ interface AuthCredentials {
   displayName?: string;
 }
 
+interface PasswordResetRequest {
+  email: string;
+  token: string;
+  expiresAt: number;
+}
+
+const PASSWORD_RESET_STORAGE_KEY = 'melodyx_password_resets';
+
 const AUTH_STORAGE_KEY = 'melodyx_auth_state';
 const USERS_STORAGE_KEY = 'melodyx_users_db';
 
@@ -69,6 +77,24 @@ async function getUsersDb(): Promise<StoredUser[]> {
 
 async function saveUsersDb(users: StoredUser[]): Promise<void> {
   await AsyncStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+}
+
+function generateResetToken(): string {
+  return `reset_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+}
+
+async function getPasswordResets(): Promise<PasswordResetRequest[]> {
+  try {
+    const stored = await AsyncStorage.getItem(PASSWORD_RESET_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch (error) {
+    console.log('Error reading password resets:', error);
+    return [];
+  }
+}
+
+async function savePasswordResets(resets: PasswordResetRequest[]): Promise<void> {
+  await AsyncStorage.setItem(PASSWORD_RESET_STORAGE_KEY, JSON.stringify(resets));
 }
 
 export const [AuthProvider, useAuth] = createContextHook(() => {
@@ -321,6 +347,116 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     },
   });
 
+  const requestPasswordResetMutation = useMutation({
+    mutationFn: async (email: string): Promise<{ success: boolean; message: string }> => {
+      setAuthError(null);
+
+      if (!validateEmail(email)) {
+        throw new Error('Please enter a valid email address');
+      }
+
+      const users = await getUsersDb();
+      const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+
+      if (!user) {
+        return { 
+          success: true, 
+          message: 'If an account exists with this email, you will receive reset instructions.' 
+        };
+      }
+
+      const token = generateResetToken();
+      const expiresAt = Date.now() + (60 * 60 * 1000);
+
+      const resets = await getPasswordResets();
+      const filteredResets = resets.filter(r => r.email !== email.toLowerCase());
+      await savePasswordResets([...filteredResets, { email: email.toLowerCase(), token, expiresAt }]);
+
+      console.log('[Auth] Password reset requested for:', email);
+      console.log('[Auth] Reset token (dev only):', token);
+      
+      return { 
+        success: true, 
+        message: 'Password reset instructions sent! Check your email.' 
+      };
+    },
+    onError: (error: Error) => {
+      setAuthError(error.message);
+      console.log('[Auth] Password reset request error:', error.message);
+    },
+  });
+
+  const confirmPasswordResetMutation = useMutation({
+    mutationFn: async ({ token, newPassword }: { token: string; newPassword: string }): Promise<{ success: boolean; message: string }> => {
+      setAuthError(null);
+
+      if (!validatePassword(newPassword)) {
+        throw new Error('Password must be at least 6 characters');
+      }
+
+      const resets = await getPasswordResets();
+      const resetRequest = resets.find(r => r.token === token && r.expiresAt > Date.now());
+
+      if (!resetRequest) {
+        throw new Error('Invalid or expired reset token');
+      }
+
+      const users = await getUsersDb();
+      const userIndex = users.findIndex(u => u.email === resetRequest.email);
+
+      if (userIndex === -1) {
+        throw new Error('User not found');
+      }
+
+      users[userIndex].passwordHash = simpleHash(newPassword);
+      await saveUsersDb(users);
+
+      const updatedResets = resets.filter(r => r.token !== token);
+      await savePasswordResets(updatedResets);
+
+      console.log('[Auth] Password reset confirmed for:', resetRequest.email);
+      return { success: true, message: 'Password successfully reset! You can now sign in.' };
+    },
+    onError: (error: Error) => {
+      setAuthError(error.message);
+      console.log('[Auth] Password reset confirm error:', error.message);
+    },
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }): Promise<void> => {
+      setAuthError(null);
+
+      if (!authState.user || authState.isAnonymous) {
+        throw new Error('You must be signed in to change your password');
+      }
+
+      if (!validatePassword(newPassword)) {
+        throw new Error('New password must be at least 6 characters');
+      }
+
+      const users = await getUsersDb();
+      const userIndex = users.findIndex(u => u.uid === authState.user!.uid);
+
+      if (userIndex === -1) {
+        throw new Error('User not found');
+      }
+
+      if (users[userIndex].passwordHash !== simpleHash(currentPassword)) {
+        throw new Error('Current password is incorrect');
+      }
+
+      users[userIndex].passwordHash = simpleHash(newPassword);
+      await saveUsersDb(users);
+
+      console.log('[Auth] Password changed for:', authState.user.email);
+    },
+    onError: (error: Error) => {
+      setAuthError(error.message);
+      console.log('[Auth] Change password error:', error.message);
+    },
+  });
+
   const clearError = useCallback(() => {
     setAuthError(null);
   }, []);
@@ -331,6 +467,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const { mutateAsync: doSignOut } = signOutMutation;
   const { mutateAsync: doUpdateProfile } = updateProfileMutation;
   const { mutateAsync: doLinkAccount } = linkAnonymousAccountMutation;
+  const { mutateAsync: doRequestPasswordReset } = requestPasswordResetMutation;
+  const { mutateAsync: doConfirmPasswordReset } = confirmPasswordResetMutation;
+  const { mutateAsync: doChangePassword } = changePasswordMutation;
 
   const signUp = useCallback(async (email: string, password: string, displayName?: string) => {
     return doSignUp({ email, password, displayName });
@@ -356,6 +495,18 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     return doLinkAccount({ email, password });
   }, [doLinkAccount]);
 
+  const requestPasswordReset = useCallback(async (email: string) => {
+    return doRequestPasswordReset(email);
+  }, [doRequestPasswordReset]);
+
+  const confirmPasswordReset = useCallback(async (token: string, newPassword: string) => {
+    return doConfirmPasswordReset({ token, newPassword });
+  }, [doConfirmPasswordReset]);
+
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    return doChangePassword({ currentPassword, newPassword });
+  }, [doChangePassword]);
+
   return {
     user: authState.user,
     isAuthenticated: authState.isAuthenticated,
@@ -364,6 +515,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     isSigningUp: signUpMutation.isPending,
     isSigningIn: signInMutation.isPending,
     isSigningOut: signOutMutation.isPending,
+    isResettingPassword: requestPasswordResetMutation.isPending || confirmPasswordResetMutation.isPending,
+    isChangingPassword: changePasswordMutation.isPending,
     error: authError,
     signUp,
     signIn,
@@ -371,6 +524,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     signOut,
     updateDisplayName,
     linkAnonymousAccount,
+    requestPasswordReset,
+    confirmPasswordReset,
+    changePassword,
     clearError,
   };
 });
