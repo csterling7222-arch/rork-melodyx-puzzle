@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, memo } from 'react';
+import React, { useCallback, useRef, memo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import { Delete, Check } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { NOTE_SCALE } from '@/utils/melodies';
+import { unlockWebAudio } from '@/hooks/useAudio';
 
 interface PianoKeyboardProps {
   onNotePress: (note: string) => void;
@@ -149,8 +150,30 @@ function PianoKeyboard({
   const deleteScaleAnim = useRef(new Animated.Value(1)).current;
   const submitScaleAnim = useRef(new Animated.Value(1)).current;
   const submitGlowAnim = useRef(new Animated.Value(0)).current;
+  const hasUnlockedAudio = useRef(false);
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && !hasUnlockedAudio.current) {
+      const handleFirstInteraction = () => {
+        unlockWebAudio();
+        hasUnlockedAudio.current = true;
+        document.removeEventListener('click', handleFirstInteraction);
+        document.removeEventListener('touchstart', handleFirstInteraction);
+      };
+      document.addEventListener('click', handleFirstInteraction);
+      document.addEventListener('touchstart', handleFirstInteraction);
+      return () => {
+        document.removeEventListener('click', handleFirstInteraction);
+        document.removeEventListener('touchstart', handleFirstInteraction);
+      };
+    }
+  }, []);
 
   const handleNotePress = useCallback((note: string) => {
+    if (Platform.OS === 'web' && !hasUnlockedAudio.current) {
+      unlockWebAudio();
+      hasUnlockedAudio.current = true;
+    }
     onNotePress(note);
     playNote(note);
   }, [onNotePress, playNote]);

@@ -181,8 +181,41 @@ export default function ShopScreen() {
 
   const handleIAPPurchase = useCallback(async (packageId: string, rewardType?: 'coins' | 'hints', rewardAmount?: number) => {
     const pkg = getPackageByIdentifier(packageId);
-    if (!pkg) {
-      Alert.alert('Store Unavailable', 'Products are loading. Please try again in a moment.');
+    
+    if (!isConfigured || !pkg) {
+      console.log('[Shop] Store not configured, using demo mode for:', packageId);
+      
+      setPurchasingPackage(packageId);
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      
+      if (rewardType === 'coins' && rewardAmount) {
+        addCoins(rewardAmount);
+        Alert.alert(
+          '🎉 Demo Purchase!', 
+          `You received ${rewardAmount} coins! (Demo mode - no real charge)`,
+          [{ text: 'Awesome!', style: 'default' }]
+        );
+      } else if (rewardType === 'hints' && rewardAmount) {
+        addHints(rewardAmount);
+        Alert.alert(
+          '💡 Demo Hints Added!', 
+          `You received ${rewardAmount} hints! (Demo mode - no real charge)`,
+          [{ text: 'Great!', style: 'default' }]
+        );
+      } else {
+        Alert.alert(
+          '👑 Demo Premium!', 
+          'This is demo mode. Configure RevenueCat API keys for real purchases.',
+          [{ text: 'OK', style: 'default' }]
+        );
+      }
+      
+      setPurchasingPackage(null);
       return;
     }
 
@@ -226,7 +259,7 @@ export default function ShopScreen() {
     } finally {
       setPurchasingPackage(null);
     }
-  }, [getPackageByIdentifier, purchasePackage, addCoins, addHints]);
+  }, [getPackageByIdentifier, purchasePackage, addCoins, addHints, isConfigured]);
 
   const handleRestorePurchases = useCallback(async () => {
     await restorePurchases();

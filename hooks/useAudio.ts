@@ -27,6 +27,7 @@ export interface PlaybackState {
 
 let audioContextInstance: AudioContext | null = null;
 let audioInitialized = false;
+let webAudioUnlocked = false;
 
 const soundCache = new Map<string, Map<string, Audio.Sound>>();
 const preloadQueue = new Set<string>();
@@ -63,13 +64,35 @@ function getWebAudioContext(): AudioContext | null {
       const AudioContextClass = win.AudioContext || win.webkitAudioContext;
       if (AudioContextClass) {
         audioContextInstance = new AudioContextClass();
-        console.log('Web AudioContext created successfully');
+        console.log('[Audio] Web AudioContext created successfully');
       }
     }
+    
+    if (audioContextInstance && audioContextInstance.state === 'suspended') {
+      audioContextInstance.resume().then(() => {
+        console.log('[Audio] Web AudioContext resumed');
+        webAudioUnlocked = true;
+      }).catch(e => console.log('[Audio] Resume error:', e));
+    } else if (audioContextInstance) {
+      webAudioUnlocked = true;
+    }
+    
     return audioContextInstance;
   } catch (error) {
-    console.log('Failed to create Web AudioContext:', error);
+    console.log('[Audio] Failed to create Web AudioContext:', error);
     return null;
+  }
+}
+
+export function unlockWebAudio(): void {
+  if (Platform.OS !== 'web' || webAudioUnlocked) return;
+  
+  const ctx = getWebAudioContext();
+  if (ctx && ctx.state === 'suspended') {
+    ctx.resume().then(() => {
+      console.log('[Audio] Web audio unlocked via user interaction');
+      webAudioUnlocked = true;
+    }).catch(e => console.log('[Audio] Unlock error:', e));
   }
 }
 
@@ -228,17 +251,19 @@ export function useAudio(instrumentId?: string) {
     try {
       const ctx = getWebAudioContext();
       if (!ctx) {
-        console.log('No web audio context available');
+        console.log('[Audio] No web audio context available');
         return;
       }
 
       if (ctx.state === 'suspended') {
-        ctx.resume().catch(e => console.log('Resume error:', e));
+        ctx.resume().then(() => {
+          webAudioUnlocked = true;
+        }).catch(e => console.log('[Audio] Resume error:', e));
       }
 
       const frequency = NOTE_FREQUENCIES[note];
       if (!frequency) {
-        console.log('Unknown note:', note);
+        console.log('[Audio] Unknown note:', note);
         return;
       }
 
@@ -273,7 +298,7 @@ export function useAudio(instrumentId?: string) {
 
       console.log(`[Audio] Web: Playing ${note} on ${instrument.name}`);
     } catch (error) {
-      console.log('Web audio error:', error);
+      console.log('[Audio] Web audio error:', error);
     }
   }, []);
 
@@ -320,11 +345,15 @@ export function useAudio(instrumentId?: string) {
   }, []);
 
   const playNote = useCallback((note: string) => {
-    console.log(`playNote: ${note} on ${Platform.OS}`);
-    if (Platform.OS === 'web') {
-      playNoteWeb(note);
-    } else {
-      playNoteNative(note);
+    console.log(`[Audio] playNote: ${note} on ${Platform.OS}`);
+    try {
+      if (Platform.OS === 'web') {
+        playNoteWeb(note);
+      } else {
+        playNoteNative(note);
+      }
+    } catch (error) {
+      console.log('[Audio] Error playing note:', error);
     }
   }, [playNoteWeb, playNoteNative]);
 
@@ -460,6 +489,14 @@ export function useAudio(instrumentId?: string) {
     return cache.has(note);
   }, []);
 
+  const initAudio = useCallback(() => {
+    if (Platform.OS === 'web') {
+      unlockWebAudio();
+    } else {
+      initNativeAudio();
+    }
+  }, []);
+
   return { 
     playNote, 
     playMelody, 
@@ -469,5 +506,6 @@ export function useAudio(instrumentId?: string) {
     playbackState,
     preloadNotes,
     isNoteCached,
+    initAudio,
   };
 }

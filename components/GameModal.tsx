@@ -252,7 +252,7 @@ export default function GameModal() {
     setShouldAutoPlaySnippet,
   } = useGame();
 
-  const { playSnippet, stopPlayback, playbackState } = useAudio();
+  const { playSnippet, stopPlayback, playbackState, initAudio } = useAudio();
   const [hasPlayedSnippet, setHasPlayedSnippet] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -295,18 +295,22 @@ export default function GameModal() {
 
   useEffect(() => {
     if (showModal && shouldAutoPlaySnippet && gameStatus === 'won' && !hasPlayedSnippet) {
+      initAudio();
+      
       const autoPlayTimeout = setTimeout(() => {
+        console.log('[GameModal] Auto-playing win snippet:', melody.extendedNotes);
         playSnippet(melody.extendedNotes, () => {
           setHasPlayedSnippet(true);
+          console.log('[GameModal] Win snippet playback complete');
         });
         setShouldAutoPlaySnippet(false);
         if (Platform.OS !== 'web') {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
-      }, 800);
+      }, 600);
       return () => clearTimeout(autoPlayTimeout);
     }
-  }, [showModal, shouldAutoPlaySnippet, gameStatus, hasPlayedSnippet, melody.extendedNotes, playSnippet, setShouldAutoPlaySnippet]);
+  }, [showModal, shouldAutoPlaySnippet, gameStatus, hasPlayedSnippet, melody.extendedNotes, playSnippet, setShouldAutoPlaySnippet, initAudio]);
 
   const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength, stats.currentStreak);
 
@@ -380,9 +384,12 @@ export default function GameModal() {
   }, [router, handleClose]);
 
   const handlePlaySnippet = () => {
+    initAudio();
+    
     if (playbackState.isPlaying) {
       stopPlayback();
     } else {
+      console.log('[GameModal] Playing snippet manually:', melody.extendedNotes);
       playSnippet(melody.extendedNotes, () => {
         setHasPlayedSnippet(true);
       });
