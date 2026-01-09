@@ -1,6 +1,6 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Platform, Alert } from 'react-native';
 import Purchases, {
   PurchasesOffering,
@@ -9,41 +9,74 @@ import Purchases, {
   LOG_LEVEL,
   PurchasesError,
 } from 'react-native-purchases';
+import { captureError } from '@/utils/errorTracking';
 
 function getRCApiKey(): string {
   if (__DEV__ || Platform.OS === 'web') {
-    return process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY || '';
+    const testKey = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY;
+    if (testKey) return testKey;
   }
-  return Platform.select({
+  const key = Platform.select({
     ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY || '',
     android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY || '',
     default: process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY || '',
   }) || '';
+  console.log('[RevenueCat] Using API key for platform:', Platform.OS);
+  return key;
 }
 
-const apiKey = getRCApiKey();
 let isConfigured = false;
+let configurationAttempted = false;
 
-if (apiKey && !isConfigured) {
+function configureRevenueCat() {
+  if (configurationAttempted) return isConfigured;
+  configurationAttempted = true;
+  
+  const apiKey = getRCApiKey();
+  if (!apiKey) {
+    console.log('[RevenueCat] No API key available, skipping configuration');
+    return false;
+  }
+  
   try {
-    Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+    Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.INFO);
     Purchases.configure({ apiKey });
     isConfigured = true;
     console.log('[RevenueCat] Configured successfully');
+    return true;
   } catch (error) {
     console.error('[RevenueCat] Configuration error:', error);
+    captureError(error, { tags: { component: 'RevenueCat', action: 'configure' } });
+    return false;
   }
 }
+
+configureRevenueCat();
 
 export interface PurchaseResult {
   success: boolean;
   error?: string;
   productIdentifier?: string;
+  customerInfo?: CustomerInfo;
 }
+
+export const ENTITLEMENTS = {
+  PREMIUM: 'premium',
+} as const;
+
+export const PACKAGE_IDENTIFIERS = {
+  MONTHLY: '$rc_monthly',
+  COINS_500: 'coins_500',
+  COINS_1500: 'coins_1500',
+  COINS_5000: 'coins_5000',
+  HINTS_SMALL: 'hints_small',
+  HINTS_LARGE: 'hints_large',
+} as const;
 
 export const [PurchasesProvider, usePurchases] = createContextHook(() => {
   const queryClient = useQueryClient();
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const customerInfoQuery = useQuery({
     queryKey: ['customerInfo'],
@@ -54,15 +87,20 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
       }
       try {
         const info = await Purchases.getCustomerInfo();
-        console.log('[RevenueCat] Customer info fetched:', info.activeSubscriptions);
+        console.log('[RevenueCat] Customer info fetched:', {
+          activeSubscriptions: info.activeSubscriptions,
+          entitlements: Object.keys(info.entitlements.active),
+        });
         return info;
       } catch (error) {
         console.error('[RevenueCat] Error fetching customer info:', error);
+        captureError(error, { tags: { component: 'RevenueCat', action: 'getCustomerInfo' } });
         return null;
       }
     },
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: true,
+    retry: 2,
   });
 
   const offeringsQuery = useQuery({
@@ -87,12 +125,14 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
   const { mutateAsync: purchaseAsync } = useMutation({
     mutationFn: async (pkg: PurchasesPackage): Promise<PurchaseResult> => {
       if (!isConfigured) {
-        return { success: false, error: 'RevenueCat not configured' };
+        return { success: false, error: 'Store not available. Please try again later.' };
       }
       
       setIsPurchasing(true);
+      setPurchaseError(null);
+      
       try {
-        await Purchases.purchasePackage(pkg);
+        const { customerInfo } = await Purchases.purchasePackage(pkg);
         console.log('[RevenueCat] Purchase successful:', pkg.identifier);
         
         queryClient.invalidateQueries({ queryKey: ['customerInfo'] });
@@ -100,18 +140,23 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
         return {
           success: true,
           productIdentifier: pkg.product.identifier,
+          customerInfo,
         };
       } catch (err) {
-        const purchaseError = err as PurchasesError;
-        console.error('[RevenueCat] Purchase error:', purchaseError);
+        const error = err as PurchasesError;
+        console.error('[RevenueCat] Purchase error:', error);
         
-        if (purchaseError.userCancelled) {
+        if (error.userCancelled) {
           return { success: false, error: 'cancelled' };
         }
         
+        const errorMessage = error.message || 'Purchase failed. Please try again.';
+        setPurchaseError(errorMessage);
+        captureError(error, { tags: { component: 'RevenueCat', action: 'purchase', package: pkg.identifier } });
+        
         return {
           success: false,
-          error: purchaseError.message || 'Purchase failed',
+          error: errorMessage,
         };
       } finally {
         setIsPurchasing(false);
@@ -141,10 +186,16 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
   const customerInfo = customerInfoQuery.data;
   const currentOffering = offeringsQuery.data;
 
-  const isPremium = customerInfo?.entitlements.active['premium']?.isActive ?? false;
+  const isPremium = useMemo(() => {
+    return customerInfo?.entitlements.active[ENTITLEMENTS.PREMIUM]?.isActive ?? false;
+  }, [customerInfo]);
 
   const hasPremiumEntitlement = useCallback(() => {
-    return customerInfo?.entitlements.active['premium']?.isActive ?? false;
+    return customerInfo?.entitlements.active[ENTITLEMENTS.PREMIUM]?.isActive ?? false;
+  }, [customerInfo]);
+
+  const hasEntitlement = useCallback((entitlementId: string) => {
+    return customerInfo?.entitlements.active[entitlementId]?.isActive ?? false;
   }, [customerInfo]);
 
   const purchasePackage = useCallback(async (pkg: PurchasesPackage): Promise<PurchaseResult> => {
@@ -167,8 +218,12 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
   }, [currentOffering]);
 
   const getMonthlyPackage = useCallback((): PurchasesPackage | undefined => {
-    return currentOffering?.monthly ?? getPackageByIdentifier('monthly');
+    return currentOffering?.monthly ?? getPackageByIdentifier(PACKAGE_IDENTIFIERS.MONTHLY);
   }, [currentOffering, getPackageByIdentifier]);
+
+  const clearPurchaseError = useCallback(() => {
+    setPurchaseError(null);
+  }, []);
 
   const refreshCustomerInfo = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['customerInfo'] });
@@ -199,10 +254,15 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     currentOffering,
     availablePackages: currentOffering?.availablePackages ?? [],
     hasPremiumEntitlement,
+    hasEntitlement,
     purchasePackage,
     restorePurchases,
     getPackageByIdentifier,
     getMonthlyPackage,
     refreshCustomerInfo,
+    purchaseError,
+    clearPurchaseError,
+    ENTITLEMENTS,
+    PACKAGE_IDENTIFIERS,
   };
 });

@@ -10,6 +10,7 @@ import {
   ScrollView,
   Animated,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -33,6 +34,8 @@ export default function AuthScreen() {
   const [displayName, setDisplayName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState({ title: '', subtitle: '' });
 
   const logoAnim = useRef(new Animated.Value(0)).current;
   const formAnim = useRef(new Animated.Value(0)).current;
@@ -98,14 +101,18 @@ export default function AuthScreen() {
 
       if (mode === 'signup') {
         await signUp(email.trim(), password, displayName.trim());
+        setSuccessMessage({
+          title: 'Welcome to Melodyx!',
+          subtitle: `Account created for ${displayName.trim()}. Let's start playing!`,
+        });
+        setShowSuccessModal(true);
       } else {
         await signIn(email.trim(), password);
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        router.replace('/(tabs)');
       }
-
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-      router.replace('/(tabs)');
     } catch {
       shakeForm();
       if (Platform.OS !== 'web') {
@@ -120,11 +127,22 @@ export default function AuthScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
       await signInAnonymously();
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
       router.replace('/(tabs)');
     } catch (err) {
       console.log('Guest login error:', err);
     }
   }, [signInAnonymously, router]);
+
+  const handleSuccessModalClose = useCallback(() => {
+    setShowSuccessModal(false);
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    router.replace('/(tabs)');
+  }, [router]);
 
   const toggleMode = useCallback(() => {
     clearError();
@@ -340,6 +358,26 @@ export default function AuthScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={showSuccessModal} transparent animationType="fade">
+        <View style={styles.successOverlay}>
+          <Animated.View style={styles.successModal}>
+            <View style={styles.successIconContainer}>
+              <Music size={48} color={Colors.correct} />
+            </View>
+            <Text style={styles.successTitle}>{successMessage.title}</Text>
+            <Text style={styles.successSubtitle}>{successMessage.subtitle}</Text>
+            <View style={styles.successBonusContainer}>
+              <Text style={styles.successBonusTitle}>🎁 Welcome Bonus!</Text>
+              <Text style={styles.successBonusText}>+100 🪙 Coins</Text>
+              <Text style={styles.successBonusText}>+3 💡 Hints</Text>
+            </View>
+            <TouchableOpacity style={styles.successButton} onPress={handleSuccessModalClose}>
+              <Text style={styles.successButtonText}>Start Playing!</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -509,5 +547,78 @@ const styles = StyleSheet.create({
   },
   footerLink: {
     color: Colors.accent,
+  },
+  successOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  successModal: {
+    backgroundColor: Colors.surface,
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    width: '90%',
+    maxWidth: 340,
+  },
+  successIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: Colors.correct + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  successTitle: {
+    fontSize: 26,
+    fontWeight: '800' as const,
+    color: Colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  successSubtitle: {
+    fontSize: 15,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  successBonusContainer: {
+    backgroundColor: Colors.accent + '15',
+    borderRadius: 16,
+    padding: 16,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: Colors.accent + '30',
+  },
+  successBonusTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.accent,
+    marginBottom: 8,
+  },
+  successBonusText: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    color: Colors.text,
+    marginVertical: 2,
+  },
+  successButton: {
+    backgroundColor: Colors.correct,
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    borderRadius: 16,
+    width: '100%',
+  },
+  successButtonText: {
+    fontSize: 17,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    textAlign: 'center',
   },
 });

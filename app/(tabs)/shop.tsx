@@ -11,12 +11,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
-  Coins, Palette, Lightbulb, Crown, Check, RotateCcw
+  Coins, Palette, Lightbulb, Crown, Check, RotateCcw, Sparkles, Star
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useUser } from '@/contexts/UserContext';
-import { usePurchases } from '@/contexts/PurchasesContext';
+import { usePurchases, PACKAGE_IDENTIFIERS } from '@/contexts/PurchasesContext';
 import { KEYBOARD_SKINS, KeyboardSkin } from '@/constants/shop';
 
 function SkinPreview({ skin, isOwned, isEquipped, onBuy, onEquip }: { 
@@ -173,30 +173,49 @@ export default function ShopScreen() {
   const handleIAPPurchase = useCallback(async (packageId: string, rewardType?: 'coins' | 'hints', rewardAmount?: number) => {
     const pkg = getPackageByIdentifier(packageId);
     if (!pkg) {
-      Alert.alert('Error', 'Product not available. Please try again later.');
+      Alert.alert('Store Unavailable', 'Products are loading. Please try again in a moment.');
       return;
     }
 
     setPurchasingPackage(packageId);
-    const result = await purchasePackage(pkg);
-    setPurchasingPackage(null);
-
-    if (result.success) {
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+    
+    try {
+      const result = await purchasePackage(pkg);
       
-      if (rewardType === 'coins' && rewardAmount) {
-        addCoins(rewardAmount);
-        Alert.alert('Success!', `You received ${rewardAmount} coins!`);
-      } else if (rewardType === 'hints' && rewardAmount) {
-        addHints(rewardAmount);
-        Alert.alert('Success!', `You received ${rewardAmount} hints!`);
-      } else if (packageId === '$rc_monthly' || packageId === 'monthly') {
-        Alert.alert('Welcome to Premium!', 'Enjoy ad-free gameplay, unlimited practice, and exclusive features!');
+      if (result.success) {
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        
+        if (rewardType === 'coins' && rewardAmount) {
+          addCoins(rewardAmount);
+          Alert.alert(
+            '🎉 Purchase Complete!', 
+            `You received ${rewardAmount} coins! Your balance has been updated.`,
+            [{ text: 'Awesome!', style: 'default' }]
+          );
+        } else if (rewardType === 'hints' && rewardAmount) {
+          addHints(rewardAmount);
+          Alert.alert(
+            '💡 Hints Added!', 
+            `You received ${rewardAmount} hints! Use them wisely.`,
+            [{ text: 'Great!', style: 'default' }]
+          );
+        } else if (packageId === PACKAGE_IDENTIFIERS.MONTHLY || packageId === '$rc_monthly') {
+          Alert.alert(
+            '👑 Welcome to Premium!', 
+            'Enjoy ad-free gameplay, unlimited practice, exclusive skins, and all premium features!',
+            [{ text: 'Let\'s Go!', style: 'default' }]
+          );
+        }
+      } else if (result.error && result.error !== 'cancelled') {
+        Alert.alert('Purchase Failed', result.error);
       }
-    } else if (result.error && result.error !== 'cancelled') {
-      Alert.alert('Purchase Failed', result.error);
+    } catch (err) {
+      console.log('[Shop] Purchase error:', err);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    } finally {
+      setPurchasingPackage(null);
     }
   }, [getPackageByIdentifier, purchasePackage, addCoins, addHints]);
 
@@ -288,20 +307,20 @@ export default function ShopScreen() {
                 icon="💡"
                 name="5 Hints Pack"
                 description="Get 5 extra hints for tricky puzzles"
-                price={getPackagePrice('hints_small')}
+                price={getPackagePrice(PACKAGE_IDENTIFIERS.HINTS_SMALL)}
                 rarity="common"
-                onPurchase={() => handleIAPPurchase('hints_small', 'hints', 5)}
-                isLoading={purchasingPackage === 'hints_small'}
+                onPurchase={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.HINTS_SMALL, 'hints', 5)}
+                isLoading={purchasingPackage === PACKAGE_IDENTIFIERS.HINTS_SMALL}
                 disabled={isPurchasing}
               />
               <IAPItemCard
                 icon="🌟"
                 name="50 Hints Pack"
                 description="Get 50 hints - best value!"
-                price={getPackagePrice('hints_large')}
+                price={getPackagePrice(PACKAGE_IDENTIFIERS.HINTS_LARGE)}
                 rarity="rare"
-                onPurchase={() => handleIAPPurchase('hints_large', 'hints', 50)}
-                isLoading={purchasingPackage === 'hints_large'}
+                onPurchase={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.HINTS_LARGE, 'hints', 50)}
+                isLoading={purchasingPackage === PACKAGE_IDENTIFIERS.HINTS_LARGE}
                 disabled={isPurchasing}
               />
             </View>
@@ -313,30 +332,30 @@ export default function ShopScreen() {
                 icon="💰"
                 name="500 Coins"
                 description="Starter coin pack"
-                price={getPackagePrice('coins_500')}
+                price={getPackagePrice(PACKAGE_IDENTIFIERS.COINS_500)}
                 rarity="common"
-                onPurchase={() => handleIAPPurchase('coins_500', 'coins', 500)}
-                isLoading={purchasingPackage === 'coins_500'}
+                onPurchase={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.COINS_500, 'coins', 500)}
+                isLoading={purchasingPackage === PACKAGE_IDENTIFIERS.COINS_500}
                 disabled={isPurchasing}
               />
               <IAPItemCard
                 icon="💰"
                 name="1500 Coins"
                 description="Value pack with +20% bonus"
-                price={getPackagePrice('coins_1500')}
+                price={getPackagePrice(PACKAGE_IDENTIFIERS.COINS_1500)}
                 rarity="rare"
-                onPurchase={() => handleIAPPurchase('coins_1500', 'coins', 1500)}
-                isLoading={purchasingPackage === 'coins_1500'}
+                onPurchase={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.COINS_1500, 'coins', 1500)}
+                isLoading={purchasingPackage === PACKAGE_IDENTIFIERS.COINS_1500}
                 disabled={isPurchasing}
               />
               <IAPItemCard
                 icon="💎"
                 name="5000 Coins"
                 description="Premium pack with +50% bonus"
-                price={getPackagePrice('coins_5000')}
+                price={getPackagePrice(PACKAGE_IDENTIFIERS.COINS_5000)}
                 rarity="epic"
-                onPurchase={() => handleIAPPurchase('coins_5000', 'coins', 5000)}
-                isLoading={purchasingPackage === 'coins_5000'}
+                onPurchase={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.COINS_5000, 'coins', 5000)}
+                isLoading={purchasingPackage === PACKAGE_IDENTIFIERS.COINS_5000}
                 disabled={isPurchasing}
               />
             </View>
@@ -346,17 +365,37 @@ export default function ShopScreen() {
             <View style={styles.premiumSection}>
               {isPremium ? (
                 <View style={styles.premiumActiveCard}>
-                  <Crown size={48} color="#FFD700" />
+                  <View style={styles.premiumActiveIconContainer}>
+                    <Crown size={48} color="#FFD700" />
+                    <Sparkles size={20} color="#FFD700" style={styles.sparkleIcon} />
+                  </View>
                   <Text style={styles.premiumActiveTitle}>You&apos;re Premium!</Text>
                   <Text style={styles.premiumActiveDesc}>
-                    Enjoy all premium benefits including ad-free gameplay and unlimited practice.
+                    Enjoy all premium benefits including ad-free gameplay, unlimited practice, and exclusive features.
                   </Text>
+                  <View style={styles.premiumBenefitsList}>
+                    <View style={styles.benefitItem}>
+                      <Star size={16} color="#FFD700" fill="#FFD700" />
+                      <Text style={styles.benefitText}>Ad-free forever</Text>
+                    </View>
+                    <View style={styles.benefitItem}>
+                      <Star size={16} color="#FFD700" fill="#FFD700" />
+                      <Text style={styles.benefitText}>All instruments unlocked</Text>
+                    </View>
+                    <View style={styles.benefitItem}>
+                      <Star size={16} color="#FFD700" fill="#FFD700" />
+                      <Text style={styles.benefitText}>Exclusive skins access</Text>
+                    </View>
+                  </View>
                 </View>
               ) : (
                 <View style={styles.premiumCard}>
+                  <View style={styles.premiumBadge}>
+                    <Text style={styles.premiumBadgeText}>BEST VALUE</Text>
+                  </View>
                   <Crown size={48} color="#FFD700" />
                   <Text style={styles.premiumTitle}>Melodyx Premium</Text>
-                  <Text style={styles.premiumPrice}>{getPackagePrice('$rc_monthly')}/month</Text>
+                  <Text style={styles.premiumPrice}>{getPackagePrice(PACKAGE_IDENTIFIERS.MONTHLY)}/month</Text>
                   
                   <View style={styles.premiumFeatures}>
                     <View style={styles.featureRow}>
@@ -366,6 +405,10 @@ export default function ShopScreen() {
                     <View style={styles.featureRow}>
                       <Check size={18} color={Colors.correct} />
                       <Text style={styles.featureText}>Unlimited practice mode</Text>
+                    </View>
+                    <View style={styles.featureRow}>
+                      <Check size={18} color={Colors.correct} />
+                      <Text style={styles.featureText}>All instruments unlocked</Text>
                     </View>
                     <View style={styles.featureRow}>
                       <Check size={18} color={Colors.correct} />
@@ -383,10 +426,10 @@ export default function ShopScreen() {
 
                   <TouchableOpacity 
                     style={[styles.premiumButton, isPurchasing && styles.premiumButtonDisabled]} 
-                    onPress={() => handleIAPPurchase('$rc_monthly')}
+                    onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.MONTHLY)}
                     disabled={isPurchasing}
                   >
-                    {purchasingPackage === '$rc_monthly' ? (
+                    {purchasingPackage === PACKAGE_IDENTIFIERS.MONTHLY ? (
                       <ActivityIndicator size="small" color="#000" />
                     ) : (
                       <Text style={styles.premiumButtonText}>Subscribe Now</Text>
@@ -656,6 +699,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     textAlign: 'center',
+    marginBottom: 16,
+  },
+  premiumActiveIconContainer: {
+    position: 'relative',
+  },
+  sparkleIcon: {
+    position: 'absolute',
+    top: -8,
+    right: -12,
+  },
+  premiumBenefitsList: {
+    width: '100%',
+    gap: 10,
+  },
+  benefitItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  benefitText: {
+    fontSize: 14,
+    color: Colors.text,
+  },
+  premiumBadge: {
+    position: 'absolute',
+    top: -12,
+    right: 20,
+    backgroundColor: Colors.correct,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  premiumBadgeText: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    letterSpacing: 0.5,
   },
   premiumTitle: {
     fontSize: 24,

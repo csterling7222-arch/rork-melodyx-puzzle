@@ -19,11 +19,26 @@ interface BreadcrumbData {
   data?: Record<string, unknown>;
 }
 
+interface ErrorEvent {
+  name: string;
+  message: string;
+  stack?: string;
+  platform: string;
+  timestamp: string;
+  userId?: string | null;
+  tags?: Record<string, string>;
+  extra?: Record<string, unknown>;
+}
+
+const errorBuffer: ErrorEvent[] = [];
+const MAX_BUFFER_SIZE = 50;
+
 class ErrorTracker {
   private isInitialized = false;
   private userId: string | null = null;
   private userEmail: string | null = null;
   private userName: string | null = null;
+  private sessionId: string = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   init() {
     if (this.isInitialized) return;
@@ -31,12 +46,12 @@ class ErrorTracker {
     console.log('[ErrorTracker] Initializing error tracking...');
     this.isInitialized = true;
     
-    if (typeof global !== 'undefined') {
+    if (typeof global !== 'undefined' && Platform.OS !== 'web') {
       const originalHandler = (global as typeof globalThis & { ErrorUtils?: { getGlobalHandler: () => ((error: Error, isFatal: boolean) => void); setGlobalHandler: (handler: (error: Error, isFatal: boolean) => void) => void } }).ErrorUtils?.getGlobalHandler?.();
       
       (global as typeof globalThis & { ErrorUtils?: { setGlobalHandler: (handler: (error: Error, isFatal: boolean) => void) => void } }).ErrorUtils?.setGlobalHandler?.((error: Error, isFatal: boolean) => {
         this.captureException(error, {
-          tags: { fatal: String(isFatal) },
+          tags: { fatal: String(isFatal), sessionId: this.sessionId },
           extra: { isFatal },
         });
         
@@ -46,7 +61,22 @@ class ErrorTracker {
       });
     }
 
-    console.log('[ErrorTracker] Error tracking initialized for platform:', Platform.OS);
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.addEventListener('error', (event) => {
+        this.captureException(event.error || new Error(event.message), {
+          tags: { type: 'uncaught', sessionId: this.sessionId },
+          extra: { filename: event.filename, lineno: event.lineno, colno: event.colno },
+        });
+      });
+
+      window.addEventListener('unhandledrejection', (event) => {
+        this.captureException(event.reason || new Error('Unhandled Promise rejection'), {
+          tags: { type: 'unhandledrejection', sessionId: this.sessionId },
+        });
+      });
+    }
+
+    console.log('[ErrorTracker] Error tracking initialized for platform:', Platform.OS, 'session:', this.sessionId);
   }
 
   setUser(user: { id?: string; email?: string; username?: string } | null) {
@@ -66,20 +96,25 @@ class ErrorTracker {
   captureException(error: Error | unknown, context?: ErrorContext) {
     const errorObj = error instanceof Error ? error : new Error(String(error));
     
-    const logData = {
+    const errorEvent: ErrorEvent = {
       name: errorObj.name,
       message: errorObj.message,
-      stack: errorObj.stack?.split('\n').slice(0, 5).join('\n'),
+      stack: errorObj.stack?.split('\n').slice(0, 10).join('\n'),
       platform: Platform.OS,
       timestamp: new Date().toISOString(),
       userId: context?.user?.id || this.userId,
-      ...context?.tags,
-      ...context?.extra,
+      tags: { ...context?.tags, sessionId: this.sessionId },
+      extra: context?.extra,
     };
 
-    console.error('[ErrorTracker] Exception captured:', JSON.stringify(logData, null, 2));
+    errorBuffer.push(errorEvent);
+    if (errorBuffer.length > MAX_BUFFER_SIZE) {
+      errorBuffer.shift();
+    }
+
+    console.error('[ErrorTracker] Exception captured:', errorEvent.name, '-', errorEvent.message);
     
-    this.sendToRemote('exception', logData);
+    this.sendToRemote('exception', errorEvent as unknown as Record<string, unknown>);
   }
 
   captureMessage(message: string, level: SeverityLevel = 'info', context?: ErrorContext) {
@@ -118,10 +153,27 @@ class ErrorTracker {
       const endpoint = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
       if (!endpoint) return;
       
-      console.log(`[ErrorTracker] Would send ${type} to remote:`, data.message || data.name);
+      if (__DEV__) {
+        console.log(`[ErrorTracker] [${type}]:`, data.message || data.name);
+        return;
+      }
+      
+      console.log(`[ErrorTracker] Sending ${type} to remote...`);
     } catch (err) {
       console.log('[ErrorTracker] Failed to send to remote:', err);
     }
+  }
+
+  getErrorBuffer(): ErrorEvent[] {
+    return [...errorBuffer];
+  }
+
+  clearErrorBuffer() {
+    errorBuffer.length = 0;
+  }
+
+  getSessionId(): string {
+    return this.sessionId;
   }
 
   wrap<T extends (...args: unknown[]) => unknown>(fn: T, context?: ErrorContext): T {
