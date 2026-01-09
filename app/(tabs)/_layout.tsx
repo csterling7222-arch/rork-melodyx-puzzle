@@ -25,14 +25,14 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="home"
+        name="index"
         options={{
           title: 'Home',
           tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="index"
+        name="daily"
         options={{
           title: 'Daily',
           tabBarIcon: ({ color, size }) => <Music size={size} color={color} />,

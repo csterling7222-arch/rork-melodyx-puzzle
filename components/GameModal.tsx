@@ -348,7 +348,7 @@ export default function GameModal() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     setTimeout(() => {
-      router.push('/(tabs)/home');
+      router.push('/(tabs)');
     }, 200);
   }, [stopPlayback, setShowModal, clearNavigationFlag, router]);
 
