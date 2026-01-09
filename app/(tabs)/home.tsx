@@ -477,7 +477,9 @@ export default function HomeScreen() {
   const [copied, setCopied] = useState(false);
   const [showRewardModal, setShowRewardModal] = useState(false);
   const [claimedReward, setClaimedReward] = useState<{ coins: number; bonus?: string } | null>(null);
+  const [hasShownWinConfetti, setHasShownWinConfetti] = useState(false);
   const headerAnim = useRef(new Animated.Value(0)).current;
+  const ecoProgressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(headerAnim, {
@@ -486,11 +488,24 @@ export default function HomeScreen() {
       useNativeDriver: true,
     }).start();
 
-    if (gameStatus === 'won') {
+    if (gameStatus === 'won' && !hasShownWinConfetti) {
       setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 3000);
+      setHasShownWinConfetti(true);
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      setTimeout(() => setShowConfetti(false), 4000);
     }
-  }, [gameStatus, headerAnim]);
+  }, [gameStatus, headerAnim, hasShownWinConfetti]);
+
+  useEffect(() => {
+    const ecoProgress = Math.min(ecoPoints / 100, 1);
+    Animated.timing(ecoProgressAnim, {
+      toValue: ecoProgress,
+      duration: 800,
+      useNativeDriver: false,
+    }).start();
+  }, [ecoPoints, ecoProgressAnim]);
 
   const handleClaimReward = useCallback(() => {
     const reward = claimDailyReward();
@@ -573,6 +588,30 @@ export default function HomeScreen() {
             consecutiveDays={dailyReward.consecutiveDays}
             canClaim={canClaimReward}
           />
+
+          <View style={styles.ecoProgressCard}>
+            <View style={styles.ecoProgressHeader}>
+              <Zap size={16} color="#10B981" />
+              <Text style={styles.ecoProgressTitle}>Eco Impact</Text>
+              <Text style={styles.ecoProgressPoints}>{ecoPoints} pts</Text>
+            </View>
+            <View style={styles.ecoProgressBarContainer}>
+              <Animated.View 
+                style={[
+                  styles.ecoProgressBar, 
+                  { 
+                    width: ecoProgressAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0%', '100%'],
+                    }) 
+                  }
+                ]} 
+              />
+            </View>
+            <Text style={styles.ecoProgressSubtext}>
+              {100 - (ecoPoints % 100)} pts to next offset milestone
+            </Text>
+          </View>
 
           <View style={styles.dailyCard}>
             <View style={styles.dailyHeader}>
@@ -793,6 +832,48 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
+  },
+  ecoProgressCard: {
+    backgroundColor: '#10B981' + '15',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#10B981' + '30',
+  },
+  ecoProgressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  ecoProgressTitle: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#10B981',
+    flex: 1,
+  },
+  ecoProgressPoints: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#10B981',
+  },
+  ecoProgressBarContainer: {
+    height: 8,
+    backgroundColor: Colors.surface,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  ecoProgressBar: {
+    height: '100%',
+    backgroundColor: '#10B981',
+    borderRadius: 4,
+  },
+  ecoProgressSubtext: {
+    fontSize: 11,
+    color: '#10B981',
+    opacity: 0.8,
   },
   dailyCard: {
     backgroundColor: Colors.surface,

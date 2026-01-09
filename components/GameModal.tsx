@@ -9,7 +9,7 @@ import {
   Share,
   Platform,
 } from 'react-native';
-import { X, Share2, Trophy, Music, Play, Square, Sparkles, Clock, Flame, Leaf, Map, ChevronRight, Home, Timer } from 'lucide-react-native';
+import { X, Share2, Trophy, Music, Play, Square, Sparkles, Clock, Flame, Leaf, Map, ChevronRight, Home, Timer, Copy, Twitter } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Confetti from '@/components/Confetti';
@@ -124,6 +124,43 @@ function CountdownTimer() {
     </View>
   );
 }
+
+interface EmojiGridProps {
+  guesses: { note: string; feedback: 'correct' | 'present' | 'absent' | 'empty' }[][];
+}
+
+function EmojiGrid({ guesses }: EmojiGridProps) {
+  return (
+    <View style={emojiGridStyles.container}>
+      {guesses.map((guess, rowIndex) => (
+        <View key={rowIndex} style={emojiGridStyles.row}>
+          {guess.map((item, colIndex) => (
+            <Text key={colIndex} style={emojiGridStyles.emoji}>
+              {item.feedback === 'correct' ? '🟩' : item.feedback === 'present' ? '🟨' : '⬛'}
+            </Text>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const emojiGridStyles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    marginVertical: 12,
+    padding: 12,
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  emoji: {
+    fontSize: 20,
+  },
+});
 
 const timerStyles = StyleSheet.create({
   container: {
@@ -254,9 +291,9 @@ export default function GameModal() {
     }
   }, [showModal, gameStatus, scaleAnim, opacityAnim, slideAnim]);
 
-  const handleShare = async () => {
-    const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength, stats.currentStreak);
-    
+  const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength, stats.currentStreak);
+
+  const handleCopyToClipboard = async () => {
     if (Platform.OS === 'web') {
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(shareText);
@@ -269,6 +306,32 @@ export default function GameModal() {
 
     if (Platform.OS !== 'web') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const handleShareToTwitter = async () => {
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
+    if (Platform.OS === 'web') {
+      window.open(twitterUrl, '_blank');
+    } else {
+      await Share.share({ message: shareText, title: 'Share to X' });
+    }
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+  };
+
+  const handleNativeShare = async () => {
+    try {
+      await Share.share({ 
+        message: shareText,
+        title: `Melodyx #${puzzleNumber}`,
+      });
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (error) {
+      console.log('Share error:', error);
     }
   };
 
@@ -449,16 +512,38 @@ export default function GameModal() {
             </TouchableOpacity>
           </View>
 
+          <View style={styles.shareSection}>
+            <Text style={styles.shareSectionTitle}>Share Your Result</Text>
+            <EmojiGrid guesses={guesses} />
+            <View style={styles.shareButtonsRow}>
+              <TouchableOpacity 
+                style={[styles.shareOptionButton, styles.copyButton]} 
+                onPress={handleCopyToClipboard}
+              >
+                <Copy size={18} color={Colors.text} />
+                <Text style={styles.shareOptionText}>{copied ? 'Copied!' : 'Copy'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.shareOptionButton, styles.twitterButton]} 
+                onPress={handleShareToTwitter}
+              >
+                <Twitter size={18} color="#1DA1F2" />
+                <Text style={[styles.shareOptionText, { color: '#1DA1F2' }]}>X/Twitter</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.shareOptionButton, styles.moreButton]} 
+                onPress={handleNativeShare}
+              >
+                <Share2 size={18} color={Colors.correct} />
+                <Text style={[styles.shareOptionText, { color: Colors.correct }]}>More</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-              <Share2 size={18} color={Colors.background} />
-              <Text style={styles.shareButtonText}>
-                {copied ? 'Copied!' : 'Share'}
-              </Text>
-            </TouchableOpacity>
             <TouchableOpacity style={styles.dashboardButton} onPress={handleGoToDashboard}>
               <Home size={18} color={Colors.text} />
-              <Text style={styles.dashboardButtonText}>Dashboard</Text>
+              <Text style={styles.dashboardButtonText}>Go to Dashboard</Text>
             </TouchableOpacity>
           </View>
 
@@ -690,35 +775,57 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: Colors.background,
   },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 10,
+  shareSection: {
     width: '100%',
+    marginBottom: 16,
   },
-  shareButton: {
-    flex: 1,
+  shareSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  shareButtonsRow: {
     flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  shareOptionButton: {
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.correct,
-    paddingVertical: 14,
-    borderRadius: 14,
-    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    gap: 4,
+    flex: 1,
   },
-  shareButtonText: {
-    fontSize: 15,
-    fontWeight: '700' as const,
-    color: Colors.background,
+  copyButton: {
+    backgroundColor: Colors.surfaceLight,
+  },
+  twitterButton: {
+    backgroundColor: '#1DA1F2' + '15',
+  },
+  moreButton: {
+    backgroundColor: Colors.correct + '15',
+  },
+  shareOptionText: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: Colors.text,
+  },
+  actionButtons: {
+    width: '100%',
   },
   dashboardButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.accent,
     paddingVertical: 14,
     borderRadius: 14,
-    gap: 6,
+    gap: 8,
   },
   dashboardButtonText: {
     fontSize: 15,

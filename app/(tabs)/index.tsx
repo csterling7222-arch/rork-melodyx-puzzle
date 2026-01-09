@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,16 @@ import {
   TouchableOpacity,
   ScrollView,
   Platform,
+  Animated,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Lightbulb, Volume2, Headphones, Sparkles, Flame, Trophy, Clock } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/colors';
 import { useGame } from '@/contexts/GameContext';
+import { useEco } from '@/contexts/EcoContext';
 import { useScreenTheme } from '@/contexts/ThemeContext';
 import { useInstrument } from '@/contexts/InstrumentContext';
 import ThemedBackground from '@/components/ThemedBackground';
@@ -98,6 +101,7 @@ const ONBOARDING_KEY = 'melodyx_onboarding_completed';
 
 export default function GameScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { theme, isDarkMode, animationsEnabled } = useScreenTheme('index');
   const {
     puzzleNumber,
@@ -118,12 +122,19 @@ export default function GameScreen() {
     activateAudioHint,
     audioHintUsed,
     stats,
+    shouldNavigateHome,
+    clearNavigationFlag,
+    showModal,
   } = useGame();
+  const { addEcoPoints } = useEco();
 
   const { currentInstrument } = useInstrument();
   const { playNote, playMelody, playHintNotes, playbackState } = useAudio(currentInstrument.id);
   const [audioHintPlayed, setAudioHintPlayed] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const hasNavigatedRef = useRef(false);
 
   useEffect(() => {
     const checkOnboarding = async () => {
@@ -147,6 +158,38 @@ export default function GameScreen() {
     }
     setShowOnboarding(false);
   };
+
+  useEffect(() => {
+    if (shouldNavigateHome && !showModal && !hasNavigatedRef.current && !isNavigating) {
+      hasNavigatedRef.current = true;
+      setIsNavigating(true);
+      
+      if (gameStatus === 'won') {
+        addEcoPoints(5);
+      }
+
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }).start(() => {
+        clearNavigationFlag();
+        router.replace('/(tabs)/home');
+      });
+    }
+  }, [shouldNavigateHome, showModal, isNavigating, gameStatus, addEcoPoints, fadeAnim, clearNavigationFlag, router]);
+
+  useEffect(() => {
+    if (gameStatus === 'playing') {
+      hasNavigatedRef.current = false;
+      setIsNavigating(false);
+      fadeAnim.setValue(1);
+    }
+  }, [gameStatus, fadeAnim]);
 
   const canSubmit = currentGuess.length === melodyLength && gameStatus === 'playing';
   const isDisabled = gameStatus !== 'playing';
@@ -175,7 +218,7 @@ export default function GameScreen() {
 
   return (
     <ThemedBackground theme={theme} isDark={isDarkMode} animated={animationsEnabled}>
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <Animated.View style={[styles.container, { paddingTop: insets.top, opacity: fadeAnim }]}>
       <View style={styles.header}>
         <View style={styles.topRow}>
           <View style={styles.statsRow}>
@@ -307,7 +350,7 @@ export default function GameScreen() {
           visible={showOnboarding} 
           onComplete={handleOnboardingComplete} 
         />
-      </View>
+      </Animated.View>
     </ThemedBackground>
   );
 }
