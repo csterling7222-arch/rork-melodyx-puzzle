@@ -462,6 +462,7 @@ export default function ShopScreen() {
     isRestoring,
     isLoading: isPurchasesLoading,
     isConfigured,
+    isDemoMode,
     getPackageByIdentifier,
     getMockPrice,
     calculateSavings,
@@ -474,6 +475,7 @@ export default function ShopScreen() {
     hasUsedTrial,
     startFreeTrial,
     subscriptionStatus,
+    enableDemoPremium,
   } = usePurchases();
   
   const [selectedTab, setSelectedTab] = useState<'skins' | 'hints' | 'coins' | 'premium'>('premium');
@@ -521,12 +523,14 @@ export default function ShopScreen() {
   const handleIAPPurchase = useCallback(async (packageId: string, rewardType?: 'coins' | 'hints', rewardAmount?: number) => {
     const pkg = getPackageByIdentifier(packageId);
     
+    console.log('[Shop] Purchase attempt:', { packageId, isConfigured, hasPkg: !!pkg });
+    
     if (!isConfigured || !pkg) {
-      console.log('[Shop] Store not configured, using demo mode for:', packageId);
+      console.log('[Shop] Store not configured or package not found, using demo mode for:', packageId);
       
       setPurchasingPackage(packageId);
       
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 800));
       
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -546,9 +550,16 @@ export default function ShopScreen() {
           `You received ${rewardAmount} hints! (Demo mode - no real charge)`,
           [{ text: 'Great!', style: 'default' }]
         );
+      } else if (packageId.includes('monthly') || packageId.includes('annual') || packageId.includes('yearly')) {
+        enableDemoPremium();
+        Alert.alert(
+          '👑 Demo Premium Activated!', 
+          'Premium features enabled for testing. Connect RevenueCat for real purchases.',
+          [{ text: 'Awesome!', style: 'default' }]
+        );
       } else {
         Alert.alert(
-          '👑 Demo Premium!', 
+          '🎁 Demo Mode', 
           'This is demo mode. Configure RevenueCat API keys for real purchases.',
           [{ text: 'OK', style: 'default' }]
         );
@@ -599,7 +610,7 @@ export default function ShopScreen() {
     } finally {
       setPurchasingPackage(null);
     }
-  }, [getPackageByIdentifier, purchasePackage, addCoins, addHints, isConfigured]);
+  }, [getPackageByIdentifier, purchasePackage, addCoins, addHints, isConfigured, enableDemoPremium]);
 
   const handleRestorePurchases = useCallback(async () => {
     await restorePurchases();
@@ -851,9 +862,14 @@ export default function ShopScreen() {
                 <View style={styles.premiumCard}>
                   <Crown size={48} color="#FFD700" />
                   <Text style={styles.premiumTitle}>Melodyx Premium</Text>
-                  {!isConfigured && (
+                  {isDemoMode && (
                     <View style={styles.sandboxBadge}>
-                      <Text style={styles.sandboxText}>SANDBOX MODE</Text>
+                      <Text style={styles.sandboxText}>DEMO MODE</Text>
+                    </View>
+                  )}
+                  {isConfigured && __DEV__ && (
+                    <View style={[styles.sandboxBadge, { backgroundColor: '#10B981' + '20' }]}>
+                      <Text style={[styles.sandboxText, { color: '#10B981' }]}>SANDBOX</Text>
                     </View>
                   )}
 

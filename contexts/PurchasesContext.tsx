@@ -13,29 +13,44 @@ import Purchases, {
 import { captureError, addBreadcrumb } from '@/utils/errorTracking';
 
 function getRCApiKey(): string {
-  if (__DEV__ || Platform.OS === 'web') {
-    const testKey = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY;
-    if (testKey) return testKey;
+  const testKey = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY;
+  
+  if (Platform.OS === 'web') {
+    if (testKey) {
+      console.log('[RevenueCat] Web: Using Test Store API key');
+      return testKey;
+    }
+    console.log('[RevenueCat] Web: No test key available, demo mode');
+    return '';
   }
+  
+  if (__DEV__ && testKey) {
+    console.log('[RevenueCat] Dev: Using Test Store API key');
+    return testKey;
+  }
+  
   const key = Platform.select({
     ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY || '',
     android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY || '',
-    default: process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY || '',
+    default: '',
   }) || '';
-  console.log('[RevenueCat] Using API key for platform:', Platform.OS);
+  
+  console.log('[RevenueCat] Using API key for platform:', Platform.OS, key ? '(configured)' : '(missing)');
   return key;
 }
 
 let isConfigured = false;
 let configurationAttempted = false;
+let configurationError: string | null = null;
 
-function configureRevenueCat() {
+function configureRevenueCat(): boolean {
   if (configurationAttempted) return isConfigured;
   configurationAttempted = true;
   
   const apiKey = getRCApiKey();
   if (!apiKey) {
     console.log('[RevenueCat] No API key available, running in demo mode');
+    configurationError = 'No API key configured';
     return false;
   }
   
@@ -43,17 +58,22 @@ function configureRevenueCat() {
     Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.INFO);
     Purchases.configure({ apiKey });
     isConfigured = true;
-    console.log('[RevenueCat] Configured successfully');
+    configurationError = null;
+    console.log('[RevenueCat] Configured successfully for', Platform.OS);
     addBreadcrumb({ category: 'purchases', message: 'RevenueCat configured', level: 'info' });
     return true;
   } catch (error) {
-    console.error('[RevenueCat] Configuration error:', error);
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[RevenueCat] Configuration error:', errorMsg);
+    configurationError = errorMsg;
     captureError(error, { tags: { component: 'RevenueCat', action: 'configure' } });
     return false;
   }
 }
 
-configureRevenueCat();
+if (Platform.OS !== 'web') {
+  configureRevenueCat();
+}
 
 export interface PurchaseResult {
   success: boolean;
@@ -599,9 +619,26 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     console.log('[RevenueCat] Demo premium disabled');
   }, []);
 
+  const isDemoMode = useMemo(() => !isConfigured && DEMO_MODE_ENABLED, []);
+  
+  const purchaseDemoProduct = useCallback(async (packageId: string, rewardType?: 'coins' | 'hints', rewardAmount?: number) => {
+    console.log('[RevenueCat] Demo purchase:', packageId);
+    addBreadcrumb({ category: 'purchases', message: `Demo purchase: ${packageId}`, level: 'info' });
+    
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    return {
+      success: true,
+      productIdentifier: packageId,
+      rewardType,
+      rewardAmount,
+      isDemo: true,
+    };
+  }, []);
+
   return {
     isConfigured,
-    isDemoMode: !isConfigured && DEMO_MODE_ENABLED,
+    isDemoMode,
     isPremium,
     isTrialActive,
     trialDaysRemaining,
@@ -643,6 +680,8 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     clearPurchaseError,
     enableDemoPremium,
     disableDemoPremium,
+    purchaseDemoProduct,
+    configurationError,
     ENTITLEMENTS,
     PACKAGE_IDENTIFIERS,
   };

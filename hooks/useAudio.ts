@@ -1,7 +1,9 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import { Audio } from 'expo-av';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Instrument, getInstrumentById, DEFAULT_INSTRUMENT_ID } from '@/constants/instruments';
+import { captureError, addBreadcrumb } from '@/utils/errorTracking';
 
 const NOTE_FREQUENCIES: Record<string, number> = {
   'C': 261.63,
@@ -53,10 +55,36 @@ const PRELOAD_DELAY_MS = 30;
 
 const offlineCache = new Map<string, boolean>();
 let isOfflineMode = false;
+const AUDIO_CACHE_KEY = 'melodyx_audio_cache_status';
 
 export function setOfflineMode(offline: boolean) {
   isOfflineMode = offline;
   console.log('[Audio] Offline mode:', offline);
+  addBreadcrumb({ category: 'audio', message: `Offline mode: ${offline}`, level: 'info' });
+}
+
+export async function loadCacheStatus(): Promise<void> {
+  try {
+    const stored = await AsyncStorage.getItem(AUDIO_CACHE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as string[];
+      parsed.forEach(key => offlineCache.set(key, true));
+      console.log('[Audio] Loaded cache status:', parsed.length, 'items');
+    }
+  } catch (error) {
+    console.log('[Audio] Failed to load cache status:', error);
+  }
+}
+
+async function saveCacheStatus(): Promise<void> {
+  try {
+    const keys = Array.from(offlineCache.entries())
+      .filter(([, cached]) => cached)
+      .map(([key]) => key);
+    await AsyncStorage.setItem(AUDIO_CACHE_KEY, JSON.stringify(keys));
+  } catch (error) {
+    console.log('[Audio] Failed to save cache status:', error);
+  }
 }
 
 export function getAudioCacheStatus(): { cached: number; total: number; instruments: string[] } {
@@ -114,17 +142,23 @@ async function initNativeAudio() {
   if (audioInitialized || Platform.OS === 'web') return true;
   
   try {
-    console.log('Initializing native audio...');
+    console.log('[Audio] Initializing native audio...');
     await Audio.setAudioModeAsync({
       playsInSilentModeIOS: true,
       staysActiveInBackground: false,
       shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
     });
     audioInitialized = true;
-    console.log('Native audio initialized successfully');
+    console.log('[Audio] Native audio initialized successfully');
+    addBreadcrumb({ category: 'audio', message: 'Native audio initialized', level: 'info' });
+    
+    await loadCacheStatus();
+    
     return true;
   } catch (error) {
-    console.log('Failed to initialize native audio:', error);
+    console.log('[Audio] Failed to initialize native audio:', error);
+    captureError(error, { tags: { component: 'Audio', action: 'initNativeAudio' } });
     return false;
   }
 }
@@ -154,7 +188,7 @@ async function preloadSound(note: string, instrumentId: string = currentInstrume
   const cacheKey = `${instrumentId}_${note}`;
   if (preloadQueue.has(cacheKey)) return null;
   
-  if (isOfflineMode && !offlineCache.has(cacheKey)) {
+  if (isOfflineMode && !offlineCache.get(cacheKey)) {
     console.log(`[Audio] Offline mode - skipping network request for ${note}`);
     return null;
   }
@@ -168,15 +202,20 @@ async function preloadSound(note: string, instrumentId: string = currentInstrume
     
     const { sound } = await Audio.Sound.createAsync(
       { uri: url },
-      { shouldPlay: false, volume: 1.0, progressUpdateIntervalMillis: 100 }
+      { shouldPlay: false, volume: 1.0, progressUpdateIntervalMillis: 100 },
+      null,
+      true
     );
     
     cache.set(note, sound);
     offlineCache.set(cacheKey, true);
+    saveCacheStatus();
     console.log(`[Audio] Preloaded ${instrumentId} sound for ${note}`);
+    addBreadcrumb({ category: 'audio', message: `Preloaded ${note}`, level: 'debug' });
     return sound;
   } catch (error) {
     console.log(`[Audio] Failed to preload ${instrumentId} ${note}:`, error);
+    captureError(error, { tags: { component: 'Audio', action: 'preloadSound', note } });
     offlineCache.set(cacheKey, false);
     return null;
   } finally {
@@ -350,7 +389,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
 
       const frequency = NOTE_FREQUENCIES[note];
       if (!frequency) {
-        console.log('Unknown note:', note);
+        console.log('[Audio] Unknown note:', note);
         return;
       }
 
@@ -370,15 +409,26 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
           const status = await sound.getStatusAsync();
           if (status.isLoaded) {
             await sound.setPositionAsync(0);
+            await sound.setVolumeAsync(audioSettingsRef.current.volume);
             await sound.playAsync();
+          } else {
+            console.log(`[Audio] Sound not loaded for ${note}, reloading...`);
+            cache.delete(note);
+            const newSound = await preloadSound(note, instId);
+            if (newSound) {
+              await newSound.setPositionAsync(0);
+              await newSound.playAsync();
+            }
           }
         } catch (playError) {
-          console.log(`Play error for ${note}:`, playError);
+          console.log(`[Audio] Play error for ${note}:`, playError);
           cache.delete(note);
+          captureError(playError, { tags: { component: 'Audio', action: 'playNote', note } });
         }
       }
     } catch (error) {
-      console.log(`Native audio error for ${note}:`, error);
+      console.log(`[Audio] Native audio error for ${note}:`, error);
+      captureError(error, { tags: { component: 'Audio', action: 'playNoteNative' } });
     }
   }, []);
 

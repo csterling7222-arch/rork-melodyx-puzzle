@@ -2,6 +2,9 @@ import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback } from 'react';
+import { Platform } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { captureError, addBreadcrumb } from '@/utils/errorTracking';
 
 export interface AuthUser {
   uid: string;
@@ -44,6 +47,13 @@ const ERROR_MESSAGES = {
   TOO_MANY_ATTEMPTS: 'Too many failed attempts. Please try again in a few minutes.',
   SESSION_EXPIRED: 'Your session has expired. Please sign in again.',
   UNKNOWN_ERROR: 'Something went wrong. Please try again.',
+  NAME_TOO_SHORT: 'Name must be at least 2 characters.',
+  NAME_TOO_LONG: 'Name must be less than 50 characters.',
+  NAME_INVALID_CHARS: 'Name can only contain letters, numbers, spaces, and hyphens.',
+  PASSWORD_TOO_SHORT: 'Password must be at least 8 characters.',
+  PASSWORD_NO_UPPERCASE: 'Password must contain at least one uppercase letter.',
+  PASSWORD_NO_LOWERCASE: 'Password must contain at least one lowercase letter.',
+  PASSWORD_NO_NUMBER: 'Password must contain at least one number.',
 } as const;
 
 interface StoredUser {
@@ -193,6 +203,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const signUpMutation = useMutation({
     mutationFn: async ({ email, password, displayName }: AuthCredentials): Promise<AuthUser> => {
       setAuthError(null);
+      addBreadcrumb({ category: 'auth', message: 'Sign up attempt', level: 'info' });
       
       const emailValidation = validateEmail(email);
       if (!emailValidation.valid) {
@@ -244,18 +255,29 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         isAnonymous: false,
       });
 
+      addBreadcrumb({ category: 'auth', message: `User signed up: ${email}`, level: 'info' });
       console.log('[Auth] User signed up:', email, 'as', userName);
+      
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      
       return authUser;
     },
     onError: (error: Error) => {
       setAuthError(error.message);
+      captureError(error, { tags: { component: 'Auth', action: 'signUp' } });
       console.log('[Auth] Sign up error:', error.message);
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     },
   });
 
   const signInMutation = useMutation({
     mutationFn: async ({ email, password }: AuthCredentials): Promise<AuthUser> => {
       setAuthError(null);
+      addBreadcrumb({ category: 'auth', message: 'Sign in attempt', level: 'info' });
 
       const emailValidation = validateEmail(email);
       if (!emailValidation.valid) {
@@ -290,12 +312,22 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         isAnonymous: false,
       });
 
+      addBreadcrumb({ category: 'auth', message: `User signed in: ${email}`, level: 'info' });
       console.log('[Auth] User signed in:', email);
+      
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      
       return authUser;
     },
     onError: (error: Error) => {
       setAuthError(error.message);
+      captureError(error, { tags: { component: 'Auth', action: 'signIn' } });
       console.log('[Auth] Sign in error:', error.message);
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     },
   });
 
