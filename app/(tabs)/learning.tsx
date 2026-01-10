@@ -67,6 +67,9 @@ const SKILL_ICONS: Record<SkillCategory, string> = {
   noteAccuracy: '🎯',
   improvisation: '🎸',
   harmony: '🎼',
+  sightReading: '📖',
+  composition: '✍️',
+  theory: '📚',
 };
 
 const SKILL_COLORS: Record<SkillCategory, string> = {
@@ -76,6 +79,9 @@ const SKILL_COLORS: Record<SkillCategory, string> = {
   noteAccuracy: '#EF4444',
   improvisation: '#EC4899',
   harmony: '#06B6D4',
+  sightReading: '#8B5CF6',
+  composition: '#10B981',
+  theory: '#F97316',
 };
 
 function LearningContent() {
