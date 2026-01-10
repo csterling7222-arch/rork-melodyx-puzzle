@@ -52,6 +52,8 @@ let currentInstrumentId = DEFAULT_INSTRUMENT_ID;
 const MAX_CACHE_SIZE = 60;
 const PRELOAD_BATCH_SIZE = 4;
 const PRELOAD_DELAY_MS = 30;
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 200;
 
 const offlineCache = new Map<string, boolean>();
 let isOfflineMode = false;
@@ -176,7 +178,7 @@ function getInstrumentCache(instrumentId: string): Map<string, Audio.Sound> {
   return soundCache.get(instrumentId)!;
 }
 
-async function preloadSound(note: string, instrumentId: string = currentInstrumentId): Promise<Audio.Sound | null> {
+async function preloadSound(note: string, instrumentId: string = currentInstrumentId, retryCount: number = 0): Promise<Audio.Sound | null> {
   if (Platform.OS === 'web') return null;
   
   const cache = getInstrumentCache(instrumentId);
@@ -214,8 +216,15 @@ async function preloadSound(note: string, instrumentId: string = currentInstrume
     addBreadcrumb({ category: 'audio', message: `Preloaded ${note}`, level: 'debug' });
     return sound;
   } catch (error) {
-    console.log(`[Audio] Failed to preload ${instrumentId} ${note}:`, error);
-    captureError(error, { tags: { component: 'Audio', action: 'preloadSound', note } });
+    console.log(`[Audio] Failed to preload ${instrumentId} ${note} (attempt ${retryCount + 1}):`, error);
+    
+    if (retryCount < MAX_RETRY_ATTEMPTS) {
+      preloadQueue.delete(cacheKey);
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * (retryCount + 1)));
+      return preloadSound(note, instrumentId, retryCount + 1);
+    }
+    
+    captureError(error, { tags: { component: 'Audio', action: 'preloadSound', note, retries: String(retryCount) } });
     offlineCache.set(cacheKey, false);
     return null;
   } finally {

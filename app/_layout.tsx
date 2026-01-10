@@ -5,6 +5,7 @@ import React, { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { initErrorTracking, addBreadcrumb, captureError } from '@/utils/errorTracking';
+import { initAccessibility } from '@/utils/accessibility';
 import { GameProvider } from '@/contexts/GameContext';
 import { FeverProvider } from '@/contexts/FeverContext';
 import { UserProvider } from '@/contexts/UserContext';
@@ -34,6 +35,9 @@ function RootLayoutNav() {
 export default function RootLayout() {
   useEffect(() => {
     initErrorTracking();
+    initAccessibility().then(settings => {
+      console.log('[App] Accessibility initialized:', settings.screenReaderEnabled ? 'Screen reader active' : 'Standard mode');
+    });
     addBreadcrumb({ category: 'lifecycle', message: 'App launched', level: 'info' });
     console.log('[App] Error tracking initialized');
     
