@@ -16,6 +16,7 @@ import { DuelsProvider } from '@/contexts/DuelsContext';
 import { EventsProvider } from '@/contexts/EventsContext';
 import { EcoProvider } from '@/contexts/EcoContext';
 import { PlaylistProvider } from '@/contexts/PlaylistContext';
+import { SocialShareProvider } from '@/contexts/SocialShareContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { PurchasesProvider } from '@/contexts/PurchasesContext';
 import { InstrumentProvider } from '@/contexts/InstrumentContext';
@@ -84,6 +85,7 @@ export default function RootLayout() {
                     <EventsProvider>
                       <EcoProvider>
                           <PlaylistProvider>
+                            <SocialShareProvider>
                               <StatusBar style="light" />
                               <RootLayoutNav />
                               <PerformanceMonitor 
@@ -92,6 +94,7 @@ export default function RootLayout() {
                                 compact={true}
                                 onToggle={() => setShowPerfMonitor(prev => !prev)}
                               />
+                            </SocialShareProvider>
                             </PlaylistProvider>
                           </EcoProvider>
                         </EventsProvider>
