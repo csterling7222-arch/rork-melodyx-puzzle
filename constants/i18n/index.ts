@@ -3,9 +3,14 @@ import { es } from './es';
 import { fr } from './fr';
 import { ja } from './ja';
 import { de } from './de';
+import { pt } from './pt';
+import { it } from './it';
+import { ko } from './ko';
+import { zh } from './zh';
+import { ru } from './ru';
 import { Platform, NativeModules } from 'react-native';
 
-export type SupportedLanguage = 'en' | 'es' | 'fr' | 'ja' | 'de';
+export type SupportedLanguage = 'en' | 'es' | 'fr' | 'ja' | 'de' | 'pt' | 'it' | 'ko' | 'zh' | 'ru';
 
 const translations: Record<SupportedLanguage, TranslationKeys> = {
   en,
@@ -13,6 +18,11 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
   fr,
   ja,
   de,
+  pt,
+  it,
+  ko,
+  zh,
+  ru,
 };
 
 export const SUPPORTED_LANGUAGES: { code: SupportedLanguage; name: string; nativeName: string }[] = [
@@ -21,6 +31,11 @@ export const SUPPORTED_LANGUAGES: { code: SupportedLanguage; name: string; nativ
   { code: 'fr', name: 'French', nativeName: 'Français' },
   { code: 'ja', name: 'Japanese', nativeName: '日本語' },
   { code: 'de', name: 'German', nativeName: 'Deutsch' },
+  { code: 'pt', name: 'Portuguese', nativeName: 'Português' },
+  { code: 'it', name: 'Italian', nativeName: 'Italiano' },
+  { code: 'ko', name: 'Korean', nativeName: '한국어' },
+  { code: 'zh', name: 'Chinese', nativeName: '中文' },
+  { code: 'ru', name: 'Russian', nativeName: 'Русский' },
 ];
 
 function getDeviceLanguage(): SupportedLanguage {
