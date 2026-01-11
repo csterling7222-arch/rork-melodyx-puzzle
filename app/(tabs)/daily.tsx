@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Lightbulb, Volume2, Headphones, Sparkles, Flame, Trophy, Clock } from 'lucide-react-native';
+import { Lightbulb, Headphones, Sparkles, Flame, Trophy, Clock, RotateCcw, Play, Square } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useGame } from '@/contexts/GameContext';
@@ -125,8 +125,17 @@ export default function DailyPuzzleScreen() {
   const { addEcoPoints } = useEco();
 
   const { currentInstrument } = useInstrument();
-  const { playNote, playMelody, playHintNotes, playbackState } = useAudio(currentInstrument.id);
+  const { 
+    playNote, 
+    playNotePreview,
+    playSnippet,
+    playHintNotes, 
+    playbackState,
+    stopPlayback,
+    initAudio,
+  } = useAudio(currentInstrument.id);
   const [audioHintPlayed, setAudioHintPlayed] = useState(false);
+  const [hasPlayedMelody, setHasPlayedMelody] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const hasNavigatedRef = useRef(false);
@@ -174,9 +183,32 @@ export default function DailyPuzzleScreen() {
 
   const handlePlayMelody = useCallback(() => {
     if (gameStatus !== 'playing') {
-      playMelody(melody.notes);
+      initAudio();
+      if (playbackState.isPlaying) {
+        stopPlayback();
+      } else {
+        playSnippet(melody.extendedNotes, () => {
+          setHasPlayedMelody(true);
+        });
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      }
     }
-  }, [gameStatus, melody.notes, playMelody]);
+  }, [gameStatus, melody.extendedNotes, playSnippet, playbackState.isPlaying, stopPlayback, initAudio]);
+
+  const handleNotePreview = useCallback((note: string) => {
+    initAudio();
+    playNotePreview(note);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, [playNotePreview, initAudio]);
+
+  const handleAddNote = useCallback((note: string) => {
+    addNote(note);
+    handleNotePreview(note);
+  }, [addNote, handleNotePreview]);
 
   const handleAudioHint = useCallback(() => {
     if (canUseAudioHint || audioHintUsed) {
@@ -271,16 +303,37 @@ export default function DailyPuzzleScreen() {
         )}
 
         {gameStatus !== 'playing' && (
-          <TouchableOpacity 
-            style={styles.playMelodyButton} 
-            onPress={handlePlayMelody}
-            disabled={playbackState.isPlaying}
-          >
-            <Volume2 size={20} color={Colors.text} />
-            <Text style={styles.playMelodyText}>
-              {playbackState.isPlaying ? 'Playing...' : 'Play the melody'}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.melodyPlaybackSection}>
+            <TouchableOpacity 
+              style={[
+                styles.playMelodyButton,
+                playbackState.isPlaying && styles.playMelodyButtonActive
+              ]} 
+              onPress={handlePlayMelody}
+            >
+              {playbackState.isPlaying ? (
+                <>
+                  <Square size={20} color={Colors.text} fill={Colors.text} />
+                  <Text style={styles.playMelodyText}>Stop</Text>
+                </>
+              ) : (
+                <>
+                  <Play size={20} color={Colors.text} fill={Colors.text} />
+                  <Text style={styles.playMelodyText}>
+                    {hasPlayedMelody ? 'Replay Melody' : 'Play the melody'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+            {hasPlayedMelody && !playbackState.isPlaying && (
+              <TouchableOpacity 
+                style={styles.replayButton}
+                onPress={handlePlayMelody}
+              >
+                <RotateCcw size={18} color={Colors.accent} />
+              </TouchableOpacity>
+            )}
+          </View>
         )}
       </ScrollView>
 
@@ -314,7 +367,7 @@ export default function DailyPuzzleScreen() {
         </View>
 
         <PianoKeyboard
-          onNotePress={addNote}
+          onNotePress={handleAddNote}
           onDelete={removeNote}
           onSubmit={submitGuess}
           canSubmit={canSubmit}
@@ -446,6 +499,12 @@ const styles = StyleSheet.create({
     color: Colors.accent,
     flex: 1,
   },
+  melodyPlaybackSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 16,
+  },
   playMelodyButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -454,12 +513,22 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 12,
-    marginTop: 16,
+  },
+  playMelodyButtonActive: {
+    backgroundColor: Colors.accent,
   },
   playMelodyText: {
     fontSize: 14,
     fontWeight: '600' as const,
     color: Colors.text,
+  },
+  replayButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   bottomSection: {
     paddingBottom: 24,

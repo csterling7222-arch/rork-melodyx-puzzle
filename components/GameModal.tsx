@@ -11,13 +11,15 @@ import {
   Share,
   Platform,
 } from 'react-native';
-import { X, Share2, Trophy, Music, Play, Square, Sparkles, Clock, Flame, Leaf, Map, ChevronRight, Home, Timer, Copy, Twitter } from 'lucide-react-native';
+import { X, Share2, Trophy, Music, Play, Square, Sparkles, Clock, Flame, Leaf, Map, ChevronRight, Home, Timer, Copy, Twitter, Volume2, RotateCcw, Crown, Repeat } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Confetti from '@/components/Confetti';
 import { Colors } from '@/constants/colors';
 import { useGame } from '@/contexts/GameContext';
 import { useAudio, PlaybackState } from '@/hooks/useAudio';
+import { useUser } from '@/contexts/UserContext';
+import { useInstrument } from '@/contexts/InstrumentContext';
 import { generateShareText } from '@/utils/gameLogic';
 import { getGenreEmoji, getThemeEmoji } from '@/utils/aiSongChooser';
 
@@ -236,6 +238,176 @@ const quickModeStyles = StyleSheet.create({
   },
 });
 
+interface PlaybackControlsPanelProps {
+  volume: number;
+  speed: number;
+  isLooping: boolean;
+  isPlaying: boolean;
+  isPaused: boolean;
+  onVolumeChange: (vol: number) => void;
+  onSpeedChange: (speed: number) => void;
+  onToggleLoop: () => void;
+  onReplay: () => void;
+  onPauseResume: () => void;
+}
+
+function PlaybackControlsPanel({
+  volume,
+  speed,
+  isLooping,
+  onVolumeChange,
+  onSpeedChange,
+  onToggleLoop,
+}: PlaybackControlsPanelProps) {
+  return (
+    <View style={controlsPanelStyles.container}>
+      <View style={controlsPanelStyles.row}>
+        <Volume2 size={14} color={Colors.textSecondary} />
+        <View style={controlsPanelStyles.sliderTrack}>
+          {[0.25, 0.5, 0.75, 1].map((vol) => (
+            <TouchableOpacity
+              key={vol}
+              style={[
+                controlsPanelStyles.sliderDot,
+                volume >= vol && controlsPanelStyles.sliderDotActive,
+              ]}
+              onPress={() => onVolumeChange(vol)}
+            />
+          ))}
+        </View>
+        <Text style={controlsPanelStyles.valueText}>{Math.round(volume * 100)}%</Text>
+      </View>
+      
+      <View style={controlsPanelStyles.row}>
+        <Text style={controlsPanelStyles.labelText}>Speed</Text>
+        <View style={controlsPanelStyles.speedButtons}>
+          {[0.5, 0.75, 1, 1.25, 1.5].map((s) => (
+            <TouchableOpacity
+              key={s}
+              style={[
+                controlsPanelStyles.speedButton,
+                speed === s && controlsPanelStyles.speedButtonActive,
+              ]}
+              onPress={() => onSpeedChange(s)}
+            >
+              <Text style={[
+                controlsPanelStyles.speedButtonText,
+                speed === s && controlsPanelStyles.speedButtonTextActive,
+              ]}>{s}x</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+      
+      <TouchableOpacity 
+        style={[
+          controlsPanelStyles.loopButton,
+          isLooping && controlsPanelStyles.loopButtonActive,
+        ]}
+        onPress={onToggleLoop}
+      >
+        <Repeat size={14} color={isLooping ? Colors.accent : Colors.textMuted} />
+        <Text style={[
+          controlsPanelStyles.loopText,
+          isLooping && controlsPanelStyles.loopTextActive,
+        ]}>Loop</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const controlsPanelStyles = StyleSheet.create({
+  container: {
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    width: '100%',
+    gap: 10,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sliderTrack: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 20,
+    paddingHorizontal: 4,
+  },
+  sliderDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.surfaceLight,
+    borderWidth: 2,
+    borderColor: Colors.surfaceLight,
+  },
+  sliderDotActive: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  valueText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: Colors.textSecondary,
+    width: 36,
+    textAlign: 'right' as const,
+  },
+  labelText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    width: 40,
+  },
+  speedButtons: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 4,
+  },
+  speedButton: {
+    flex: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+    backgroundColor: Colors.surfaceLight,
+    alignItems: 'center',
+  },
+  speedButtonActive: {
+    backgroundColor: Colors.accent,
+  },
+  speedButtonText: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: Colors.textMuted,
+  },
+  speedButtonTextActive: {
+    color: Colors.background,
+  },
+  loopButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.surfaceLight,
+  },
+  loopButtonActive: {
+    backgroundColor: Colors.accent + '20',
+  },
+  loopText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: Colors.textMuted,
+  },
+  loopTextActive: {
+    color: Colors.accent,
+  },
+});
+
 export default function GameModal() {
   const router = useRouter();
   const {
@@ -254,13 +426,32 @@ export default function GameModal() {
     setShouldAutoPlaySnippet,
   } = useGame();
 
-  const { playSnippet, playHintNotes, stopPlayback, playbackState, initAudio } = useAudio();
+  const { currentInstrument, instruments } = useInstrument();
+  const { isPremium } = useUser();
+  const { 
+    playSnippet, 
+    playHintNotes, 
+    playTeaser,
+    stopPlayback, 
+    pausePlayback,
+    resumePlayback,
+    toggleLoop,
+    replayFromStart,
+    playbackState,
+    initAudio,
+    volume,
+    playbackSpeed,
+    updateVolume,
+    updatePlaybackSpeed,
+  } = useAudio(currentInstrument.id);
   const [hasPlayedSnippet, setHasPlayedSnippet] = useState(false);
   const [hasPlayedLossReveal, setHasPlayedLossReveal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showFullReveal, setShowFullReveal] = useState(false);
   const [showArtistModal, setShowArtistModal] = useState(false);
   const [showSocialModal, setShowSocialModal] = useState(false);
+  const [showPlaybackControls, setShowPlaybackControls] = useState(false);
+  const [selectedInstrumentTwist, setSelectedInstrumentTwist] = useState<string | null>(null);
 
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -323,8 +514,8 @@ export default function GameModal() {
       initAudio();
       
       const revealTimeout = setTimeout(() => {
-        console.log('[GameModal] Auto-playing loss reveal hint:', melody.notes.slice(0, 3));
-        playHintNotes(melody.notes, 3);
+        console.log('[GameModal] Auto-playing loss teaser:', melody.notes.slice(0, 4));
+        playTeaser(melody.notes, 5);
         setHasPlayedLossReveal(true);
         if (Platform.OS !== 'web') {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -332,7 +523,7 @@ export default function GameModal() {
       }, 800);
       return () => clearTimeout(revealTimeout);
     }
-  }, [showModal, gameStatus, hasPlayedLossReveal, melody.notes, playHintNotes, initAudio]);
+  }, [showModal, gameStatus, hasPlayedLossReveal, melody.notes, playTeaser, initAudio]);
 
   const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength, stats.currentStreak);
 
@@ -368,7 +559,55 @@ export default function GameModal() {
     stopPlayback();
     setShowModal(false);
     setShowFullReveal(false);
+    setShowPlaybackControls(false);
+    setSelectedInstrumentTwist(null);
   }, [stopPlayback, setShowModal]);
+
+  const handleTogglePlaybackControls = useCallback(() => {
+    setShowPlaybackControls(prev => !prev);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, []);
+
+  const handleVolumeChange = useCallback((newVolume: number) => {
+    updateVolume(newVolume);
+    if (Platform.OS !== 'web') {
+      Haptics.selectionAsync();
+    }
+  }, [updateVolume]);
+
+  const handleSpeedChange = useCallback((newSpeed: number) => {
+    updatePlaybackSpeed(newSpeed);
+    if (Platform.OS !== 'web') {
+      Haptics.selectionAsync();
+    }
+  }, [updatePlaybackSpeed]);
+
+  const handleToggleLoop = useCallback(() => {
+    toggleLoop();
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, [toggleLoop]);
+
+  const handleReplay = useCallback(() => {
+    replayFromStart();
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+  }, [replayFromStart]);
+
+  const handlePauseResume = useCallback(() => {
+    if (playbackState.isPaused) {
+      resumePlayback();
+    } else if (playbackState.isPlaying) {
+      pausePlayback();
+    }
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, [playbackState.isPaused, playbackState.isPlaying, pausePlayback, resumePlayback]);
 
   const handlePlayLossReveal = useCallback(() => {
     initAudio();
@@ -542,40 +781,128 @@ export default function GameModal() {
 
           {won ? (
             <View style={styles.snippetSection}>
-              <Text style={styles.snippetLabel}>🎧 Extended Snippet</Text>
+              <View style={styles.snippetHeader}>
+                <Text style={styles.snippetLabel}>🎧 Extended Snippet</Text>
+                <TouchableOpacity 
+                  style={styles.controlsToggle}
+                  onPress={handleTogglePlaybackControls}
+                >
+                  <Volume2 size={16} color={Colors.accent} />
+                </TouchableOpacity>
+              </View>
+              
               <WaveformVisualizer 
                 playbackState={playbackState} 
                 notes={melody.extendedNotes} 
               />
-              <TouchableOpacity 
-                style={[
-                  styles.playButton,
-                  playbackState.isPlaying && styles.playButtonActive
-                ]} 
-                onPress={handlePlaySnippet}
-              >
-                {playbackState.isPlaying ? (
-                  <>
-                    <Square size={18} color={Colors.background} fill={Colors.background} />
-                    <Text style={styles.playButtonText}>Stop</Text>
-                  </>
-                ) : (
-                  <>
-                    <Play size={18} color={Colors.background} fill={Colors.background} />
-                    <Text style={styles.playButtonText}>
-                      {hasPlayedSnippet ? 'Play Again' : 'Play Snippet'}
-                    </Text>
-                  </>
+              
+              {showPlaybackControls && (
+                <PlaybackControlsPanel
+                  volume={volume}
+                  speed={playbackSpeed}
+                  isLooping={playbackState.isLooping}
+                  isPlaying={playbackState.isPlaying}
+                  isPaused={playbackState.isPaused}
+                  onVolumeChange={handleVolumeChange}
+                  onSpeedChange={handleSpeedChange}
+                  onToggleLoop={handleToggleLoop}
+                  onReplay={handleReplay}
+                  onPauseResume={handlePauseResume}
+                />
+              )}
+              
+              <View style={styles.playbackButtonsRow}>
+                <TouchableOpacity 
+                  style={[
+                    styles.playButton,
+                    styles.playButtonMain,
+                    playbackState.isPlaying && styles.playButtonActive
+                  ]} 
+                  onPress={handlePlaySnippet}
+                >
+                  {playbackState.isPlaying && !playbackState.isPaused ? (
+                    <>
+                      <Square size={18} color={Colors.background} fill={Colors.background} />
+                      <Text style={styles.playButtonText}>Stop</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Play size={18} color={Colors.background} fill={Colors.background} />
+                      <Text style={styles.playButtonText}>
+                        {hasPlayedSnippet ? 'Replay Melody' : 'Play Snippet'}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                
+                {hasPlayedSnippet && (
+                  <TouchableOpacity 
+                    style={styles.replayIconButton}
+                    onPress={handleReplay}
+                  >
+                    <RotateCcw size={18} color={Colors.accent} />
+                  </TouchableOpacity>
                 )}
-              </TouchableOpacity>
+              </View>
+              
+              {isPremium && (
+                <View style={styles.premiumTwistSection}>
+                  <View style={styles.premiumBadge}>
+                    <Crown size={12} color="#FFD700" />
+                    <Text style={styles.premiumBadgeText}>PRO</Text>
+                  </View>
+                  <Text style={styles.twistLabel}>Play with different instrument:</Text>
+                  <View style={styles.instrumentChips}>
+                    {instruments.slice(0, 4).map((inst) => (
+                      <TouchableOpacity
+                        key={inst.id}
+                        style={[
+                          styles.instrumentChip,
+                          selectedInstrumentTwist === inst.id && styles.instrumentChipActive
+                        ]}
+                        onPress={() => setSelectedInstrumentTwist(
+                          selectedInstrumentTwist === inst.id ? null : inst.id
+                        )}
+                      >
+                        <Text style={styles.instrumentChipText}>{inst.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
             </View>
           ) : (
             <View style={styles.snippetSection}>
-              <Text style={styles.snippetLabel}>🎧 Hear the Melody</Text>
+              <View style={styles.snippetHeader}>
+                <Text style={styles.snippetLabel}>🎧 Hear the Melody</Text>
+                <TouchableOpacity 
+                  style={styles.controlsToggle}
+                  onPress={handleTogglePlaybackControls}
+                >
+                  <Volume2 size={16} color={Colors.present} />
+                </TouchableOpacity>
+              </View>
+              
               <WaveformVisualizer 
                 playbackState={playbackState} 
                 notes={showFullReveal ? melody.extendedNotes : melody.notes.slice(0, 4)} 
               />
+              
+              {showPlaybackControls && (
+                <PlaybackControlsPanel
+                  volume={volume}
+                  speed={playbackSpeed}
+                  isLooping={playbackState.isLooping}
+                  isPlaying={playbackState.isPlaying}
+                  isPaused={playbackState.isPaused}
+                  onVolumeChange={handleVolumeChange}
+                  onSpeedChange={handleSpeedChange}
+                  onToggleLoop={handleToggleLoop}
+                  onReplay={handleReplay}
+                  onPauseResume={handlePauseResume}
+                />
+              )}
+              
               <View style={styles.lossRevealButtons}>
                 <TouchableOpacity 
                   style={[
@@ -587,7 +914,7 @@ export default function GameModal() {
                   <Text style={[
                     styles.revealToggleText,
                     !showFullReveal && styles.revealToggleTextActive
-                  ]}>Teaser</Text>
+                  ]}>Teaser (5s)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={[
@@ -599,31 +926,42 @@ export default function GameModal() {
                   <Text style={[
                     styles.revealToggleText,
                     showFullReveal && styles.revealToggleTextActive
-                  ]}>Full</Text>
+                  ]}>Full Reveal</Text>
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity 
-                style={[
-                  styles.playButton,
-                  styles.lossPlayButton,
-                  playbackState.isPlaying && styles.playButtonActive
-                ]} 
-                onPress={handlePlayLossReveal}
-              >
-                {playbackState.isPlaying ? (
-                  <>
-                    <Square size={18} color={Colors.background} fill={Colors.background} />
-                    <Text style={styles.playButtonText}>Stop</Text>
-                  </>
-                ) : (
-                  <>
-                    <Play size={18} color={Colors.background} fill={Colors.background} />
-                    <Text style={styles.playButtonText}>
-                      {showFullReveal ? 'Play Full Melody' : 'Play Teaser'}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              
+              <View style={styles.playbackButtonsRow}>
+                <TouchableOpacity 
+                  style={[
+                    styles.playButton,
+                    styles.lossPlayButton,
+                    styles.playButtonMain,
+                    playbackState.isPlaying && styles.playButtonActive
+                  ]} 
+                  onPress={handlePlayLossReveal}
+                >
+                  {playbackState.isPlaying && !playbackState.isPaused ? (
+                    <>
+                      <Square size={18} color={Colors.background} fill={Colors.background} />
+                      <Text style={styles.playButtonText}>Stop</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Play size={18} color={Colors.background} fill={Colors.background} />
+                      <Text style={styles.playButtonText}>
+                        {showFullReveal ? 'Play Full Melody' : 'Play Teaser'}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.replayIconButton}
+                  onPress={handleReplay}
+                >
+                  <RotateCcw size={18} color={Colors.present} />
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
@@ -1043,5 +1381,82 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: Colors.accent,
+  },
+  snippetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 4,
+  },
+  controlsToggle: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: Colors.surfaceLight,
+  },
+  playbackButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  playButtonMain: {
+    flex: 1,
+  },
+  replayIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  premiumTwistSection: {
+    width: '100%',
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFD700' + '30',
+  },
+  premiumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFD700' + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  premiumBadgeText: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: '#FFD700',
+  },
+  twistLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginBottom: 8,
+  },
+  instrumentChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  instrumentChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: Colors.surfaceLight,
+  },
+  instrumentChipActive: {
+    backgroundColor: Colors.accent,
+  },
+  instrumentChipText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: Colors.text,
   },
 });

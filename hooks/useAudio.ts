@@ -23,9 +23,20 @@ const NOTE_FREQUENCIES: Record<string, number> = {
 
 export interface PlaybackState {
   isPlaying: boolean;
+  isPaused: boolean;
+  isLooping: boolean;
   currentNoteIndex: number;
   totalNotes: number;
   progress: number;
+  mode: 'melody' | 'snippet' | 'hint' | 'teaser' | 'preview' | 'idle';
+}
+
+export interface PlaybackControls {
+  pause: () => void;
+  resume: () => void;
+  toggleLoop: () => void;
+  setSpeed: (speed: number) => void;
+  replayFromStart: () => void;
 }
 
 export interface AudioSettings {
@@ -40,6 +51,16 @@ const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
   playbackSpeed: 1.0,
   fadeIn: false,
   fadeOut: true,
+};
+
+const DEFAULT_PLAYBACK_STATE: PlaybackState = {
+  isPlaying: false,
+  isPaused: false,
+  isLooping: false,
+  currentNoteIndex: -1,
+  totalNotes: 0,
+  progress: 0,
+  mode: 'idle',
 };
 
 let audioContextInstance: AudioContext | null = null;
@@ -321,12 +342,12 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
   const currentInstrumentRef = useRef<Instrument>(getInstrumentById(instrumentId || DEFAULT_INSTRUMENT_ID));
   const audioSettingsRef = useRef<AudioSettings>({ ...DEFAULT_AUDIO_SETTINGS, ...settings });
   
-  const [playbackState, setPlaybackState] = useState<PlaybackState>({
-    isPlaying: false,
-    currentNoteIndex: -1,
-    totalNotes: 0,
-    progress: 0,
-  });
+  const [playbackState, setPlaybackState] = useState<PlaybackState>(DEFAULT_PLAYBACK_STATE);
+  const [isLooping, setIsLooping] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const lastPlayedNotesRef = useRef<string[]>([]);
+  const lastPlayedTempoRef = useRef<number>(400);
+  const pausedAtIndexRef = useRef<number>(-1);
 
   const [volume, setVolume] = useState(settings?.volume ?? 1.0);
   const [playbackSpeed, setPlaybackSpeed] = useState(settings?.playbackSpeed ?? 1.0);
@@ -496,24 +517,90 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
   const stopPlayback = useCallback(() => {
     playbackTimeoutsRef.current.forEach(clearTimeout);
     playbackTimeoutsRef.current = [];
-    setPlaybackState({
+    setIsPaused(false);
+    pausedAtIndexRef.current = -1;
+    setPlaybackState(DEFAULT_PLAYBACK_STATE);
+  }, []);
+
+  const pausePlayback = useCallback(() => {
+    if (!playbackState.isPlaying || playbackState.isPaused) return;
+    
+    playbackTimeoutsRef.current.forEach(clearTimeout);
+    playbackTimeoutsRef.current = [];
+    pausedAtIndexRef.current = playbackState.currentNoteIndex;
+    setIsPaused(true);
+    setPlaybackState(prev => ({
+      ...prev,
       isPlaying: false,
-      currentNoteIndex: -1,
-      totalNotes: 0,
-      progress: 0,
+      isPaused: true,
+    }));
+    console.log('[Audio] Playback paused at index:', pausedAtIndexRef.current);
+  }, [playbackState.isPlaying, playbackState.isPaused, playbackState.currentNoteIndex]);
+
+  const resumePlayback = useCallback(() => {
+    if (!playbackState.isPaused || pausedAtIndexRef.current < 0) return;
+    
+    const notes = lastPlayedNotesRef.current;
+    const tempo = lastPlayedTempoRef.current / audioSettingsRef.current.playbackSpeed;
+    const startIndex = pausedAtIndexRef.current + 1;
+    
+    if (startIndex >= notes.length) {
+      stopPlayback();
+      return;
+    }
+    
+    setIsPaused(false);
+    setPlaybackState(prev => ({
+      ...prev,
+      isPlaying: true,
+      isPaused: false,
+    }));
+    
+    const remainingNotes = notes.slice(startIndex);
+    remainingNotes.forEach((note, index) => {
+      const timeout = setTimeout(() => {
+        playNote(note);
+        setPlaybackState(prev => ({
+          ...prev,
+          currentNoteIndex: startIndex + index,
+          progress: (startIndex + index + 1) / notes.length,
+        }));
+      }, index * tempo);
+      playbackTimeoutsRef.current.push(timeout);
+    });
+    
+    const endTimeout = setTimeout(() => {
+      setPlaybackState(DEFAULT_PLAYBACK_STATE);
+    }, remainingNotes.length * tempo + 300);
+    playbackTimeoutsRef.current.push(endTimeout);
+    
+    console.log('[Audio] Playback resumed from index:', startIndex);
+  }, [playbackState.isPaused, stopPlayback, playNote]);
+
+  const toggleLoop = useCallback(() => {
+    setIsLooping(prev => {
+      console.log('[Audio] Loop toggled:', !prev);
+      return !prev;
     });
   }, []);
 
-  const playMelody = useCallback((notes: string[], tempo: number = 400) => {
+  const replayFromStartRef = useRef<() => void>(() => {});
+
+  const playMelodyInternal = useCallback((notes: string[], tempo: number = 400, mode: PlaybackState['mode'] = 'melody') => {
     stopPlayback();
+    lastPlayedNotesRef.current = notes;
+    lastPlayedTempoRef.current = tempo;
     const adjustedTempo = tempo / audioSettingsRef.current.playbackSpeed;
-    console.log(`Playing melody: ${notes.join(', ')} at speed ${audioSettingsRef.current.playbackSpeed}x`);
+    console.log(`[Audio] Playing ${mode}: ${notes.join(', ')} at speed ${audioSettingsRef.current.playbackSpeed}x`);
     
     setPlaybackState({
       isPlaying: true,
+      isPaused: false,
+      isLooping,
       currentNoteIndex: 0,
       totalNotes: notes.length,
       progress: 0,
+      mode,
     });
 
     notes.forEach((note, index) => {
@@ -529,28 +616,54 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     });
 
     const endTimeout = setTimeout(() => {
-      setPlaybackState({
-        isPlaying: false,
-        currentNoteIndex: -1,
-        totalNotes: 0,
-        progress: 1,
-      });
+      if (isLooping) {
+        replayFromStartRef.current();
+      } else {
+        setPlaybackState(DEFAULT_PLAYBACK_STATE);
+      }
     }, notes.length * adjustedTempo + 300);
     playbackTimeoutsRef.current.push(endTimeout);
-  }, [playNote, stopPlayback]);
+  }, [isLooping, stopPlayback, playNote]);
+
+  const replayFromStart = useCallback(() => {
+    const notes = lastPlayedNotesRef.current;
+    const tempo = lastPlayedTempoRef.current;
+    const mode = playbackState.mode !== 'idle' ? playbackState.mode : 'melody';
+    
+    if (notes.length > 0) {
+      stopPlayback();
+      setTimeout(() => {
+        playMelodyInternal(notes, tempo, mode);
+      }, 100);
+      console.log('[Audio] Replaying from start');
+    }
+  }, [playbackState.mode, stopPlayback, playMelodyInternal]);
+
+  useEffect(() => {
+    replayFromStartRef.current = replayFromStart;
+  }, [replayFromStart]);
+
+  const playMelody = useCallback((notes: string[], tempo: number = 400) => {
+    playMelodyInternal(notes, tempo, 'melody');
+  }, [playMelodyInternal]);
 
   const playSnippet = useCallback((notes: string[], onComplete?: () => void) => {
     stopPlayback();
-    console.log(`Playing snippet: ${notes.join(', ')}`);
+    lastPlayedNotesRef.current = notes;
+    lastPlayedTempoRef.current = 350;
+    console.log(`[Audio] Playing snippet: ${notes.join(', ')}`);
     
     setPlaybackState({
       isPlaying: true,
+      isPaused: false,
+      isLooping,
       currentNoteIndex: 0,
       totalNotes: notes.length,
       progress: 0,
+      mode: 'snippet',
     });
 
-    const tempo = 350;
+    const tempo = 350 / audioSettingsRef.current.playbackSpeed;
     
     notes.forEach((note, index) => {
       const timeout = setTimeout(() => {
@@ -565,30 +678,35 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     });
 
     const endTimeout = setTimeout(() => {
-      setPlaybackState({
-        isPlaying: false,
-        currentNoteIndex: -1,
-        totalNotes: 0,
-        progress: 1,
-      });
-      onComplete?.();
+      if (isLooping) {
+        playSnippet(notes, onComplete);
+      } else {
+        setPlaybackState(DEFAULT_PLAYBACK_STATE);
+        onComplete?.();
+      }
     }, notes.length * tempo + 400);
     playbackTimeoutsRef.current.push(endTimeout);
-  }, [playNote, stopPlayback]);
+  }, [playNote, stopPlayback, isLooping]);
 
   const playHintNotes = useCallback((notes: string[], count: number = 3) => {
     const hintNotes = notes.slice(0, Math.min(count, notes.length));
-    console.log(`Playing hint notes: ${hintNotes.join(', ')}`);
+    console.log(`[Audio] Playing hint notes: ${hintNotes.join(', ')}`);
     
     stopPlayback();
+    lastPlayedNotesRef.current = hintNotes;
+    lastPlayedTempoRef.current = 500;
+    
     setPlaybackState({
       isPlaying: true,
+      isPaused: false,
+      isLooping: false,
       currentNoteIndex: 0,
       totalNotes: hintNotes.length,
       progress: 0,
+      mode: 'hint',
     });
 
-    const tempo = 500;
+    const tempo = 500 / audioSettingsRef.current.playbackSpeed;
     
     hintNotes.forEach((note, index) => {
       const timeout = setTimeout(() => {
@@ -603,15 +721,68 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     });
 
     const endTimeout = setTimeout(() => {
-      setPlaybackState({
-        isPlaying: false,
-        currentNoteIndex: -1,
-        totalNotes: 0,
-        progress: 1,
-      });
+      setPlaybackState(DEFAULT_PLAYBACK_STATE);
     }, hintNotes.length * tempo + 400);
     playbackTimeoutsRef.current.push(endTimeout);
   }, [playNote, stopPlayback]);
+
+  const playTeaser = useCallback((notes: string[], duration: number = 5) => {
+    const teaserCount = Math.min(Math.ceil(notes.length * 0.4), Math.floor(duration / 0.5));
+    const teaserNotes = notes.slice(0, Math.max(3, teaserCount));
+    console.log(`[Audio] Playing teaser (${duration}s): ${teaserNotes.join(', ')}`);
+    
+    stopPlayback();
+    lastPlayedNotesRef.current = teaserNotes;
+    lastPlayedTempoRef.current = 450;
+    
+    setPlaybackState({
+      isPlaying: true,
+      isPaused: false,
+      isLooping: false,
+      currentNoteIndex: 0,
+      totalNotes: teaserNotes.length,
+      progress: 0,
+      mode: 'teaser',
+    });
+
+    const tempo = 450 / audioSettingsRef.current.playbackSpeed;
+    
+    teaserNotes.forEach((note, index) => {
+      const timeout = setTimeout(() => {
+        playNote(note);
+        setPlaybackState(prev => ({
+          ...prev,
+          currentNoteIndex: index,
+          progress: (index + 1) / teaserNotes.length,
+        }));
+      }, index * tempo);
+      playbackTimeoutsRef.current.push(timeout);
+    });
+
+    const endTimeout = setTimeout(() => {
+      setPlaybackState(DEFAULT_PLAYBACK_STATE);
+    }, teaserNotes.length * tempo + 400);
+    playbackTimeoutsRef.current.push(endTimeout);
+  }, [playNote, stopPlayback]);
+
+  const playNotePreview = useCallback((note: string) => {
+    console.log(`[Audio] Playing note preview: ${note}`);
+    playNote(note);
+    
+    setPlaybackState(prev => ({
+      ...prev,
+      mode: 'preview',
+    }));
+    
+    setTimeout(() => {
+      setPlaybackState(prev => {
+        if (prev.mode === 'preview') {
+          return { ...prev, mode: 'idle' };
+        }
+        return prev;
+      });
+    }, 300);
+  }, [playNote]);
 
   const preloadNotes = useCallback(async (notes: string[]) => {
     if (Platform.OS === 'web') return;
@@ -660,13 +831,32 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     }
   }, [volume]);
 
+  const playbackControls: PlaybackControls = {
+    pause: pausePlayback,
+    resume: resumePlayback,
+    toggleLoop,
+    setSpeed: updatePlaybackSpeed,
+    replayFromStart,
+  };
+
   return { 
     playNote, 
+    playNotePreview,
     playMelody, 
     playSnippet,
     playHintNotes,
+    playTeaser,
     stopPlayback,
-    playbackState,
+    pausePlayback,
+    resumePlayback,
+    toggleLoop,
+    replayFromStart,
+    playbackState: {
+      ...playbackState,
+      isLooping,
+      isPaused,
+    },
+    playbackControls,
     preloadNotes,
     isNoteCached,
     initAudio,
