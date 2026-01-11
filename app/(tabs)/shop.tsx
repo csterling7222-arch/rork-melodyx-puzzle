@@ -13,13 +13,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
-  Coins, Palette, Lightbulb, Crown, Check, RotateCcw, Sparkles, Star, Tag, Gift, Clock, X, Zap
+  Coins, Palette, Lightbulb, Crown, Check, RotateCcw, Sparkles, Star, Tag, Gift, Clock, X, Zap, Music, Users
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useUser } from '@/contexts/UserContext';
 import { usePurchases, PACKAGE_IDENTIFIERS } from '@/contexts/PurchasesContext';
 import { KEYBOARD_SKINS, KeyboardSkin } from '@/constants/shop';
+import { INSTRUMENT_BUNDLES } from '@/constants/instruments';
 
 function TrialBanner({ daysRemaining, onUpgrade }: { daysRemaining: number; onUpgrade: () => void }) {
   if (daysRemaining <= 0) return null;
@@ -478,7 +479,7 @@ export default function ShopScreen() {
     enableDemoPremium,
   } = usePurchases();
   
-  const [selectedTab, setSelectedTab] = useState<'skins' | 'hints' | 'coins' | 'premium'>('premium');
+  const [selectedTab, setSelectedTab] = useState<'skins' | 'hints' | 'coins' | 'premium' | 'bundles'>('premium');
   const [purchasingPackage, setPurchasingPackage] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
   const [promoCode, setPromoCode] = useState('');
@@ -643,6 +644,7 @@ export default function ShopScreen() {
 
   const tabs = [
     { key: 'premium' as const, label: 'Premium', icon: <Crown size={18} /> },
+    { key: 'bundles' as const, label: 'Bundles', icon: <Music size={18} /> },
     { key: 'skins' as const, label: 'Skins', icon: <Palette size={18} /> },
     { key: 'hints' as const, label: 'Hints', icon: <Lightbulb size={18} /> },
     { key: 'coins' as const, label: 'Coins', icon: <Coins size={18} /> },
@@ -738,6 +740,99 @@ export default function ShopScreen() {
               status={subscriptionStatus}
               onManage={handleManageSubscription}
             />
+          )}
+
+          {selectedTab === 'bundles' && (
+            <View style={styles.bundlesSection}>
+              <Text style={styles.sectionTitle}>🎸 Instrument Bundles</Text>
+              <Text style={styles.sectionSubtitle}>Unlock premium instruments with effects</Text>
+              
+              {INSTRUMENT_BUNDLES.filter(b => b.featured).map(bundle => (
+                <TouchableOpacity
+                  key={bundle.id}
+                  style={styles.featuredBundleCard}
+                  onPress={() => handleIAPPurchase(bundle.id)}
+                  disabled={isPurchasing}
+                >
+                  <View style={styles.featuredBadge}>
+                    <Star size={12} color="#000" fill="#FFD700" />
+                    <Text style={styles.featuredBadgeText}>FEATURED</Text>
+                  </View>
+                  <Text style={styles.bundleIcon}>{bundle.icon}</Text>
+                  <Text style={styles.bundleName}>{bundle.name}</Text>
+                  <Text style={styles.bundleDesc}>{bundle.description}</Text>
+                  <View style={styles.bundlePricing}>
+                    <Text style={styles.bundleOriginalPrice}>${bundle.originalPrice.toFixed(2)}</Text>
+                    <Text style={styles.bundlePrice}>${bundle.bundlePrice.toFixed(2)}</Text>
+                    <View style={styles.bundleSavingsBadge}>
+                      <Text style={styles.bundleSavingsText}>-{bundle.savings}%</Text>
+                    </View>
+                  </View>
+                  <View style={styles.bundleInstruments}>
+                    {bundle.instruments.map((inst, idx) => (
+                      <View key={idx} style={styles.bundleInstrumentTag}>
+                        <Text style={styles.bundleInstrumentText}>{inst}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+              <View style={styles.bundlesGrid}>
+                {INSTRUMENT_BUNDLES.filter(b => !b.featured).map(bundle => (
+                  <TouchableOpacity
+                    key={bundle.id}
+                    style={styles.bundleCard}
+                    onPress={() => handleIAPPurchase(bundle.id)}
+                    disabled={isPurchasing}
+                  >
+                    <Text style={styles.bundleCardIcon}>{bundle.icon}</Text>
+                    <Text style={styles.bundleCardName}>{bundle.name}</Text>
+                    <Text style={styles.bundleCardDesc} numberOfLines={2}>{bundle.description}</Text>
+                    <View style={styles.bundleCardPricing}>
+                      <Text style={styles.bundleCardOriginal}>${bundle.originalPrice.toFixed(2)}</Text>
+                      <Text style={styles.bundleCardPrice}>${bundle.bundlePrice.toFixed(2)}</Text>
+                    </View>
+                    <View style={styles.bundleCardSavings}>
+                      <Text style={styles.bundleCardSavingsText}>Save {bundle.savings}%</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.familySection}>
+                <View style={styles.familySectionHeader}>
+                  <Users size={24} color={Colors.accent} />
+                  <Text style={styles.familySectionTitle}>Family Plans</Text>
+                </View>
+                <Text style={styles.familySectionDesc}>Share premium with up to 6 family members</Text>
+                
+                <View style={styles.familyPlans}>
+                  <TouchableOpacity
+                    style={styles.familyPlanCard}
+                    onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.FAMILY_MONTHLY)}
+                    disabled={isPurchasing}
+                  >
+                    <Text style={styles.familyPlanName}>Family Monthly</Text>
+                    <Text style={styles.familyPlanPrice}>{getPackagePrice(PACKAGE_IDENTIFIERS.FAMILY_MONTHLY)}/mo</Text>
+                    <Text style={styles.familyPlanMembers}>Up to 6 members</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.familyPlanCard, styles.familyPlanCardFeatured]}
+                    onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.FAMILY_YEARLY)}
+                    disabled={isPurchasing}
+                  >
+                    <View style={styles.familyPlanBadge}>
+                      <Text style={styles.familyPlanBadgeText}>BEST VALUE</Text>
+                    </View>
+                    <Text style={styles.familyPlanName}>Family Yearly</Text>
+                    <Text style={styles.familyPlanPrice}>{getPackagePrice(PACKAGE_IDENTIFIERS.FAMILY_YEARLY)}/yr</Text>
+                    <Text style={styles.familyPlanMembers}>Save 33% annually</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
           )}
 
           {selectedTab === 'skins' && (
@@ -1410,6 +1505,234 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textMuted,
     marginTop: 2,
+  },
+  bundlesSection: {
+    paddingVertical: 8,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 16,
+  },
+  featuredBundleCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#FFD700',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  featuredBadge: {
+    position: 'absolute',
+    top: -10,
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  featuredBadgeText: {
+    fontSize: 10,
+    fontWeight: '800' as const,
+    color: '#000',
+  },
+  bundleIcon: {
+    fontSize: 48,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  bundleName: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  bundleDesc: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  bundlePricing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  bundleOriginalPrice: {
+    fontSize: 16,
+    color: Colors.textMuted,
+    textDecorationLine: 'line-through',
+  },
+  bundlePrice: {
+    fontSize: 24,
+    fontWeight: '800' as const,
+    color: '#FFD700',
+  },
+  bundleSavingsBadge: {
+    backgroundColor: Colors.correct + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  bundleSavingsText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: Colors.correct,
+  },
+  bundleInstruments: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    justifyContent: 'center',
+  },
+  bundleInstrumentTag: {
+    backgroundColor: Colors.surfaceLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  bundleInstrumentText: {
+    fontSize: 12,
+    color: Colors.text,
+    fontWeight: '600' as const,
+    textTransform: 'capitalize',
+  },
+  bundlesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 24,
+  },
+  bundleCard: {
+    width: '47%',
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 14,
+    alignItems: 'center',
+  },
+  bundleCardIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  bundleCardName: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  bundleCardDesc: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 8,
+    lineHeight: 15,
+  },
+  bundleCardPricing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  bundleCardOriginal: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    textDecorationLine: 'line-through',
+  },
+  bundleCardPrice: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.accent,
+  },
+  bundleCardSavings: {
+    backgroundColor: Colors.correct + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  bundleCardSavingsText: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: Colors.correct,
+  },
+  familySection: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+  },
+  familySectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 4,
+  },
+  familySectionTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  familySectionDesc: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginBottom: 16,
+  },
+  familyPlans: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  familyPlanCard: {
+    flex: 1,
+    backgroundColor: Colors.surfaceLight,
+    borderRadius: 14,
+    padding: 14,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  familyPlanCardFeatured: {
+    borderWidth: 2,
+    borderColor: Colors.accent,
+  },
+  familyPlanBadge: {
+    position: 'absolute',
+    top: -8,
+    backgroundColor: Colors.accent,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  familyPlanBadgeText: {
+    fontSize: 9,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  familyPlanName: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.text,
+    marginBottom: 4,
+    marginTop: 4,
+  },
+  familyPlanPrice: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.accent,
+    marginBottom: 4,
+  },
+  familyPlanMembers: {
+    fontSize: 11,
+    color: Colors.textSecondary,
   },
   savingsBadge: {
     position: 'absolute',

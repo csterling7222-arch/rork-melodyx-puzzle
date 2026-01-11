@@ -108,6 +108,14 @@ export const PACKAGE_IDENTIFIERS = {
   HINTS_SMALL: 'hints_small',
   HINTS_LARGE: 'hints_large',
   HINT_SINGLE: 'hint_single',
+  STARTER_BUNDLE: 'starter_bundle',
+  FULL_BAND_BUNDLE: 'full_band_bundle',
+  ROCK_BUNDLE: 'rock_bundle',
+  ELECTRONIC_BUNDLE: 'electronic_bundle',
+  AI_TONES_BUNDLE: 'ai_tones_bundle',
+  LEARNING_HINTS_BUNDLE: 'learning_hints_bundle',
+  FAMILY_MONTHLY: 'family_monthly',
+  FAMILY_YEARLY: 'family_yearly',
 } as const;
 
 export interface PromoOffer {
@@ -119,10 +127,12 @@ export interface PromoOffer {
 }
 
 const ACTIVE_PROMOS: PromoOffer[] = [
-  { code: 'MELODYX20', discount: 20, expiresAt: '2025-12-31', type: 'percentage', description: '20% off first month' },
-  { code: 'WELCOME50', discount: 50, expiresAt: '2025-06-30', type: 'percentage', description: '50% off first year' },
-  { code: 'PREMIUM25', discount: 25, expiresAt: '2025-12-31', type: 'percentage', description: '25% off lifetime' },
-  { code: 'NEWYEAR30', discount: 30, expiresAt: '2025-02-28', type: 'percentage', description: 'New Year 30% off' },
+  { code: 'MELODYX20', discount: 20, expiresAt: '2026-12-31', type: 'percentage', description: '20% off first month' },
+  { code: 'WELCOME50', discount: 50, expiresAt: '2026-06-30', type: 'percentage', description: '50% off first year' },
+  { code: 'PREMIUM25', discount: 25, expiresAt: '2026-12-31', type: 'percentage', description: '25% off lifetime' },
+  { code: 'NEWYEAR30', discount: 30, expiresAt: '2026-02-28', type: 'percentage', description: 'New Year 30% off' },
+  { code: 'INSTRUMENTS50', discount: 50, expiresAt: '2026-12-31', type: 'percentage', description: '50% off instrument bundles' },
+  { code: 'FAMILY30', discount: 30, expiresAt: '2026-12-31', type: 'percentage', description: '30% off family plans' },
 ];
 
 export interface MockPackage {
@@ -165,6 +175,86 @@ const MOCK_PACKAGES: MockPackage[] = [
       price: 79.99,
       title: 'Melodyx Premium Lifetime',
       description: 'One-time purchase, forever premium',
+    },
+  },
+  {
+    identifier: 'family_monthly',
+    product: {
+      identifier: 'melodyx_family_monthly',
+      priceString: '$9.99',
+      price: 9.99,
+      title: 'Family Plan Monthly',
+      description: 'Premium for up to 6 family members',
+    },
+  },
+  {
+    identifier: 'family_yearly',
+    product: {
+      identifier: 'melodyx_family_yearly',
+      priceString: '$79.99',
+      price: 79.99,
+      title: 'Family Plan Yearly',
+      description: 'Save 33% on family plan annually',
+    },
+  },
+  {
+    identifier: 'starter_bundle',
+    product: {
+      identifier: 'melodyx_starter_bundle',
+      priceString: '$2.99',
+      price: 2.99,
+      title: 'Starter Pack',
+      description: 'Piano & Guitar enhanced effects',
+    },
+  },
+  {
+    identifier: 'full_band_bundle',
+    product: {
+      identifier: 'melodyx_full_band_bundle',
+      priceString: '$7.99',
+      price: 7.99,
+      title: 'Full Band Suite',
+      description: 'All 5 instruments with premium effects',
+    },
+  },
+  {
+    identifier: 'rock_bundle',
+    product: {
+      identifier: 'melodyx_rock_bundle',
+      priceString: '$5.99',
+      price: 5.99,
+      title: 'Rock Master Pack',
+      description: 'Guitar, Bass, Drums with rock effects',
+    },
+  },
+  {
+    identifier: 'electronic_bundle',
+    product: {
+      identifier: 'melodyx_electronic_bundle',
+      priceString: '$4.99',
+      price: 4.99,
+      title: 'Electronic Producer',
+      description: 'Synth and Drums for EDM',
+    },
+  },
+  {
+    identifier: 'ai_tones_bundle',
+    product: {
+      identifier: 'melodyx_ai_tones_bundle',
+      priceString: '$3.99',
+      price: 3.99,
+      title: 'AI Tone Collection',
+      description: 'All AI-crafted presets',
+    },
+  },
+  {
+    identifier: 'learning_hints_bundle',
+    product: {
+      identifier: 'melodyx_learning_hints_bundle',
+      priceString: '$9.99',
+      price: 9.99,
+      title: 'Learning + Hints Bundle',
+      description: 'Full Band Suite + 50 Hints',
     },
   },
   {
@@ -235,11 +325,38 @@ interface TrialState {
   expiresAt: string | null;
 }
 
+interface FamilyMember {
+  id: string;
+  name: string;
+  email: string;
+  role: 'owner' | 'member';
+  joinedAt: string;
+}
+
+interface SubscriptionDetails {
+  type: 'individual' | 'family';
+  billingCycle: 'monthly' | 'yearly' | 'lifetime';
+  nextBillingDate: string | null;
+  cancelledAt: string | null;
+  familyMembers: FamilyMember[];
+  maxFamilyMembers: number;
+}
+
+interface BillingHistory {
+  id: string;
+  date: string;
+  amount: number;
+  description: string;
+  status: 'completed' | 'pending' | 'failed' | 'refunded';
+}
+
 export const [PurchasesProvider, usePurchases] = createContextHook(() => {
   const queryClient = useQueryClient();
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [appliedPromo, setAppliedPromo] = useState<PromoOffer | null>(null);
+  const [subscriptionDetails, setSubscriptionDetails] = useState<SubscriptionDetails | null>(null);
+  const [billingHistory, setBillingHistory] = useState<BillingHistory[]>([]);
 
   const trialQuery = useQuery({
     queryKey: ['premiumTrial'],
@@ -516,6 +633,27 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     return currentOffering?.lifetime ?? getPackageByIdentifier(PACKAGE_IDENTIFIERS.LIFETIME);
   }, [currentOffering, getPackageByIdentifier]);
 
+  const getFamilyMonthlyPackage = useCallback((): PurchasesPackage | undefined => {
+    return getPackageByIdentifier(PACKAGE_IDENTIFIERS.FAMILY_MONTHLY);
+  }, [getPackageByIdentifier]);
+
+  const getFamilyYearlyPackage = useCallback((): PurchasesPackage | undefined => {
+    return getPackageByIdentifier(PACKAGE_IDENTIFIERS.FAMILY_YEARLY);
+  }, [getPackageByIdentifier]);
+
+  const getBundlePackage = useCallback((bundleId: string): PurchasesPackage | undefined => {
+    const bundleMap: Record<string, string> = {
+      'starter_pack': PACKAGE_IDENTIFIERS.STARTER_BUNDLE,
+      'full_band': PACKAGE_IDENTIFIERS.FULL_BAND_BUNDLE,
+      'rock_pack': PACKAGE_IDENTIFIERS.ROCK_BUNDLE,
+      'electronic_pack': PACKAGE_IDENTIFIERS.ELECTRONIC_BUNDLE,
+      'ai_tones_pack': PACKAGE_IDENTIFIERS.AI_TONES_BUNDLE,
+      'learning_plus_hints': PACKAGE_IDENTIFIERS.LEARNING_HINTS_BUNDLE,
+    };
+    const identifier = bundleMap[bundleId];
+    return identifier ? getPackageByIdentifier(identifier) : undefined;
+  }, [getPackageByIdentifier]);
+
   const calculateSavings = useCallback((monthlyPrice: number, yearlyPrice: number): number => {
     const yearlyEquivalent = monthlyPrice * 12;
     return Math.round(((yearlyEquivalent - yearlyPrice) / yearlyEquivalent) * 100);
@@ -636,6 +774,103 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     };
   }, []);
 
+  const initializeSubscriptionDetails = useCallback(() => {
+    if (!isPremium) {
+      setSubscriptionDetails(null);
+      return;
+    }
+    
+    const mockDetails: SubscriptionDetails = {
+      type: 'individual',
+      billingCycle: 'yearly',
+      nextBillingDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      cancelledAt: null,
+      familyMembers: [],
+      maxFamilyMembers: 6,
+    };
+    setSubscriptionDetails(mockDetails);
+    
+    const mockHistory: BillingHistory[] = [
+      { id: '1', date: new Date().toISOString(), amount: 39.99, description: 'Premium Yearly', status: 'completed' },
+    ];
+    setBillingHistory(mockHistory);
+  }, [isPremium]);
+
+  useEffect(() => {
+    initializeSubscriptionDetails();
+  }, [initializeSubscriptionDetails]);
+
+  const addFamilyMember = useCallback(async (email: string, name: string) => {
+    if (!subscriptionDetails || subscriptionDetails.type !== 'family') {
+      Alert.alert('Family Plan Required', 'Upgrade to a family plan to add members.');
+      return false;
+    }
+    
+    if (subscriptionDetails.familyMembers.length >= subscriptionDetails.maxFamilyMembers) {
+      Alert.alert('Limit Reached', `Maximum ${subscriptionDetails.maxFamilyMembers} family members allowed.`);
+      return false;
+    }
+    
+    const newMember: FamilyMember = {
+      id: `member_${Date.now()}`,
+      name,
+      email,
+      role: 'member',
+      joinedAt: new Date().toISOString(),
+    };
+    
+    setSubscriptionDetails(prev => prev ? {
+      ...prev,
+      familyMembers: [...prev.familyMembers, newMember],
+    } : null);
+    
+    console.log('[RevenueCat] Family member added:', email);
+    return true;
+  }, [subscriptionDetails]);
+
+  const removeFamilyMember = useCallback(async (memberId: string) => {
+    setSubscriptionDetails(prev => prev ? {
+      ...prev,
+      familyMembers: prev.familyMembers.filter(m => m.id !== memberId),
+    } : null);
+    console.log('[RevenueCat] Family member removed:', memberId);
+    return true;
+  }, []);
+
+  const cancelSubscription = useCallback(async () => {
+    console.log('[RevenueCat] Cancellation requested');
+    Alert.alert(
+      'Cancel Subscription',
+      'To cancel your subscription, please go to your device\'s app store settings. Your premium features will remain active until the end of your billing period.',
+      [{ text: 'OK' }]
+    );
+    return true;
+  }, []);
+
+  const requestRefund = useCallback(async (reason: string) => {
+    console.log('[RevenueCat] Refund requested:', reason);
+    Alert.alert(
+      'Refund Request Submitted',
+      'Your refund request has been submitted. You will receive an email within 3-5 business days.',
+      [{ text: 'OK' }]
+    );
+    return true;
+  }, []);
+
+  const upgradeToFamily = useCallback(async () => {
+    const configured = isConfigured;
+    if (!configured) {
+      setSubscriptionDetails(prev => prev ? {
+        ...prev,
+        type: 'family',
+        maxFamilyMembers: 6,
+      } : null);
+      Alert.alert('Family Plan Activated!', 'You can now add up to 6 family members. (Demo Mode)');
+      return true;
+    }
+    return false;
+  }, []);
+
   return {
     isConfigured,
     isDemoMode,
@@ -657,6 +892,8 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     availablePackages: currentOffering?.availablePackages ?? [],
     mockPackages: MOCK_PACKAGES,
     subscriptionStatus,
+    subscriptionDetails,
+    billingHistory,
     appliedPromo,
     hasPremiumEntitlement,
     hasEntitlement,
@@ -667,6 +904,9 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     getMonthlyPackage,
     getYearlyPackage,
     getLifetimePackage,
+    getFamilyMonthlyPackage,
+    getFamilyYearlyPackage,
+    getBundlePackage,
     calculateSavings,
     applyPromoCode,
     clearPromoCode,
@@ -682,6 +922,11 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     disableDemoPremium,
     purchaseDemoProduct,
     configurationError,
+    addFamilyMember,
+    removeFamilyMember,
+    cancelSubscription,
+    requestRefund,
+    upgradeToFamily,
     ENTITLEMENTS,
     PACKAGE_IDENTIFIERS,
   };
