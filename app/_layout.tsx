@@ -7,6 +7,9 @@ import { StatusBar } from 'expo-status-bar';
 import { initErrorTracking, addBreadcrumb, captureError } from '@/utils/errorTracking';
 import { initAccessibility } from '@/utils/accessibility';
 import { initGlitchFreeEngine, logNavigation } from '@/utils/glitchFreeEngine';
+import { initSystemIntegration } from '@/utils/systemIntegration';
+import { initPerformanceOptimizer } from '@/utils/performanceOptimizer';
+import { configureHaptics } from '@/utils/hapticEngine';
 import { PerformanceMonitor } from '@/components/PerformanceMonitor';
 import { GameProvider } from '@/contexts/GameContext';
 import { FeverProvider } from '@/contexts/FeverContext';
@@ -44,14 +47,21 @@ export default function RootLayout() {
         initErrorTracking();
         console.log('[App] Error tracking initialized');
         
-        await initGlitchFreeEngine();
-        console.log('[App] Glitch-free engine initialized');
+        await Promise.all([
+          initGlitchFreeEngine(),
+          initSystemIntegration(),
+          initPerformanceOptimizer(),
+        ]);
+        console.log('[App] Core engines initialized');
         logNavigation('app_launch');
+        
+        configureHaptics({ enabled: true, intensity: 'high' });
+        console.log('[App] Haptics configured');
         
         const accessSettings = await initAccessibility();
         console.log('[App] Accessibility initialized:', accessSettings.screenReaderEnabled ? 'Screen reader active' : 'Standard mode');
         
-        addBreadcrumb({ category: 'lifecycle', message: 'App launched', level: 'info' });
+        addBreadcrumb({ category: 'lifecycle', message: 'App launched with full integration', level: 'info' });
         
         await SplashScreen.hideAsync();
         addBreadcrumb({ category: 'lifecycle', message: 'Splash screen hidden', level: 'info' });
