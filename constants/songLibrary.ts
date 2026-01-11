@@ -21,6 +21,28 @@ export interface SongMetadata {
   key?: string;
 }
 
+export interface ArtistDiscography {
+  title: string;
+  year: number;
+  type: 'album' | 'single' | 'ep';
+  coverUrl?: string;
+  spotifyId?: string;
+}
+
+export interface TourDate {
+  date: string;
+  venue: string;
+  city: string;
+  country: string;
+  ticketUrl?: string;
+}
+
+export interface ArtistMilestone {
+  year: number;
+  event: string;
+  description: string;
+}
+
 export interface ArtistInfo {
   name: string;
   spotifyUrl?: string;
@@ -33,6 +55,26 @@ export interface ArtistInfo {
   bio?: string;
   genres: string[];
   imageUrl?: string;
+  // Extended info
+  fullBio?: string;
+  monthlyListeners?: string;
+  followers?: string;
+  socialMedia?: {
+    instagram?: string;
+    twitter?: string;
+    tiktok?: string;
+    facebook?: string;
+  };
+  discography?: ArtistDiscography[];
+  tourDates?: TourDate[];
+  merchUrl?: string;
+  fanFacts?: string[];
+  timeline?: ArtistMilestone[];
+  similarArtists?: string[];
+  awards?: string[];
+  originCountry?: string;
+  activeYears?: string;
+  recordLabel?: string;
 }
 
 export const ARTIST_DATABASE: Record<string, ArtistInfo> = {
@@ -41,91 +83,517 @@ export const ARTIST_DATABASE: Record<string, ArtistInfo> = {
     spotifyUrl: 'https://open.spotify.com/artist/3WrFJ7ztbogyGnTHbHJFl2',
     appleMusicUrl: 'https://music.apple.com/artist/the-beatles/136975',
     youtubeUrl: 'https://www.youtube.com/channel/UCR0ELRhPKh9V3yN-_5XnAGg',
+    tidalUrl: 'https://tidal.com/browse/artist/16579',
+    amazonMusicUrl: 'https://music.amazon.com/artists/B000QJPQB4',
+    websiteUrl: 'https://www.thebeatles.com',
     bio: 'The most influential band of all time, revolutionizing popular music in the 1960s.',
+    fullBio: 'The Beatles were an English rock band formed in Liverpool in 1960. The group, whose best-known line-up comprised John Lennon, Paul McCartney, George Harrison and Ringo Starr, are regarded as the most influential band of all time.',
     genres: ['Rock', 'Pop', 'Psychedelic'],
     imageUrl: 'https://images.unsplash.com/photo-1619983081563-430f63602796?w=400',
+    monthlyListeners: '28M',
+    followers: '25M',
+    originCountry: 'United Kingdom',
+    activeYears: '1960-1970',
+    recordLabel: 'Apple Records',
+    socialMedia: { twitter: 'https://twitter.com/thebeatles', instagram: 'https://instagram.com/thebeatles', facebook: 'https://facebook.com/thebeatles' },
+    fanFacts: [
+      'They hold the record for most #1 hits on the Billboard Hot 100 (20 songs)',
+      'Ringo Starr was not the original drummer - Pete Best was replaced in 1962',
+      'The band never performed Sgt. Pepper\'s Lonely Hearts Club Band live',
+      'John Lennon\'s first guitar was bought for £17 by his aunt Mimi'
+    ],
+    timeline: [
+      { year: 1960, event: 'Band Formation', description: 'The Beatles formed in Liverpool' },
+      { year: 1963, event: 'Beatlemania', description: 'Please Please Me topped UK charts for 30 weeks' },
+      { year: 1964, event: 'US Invasion', description: 'Ed Sullivan Show performance seen by 73 million' },
+      { year: 1967, event: 'Sgt. Pepper', description: 'Released groundbreaking concept album' },
+      { year: 1970, event: 'Breakup', description: 'Paul McCartney announced departure' }
+    ],
+    discography: [
+      { title: 'Abbey Road', year: 1969, type: 'album' },
+      { title: 'Sgt. Pepper\'s Lonely Hearts Club Band', year: 1967, type: 'album' },
+      { title: 'Revolver', year: 1966, type: 'album' },
+      { title: 'Rubber Soul', year: 1965, type: 'album' }
+    ],
+    similarArtists: ['The Rolling Stones', 'The Who', 'The Beach Boys', 'Led Zeppelin'],
+    awards: ['10 Grammy Awards', 'Academy Award for Best Original Song Score', 'Rock and Roll Hall of Fame']
   },
   'Queen': {
     name: 'Queen',
     spotifyUrl: 'https://open.spotify.com/artist/1dfeR4HaWDbWqFHLkxsg1d',
     appleMusicUrl: 'https://music.apple.com/artist/queen/3296287',
     youtubeUrl: 'https://www.youtube.com/user/queenofficial',
+    tidalUrl: 'https://tidal.com/browse/artist/14123',
+    amazonMusicUrl: 'https://music.amazon.com/artists/B000QJIO1W',
+    websiteUrl: 'https://www.queenonline.com',
     bio: 'British rock legends known for theatrical performances and genre-defying music.',
+    fullBio: 'Queen are a British rock band formed in London in 1970. Their classic line-up was Freddie Mercury, Brian May, Roger Taylor and John Deacon. Their music is characterized by multi-layered overdubs, vocal harmonies, and diverse musical styles.',
     genres: ['Rock', 'Arena Rock', 'Glam Rock'],
     imageUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400',
+    monthlyListeners: '45M',
+    followers: '35M',
+    originCountry: 'United Kingdom',
+    activeYears: '1970-present',
+    recordLabel: 'Hollywood Records',
+    merchUrl: 'https://shop.queenonline.com',
+    socialMedia: { twitter: 'https://twitter.com/QueenWillRock', instagram: 'https://instagram.com/officialqueenmusic' },
+    fanFacts: [
+      'Bohemian Rhapsody took 3 weeks to record with 180 vocal overdubs',
+      'Brian May built his own guitar "Red Special" with his father',
+      'Freddie Mercury had a four-octave vocal range',
+      'We Will Rock You was designed for audience participation'
+    ],
+    timeline: [
+      { year: 1970, event: 'Formation', description: 'Band formed from Smile remnants' },
+      { year: 1975, event: 'Bohemian Rhapsody', description: 'Released revolutionary 6-minute single' },
+      { year: 1985, event: 'Live Aid', description: 'Legendary 21-minute performance at Wembley' },
+      { year: 1991, event: 'Freddie\'s Passing', description: 'Mercury died, leaving lasting legacy' }
+    ],
+    discography: [
+      { title: 'A Night at the Opera', year: 1975, type: 'album' },
+      { title: 'News of the World', year: 1977, type: 'album' },
+      { title: 'The Game', year: 1980, type: 'album' }
+    ],
+    similarArtists: ['Led Zeppelin', 'David Bowie', 'Elton John', 'The Who'],
+    awards: ['Grammy Lifetime Achievement Award', 'Brit Award for Outstanding Contribution', 'Rock and Roll Hall of Fame']
   },
   'Ed Sheeran': {
     name: 'Ed Sheeran',
     spotifyUrl: 'https://open.spotify.com/artist/6eUKZXaKkcviH0Ku9w2n3V',
     appleMusicUrl: 'https://music.apple.com/artist/ed-sheeran/183313439',
     youtubeUrl: 'https://www.youtube.com/user/EdSheeran',
+    tidalUrl: 'https://tidal.com/browse/artist/3698180',
+    amazonMusicUrl: 'https://music.amazon.com/artists/B001LHYJ60',
+    soundCloudUrl: 'https://soundcloud.com/edsheeran',
+    websiteUrl: 'https://www.edsheeran.com',
     bio: 'Multi-award winning singer-songwriter known for heartfelt ballads and pop hits.',
+    fullBio: 'Edward Christopher Sheeran is an English singer-songwriter. Born in Halifax, he began playing guitar at a young age and soon started writing songs. His 2011 debut album + made him a global star.',
     genres: ['Pop', 'Folk Pop', 'Acoustic'],
     imageUrl: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400',
+    monthlyListeners: '82M',
+    followers: '90M',
+    originCountry: 'United Kingdom',
+    activeYears: '2004-present',
+    recordLabel: 'Atlantic Records',
+    merchUrl: 'https://store.edsheeran.com',
+    socialMedia: { instagram: 'https://instagram.com/teddysphotos', twitter: 'https://twitter.com/edsheeran', tiktok: 'https://tiktok.com/@edsheeran' },
+    fanFacts: [
+      'Shape of You was the first song to reach 2 billion streams on Spotify',
+      'He wrote songs for One Direction before his solo career took off',
+      'Ed has a ketchup bottle tattoo - he\'s obsessed with Heinz',
+      'He performed 260+ shows on his Divide tour'
+    ],
+    timeline: [
+      { year: 2011, event: 'Debut Album', description: '+ released, featuring "The A Team"' },
+      { year: 2014, event: 'Thinking Out Loud', description: 'Song became wedding anthem worldwide' },
+      { year: 2017, event: 'Shape of You', description: 'Broke multiple streaming records' },
+      { year: 2021, event: '= Album', description: 'Fourth studio album continued success' }
+    ],
+    discography: [
+      { title: '÷ (Divide)', year: 2017, type: 'album' },
+      { title: '= (Equals)', year: 2021, type: 'album' },
+      { title: 'x (Multiply)', year: 2014, type: 'album' },
+      { title: '+ (Plus)', year: 2011, type: 'album' }
+    ],
+    similarArtists: ['James Bay', 'Lewis Capaldi', 'Sam Smith', 'Shawn Mendes'],
+    awards: ['4 Grammy Awards', '6 Brit Awards', 'MBE for services to music']
   },
   'Billie Eilish': {
     name: 'Billie Eilish',
     spotifyUrl: 'https://open.spotify.com/artist/6qqNVTkY8uBg9cP3Jd7DAH',
     appleMusicUrl: 'https://music.apple.com/artist/billie-eilish/1065981054',
     youtubeUrl: 'https://www.youtube.com/channel/UCiGm_E4ZwYSHV3bcW1pnSeQ',
+    tidalUrl: 'https://tidal.com/browse/artist/8522007',
+    amazonMusicUrl: 'https://music.amazon.com/artists/B019SUUUQA',
+    soundCloudUrl: 'https://soundcloud.com/billieeilish',
+    websiteUrl: 'https://www.billieeilish.com',
     bio: 'Gen Z pop icon known for whispered vocals and dark, alternative pop sound.',
+    fullBio: 'Billie Eilish Pirate Baird O\'Connell is an American singer-songwriter. She first gained attention in 2015 when she uploaded "Ocean Eyes" to SoundCloud. Her music is characterized by whispered vocals and atmospheric production by her brother Finneas.',
     genres: ['Pop', 'Electropop', 'Alternative'],
     imageUrl: 'https://images.unsplash.com/photo-1598387993441-a364f854c3e1?w=400',
+    monthlyListeners: '65M',
+    followers: '55M',
+    originCountry: 'United States',
+    activeYears: '2015-present',
+    recordLabel: 'Darkroom/Interscope',
+    merchUrl: 'https://store.billieeilish.com',
+    socialMedia: { instagram: 'https://instagram.com/billieeilish', twitter: 'https://twitter.com/billieeilish', tiktok: 'https://tiktok.com/@billieeilish' },
+    fanFacts: [
+      'She recorded her debut album in her childhood bedroom with brother Finneas',
+      'Billie has synesthesia - she sees colors when she hears music',
+      'She was the youngest artist to win all four major Grammy categories in one night',
+      'Her green hair roots became iconic during her Bad Guy era'
+    ],
+    timeline: [
+      { year: 2015, event: 'Ocean Eyes', description: 'Viral SoundCloud hit launched career' },
+      { year: 2019, event: 'When We All Fall Asleep', description: 'Debut album swept Grammy Awards' },
+      { year: 2020, event: 'James Bond', description: 'Youngest artist to write/record Bond theme' },
+      { year: 2021, event: 'Happier Than Ever', description: 'Second album showed artistic growth' }
+    ],
+    discography: [
+      { title: 'When We All Fall Asleep, Where Do We Go?', year: 2019, type: 'album' },
+      { title: 'Happier Than Ever', year: 2021, type: 'album' },
+      { title: 'Hit Me Hard and Soft', year: 2024, type: 'album' }
+    ],
+    similarArtists: ['Olivia Rodrigo', 'Lorde', 'Halsey', 'Khalid'],
+    awards: ['9 Grammy Awards', '2 Academy Awards', 'Billboard Music Award']
   },
   'The Weeknd': {
     name: 'The Weeknd',
     spotifyUrl: 'https://open.spotify.com/artist/1Xyo4u8uXC1ZmMpatF05PJ',
     appleMusicUrl: 'https://music.apple.com/artist/the-weeknd/479756766',
     youtubeUrl: 'https://www.youtube.com/channel/UCqhNRDQE_fqBDBwsvmT8cTg',
+    tidalUrl: 'https://tidal.com/browse/artist/4489443',
+    amazonMusicUrl: 'https://music.amazon.com/artists/B004GWD5T2',
+    soundCloudUrl: 'https://soundcloud.com/theweeknd',
+    websiteUrl: 'https://www.theweeknd.com',
     bio: 'Canadian singer known for R&B vocals and 80s synth-influenced productions.',
+    fullBio: 'Abel Makkonen Tesfaye, known professionally as The Weeknd, is a Canadian singer-songwriter. He has been noted for his sonic versatility and dark lyricism. His style has been described as a blend of R&B, pop, and alternative.',
     genres: ['R&B', 'Pop', 'Synth-pop'],
     imageUrl: 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=400',
+    monthlyListeners: '90M',
+    followers: '75M',
+    originCountry: 'Canada',
+    activeYears: '2009-present',
+    recordLabel: 'XO/Republic',
+    merchUrl: 'https://shop.theweeknd.com',
+    socialMedia: { instagram: 'https://instagram.com/theweeknd', twitter: 'https://twitter.com/theweeknd', tiktok: 'https://tiktok.com/@theweeknd' },
+    fanFacts: [
+      'Blinding Lights spent the most weeks ever on the Billboard Hot 100',
+      'He started anonymously uploading music to YouTube in 2010',
+      'His stage name was inspired by leaving home one weekend as a teen',
+      'He performed the Super Bowl halftime show in 2021'
+    ],
+    timeline: [
+      { year: 2011, event: 'House of Balloons', description: 'Free mixtape created underground buzz' },
+      { year: 2015, event: 'Can\'t Feel My Face', description: 'Breakthrough mainstream hit' },
+      { year: 2020, event: 'After Hours Era', description: 'Blinding Lights became global phenomenon' },
+      { year: 2022, event: 'Dawn FM', description: 'Conceptual album as radio station' }
+    ],
+    discography: [
+      { title: 'After Hours', year: 2020, type: 'album' },
+      { title: 'Dawn FM', year: 2022, type: 'album' },
+      { title: 'Starboy', year: 2016, type: 'album' },
+      { title: 'Beauty Behind the Madness', year: 2015, type: 'album' }
+    ],
+    similarArtists: ['Drake', 'Frank Ocean', 'Post Malone', 'Khalid'],
+    awards: ['4 Grammy Awards', 'Juno Award', 'Billboard Music Award']
   },
   'Taylor Swift': {
     name: 'Taylor Swift',
     spotifyUrl: 'https://open.spotify.com/artist/06HL4z0CvFAxyc27GXpf02',
     appleMusicUrl: 'https://music.apple.com/artist/taylor-swift/159260351',
     youtubeUrl: 'https://www.youtube.com/channel/UCqECaJ8Gagnn7YCbPEzWH6g',
+    tidalUrl: 'https://tidal.com/browse/artist/3557299',
+    amazonMusicUrl: 'https://music.amazon.com/artists/B001EOCP6M',
+    websiteUrl: 'https://www.taylorswift.com',
     bio: 'Global superstar and prolific songwriter spanning country, pop, and indie folk.',
+    fullBio: 'Taylor Alison Swift is an American singer-songwriter. Her narrative songwriting, which often centers around her personal life, has received widespread critical praise and media coverage. She is known for reinventing her musical style with each album.',
     genres: ['Pop', 'Country', 'Folk'],
     imageUrl: 'https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=400',
+    monthlyListeners: '95M',
+    followers: '85M',
+    originCountry: 'United States',
+    activeYears: '2004-present',
+    recordLabel: 'Republic Records',
+    merchUrl: 'https://store.taylorswift.com',
+    socialMedia: { instagram: 'https://instagram.com/taylorswift', twitter: 'https://twitter.com/taylorswift13', tiktok: 'https://tiktok.com/@taylorswift' },
+    fanFacts: [
+      'She taught herself guitar at age 12',
+      'Taylor is re-recording her first 6 albums to own her masters',
+      'Swifties decoded Easter eggs predicting Midnights release date',
+      'Her Eras Tour became the highest-grossing concert tour ever'
+    ],
+    timeline: [
+      { year: 2006, event: 'Debut', description: 'Self-titled country album released at age 16' },
+      { year: 2014, event: '1989', description: 'Full pop transformation, Shake It Off era' },
+      { year: 2020, event: 'Folklore/Evermore', description: 'Surprise indie folk albums during pandemic' },
+      { year: 2023, event: 'Eras Tour', description: 'Record-breaking world tour began' }
+    ],
+    discography: [
+      { title: 'Midnights', year: 2022, type: 'album' },
+      { title: 'Folklore', year: 2020, type: 'album' },
+      { title: '1989', year: 2014, type: 'album' },
+      { title: 'Red', year: 2012, type: 'album' }
+    ],
+    similarArtists: ['Olivia Rodrigo', 'Lana Del Rey', 'Katy Perry', 'Selena Gomez'],
+    awards: ['14 Grammy Awards', 'Emmy Award', 'Brit Award', 'Billboard Woman of the Decade']
   },
   'Bruno Mars': {
     name: 'Bruno Mars',
     spotifyUrl: 'https://open.spotify.com/artist/0du5cEVh5yTK9QJze8zA0C',
     appleMusicUrl: 'https://music.apple.com/artist/bruno-mars/278873078',
     youtubeUrl: 'https://www.youtube.com/channel/UCoUM-UJ7rirJYP8CQ0EIaHA',
+    tidalUrl: 'https://tidal.com/browse/artist/3571492',
+    amazonMusicUrl: 'https://music.amazon.com/artists/B003VYVX1E',
+    websiteUrl: 'https://www.brunomars.com',
     bio: 'Multi-talented performer known for retro-influenced pop and R&B.',
+    fullBio: 'Peter Gene Hernandez, known professionally as Bruno Mars, is an American singer-songwriter and record producer. Known for his stage performances and retro style, Mars is accompanied by his band The Hooligans.',
     genres: ['Pop', 'R&B', 'Funk'],
     imageUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400',
+    monthlyListeners: '55M',
+    followers: '45M',
+    originCountry: 'United States',
+    activeYears: '2004-present',
+    recordLabel: 'Atlantic Records',
+    merchUrl: 'https://shop.brunomars.com',
+    socialMedia: { instagram: 'https://instagram.com/brunomars', twitter: 'https://twitter.com/BrunoMars' },
+    fanFacts: [
+      'He was an Elvis impersonator as a child in Hawaii',
+      'Uptown Funk took a year and a half to perfect',
+      'Bruno produced hits for other artists before his solo career',
+      'He\'s performed at two Super Bowl halftime shows'
+    ],
+    timeline: [
+      { year: 2010, event: 'Just the Way You Are', description: 'Breakthrough hit reached #1' },
+      { year: 2014, event: 'Super Bowl', description: 'First halftime performance' },
+      { year: 2016, event: '24K Magic', description: 'Album swept Grammy Awards' },
+      { year: 2021, event: 'Silk Sonic', description: 'Collaboration with Anderson .Paak' }
+    ],
+    discography: [
+      { title: '24K Magic', year: 2016, type: 'album' },
+      { title: 'An Evening with Silk Sonic', year: 2021, type: 'album' },
+      { title: 'Unorthodox Jukebox', year: 2012, type: 'album' }
+    ],
+    similarArtists: ['Anderson .Paak', 'Justin Timberlake', 'Usher', 'The Weeknd'],
+    awards: ['15 Grammy Awards', 'Brit Award', 'American Music Award']
   },
   'Dua Lipa': {
     name: 'Dua Lipa',
     spotifyUrl: 'https://open.spotify.com/artist/6M2wZ9GZgrQXHCFfjv46we',
     appleMusicUrl: 'https://music.apple.com/artist/dua-lipa/1031397873',
     youtubeUrl: 'https://www.youtube.com/channel/UC-J-KZfRV8c13fOCkhXdLiQ',
+    tidalUrl: 'https://tidal.com/browse/artist/8005088',
+    amazonMusicUrl: 'https://music.amazon.com/artists/B01BKBDAXQ',
+    soundCloudUrl: 'https://soundcloud.com/dikirecords',
+    websiteUrl: 'https://www.dualipa.com',
     bio: 'British pop sensation known for disco-influenced dance-pop anthems.',
+    fullBio: 'Dua Lipa is a British-Albanian singer and songwriter. After working as a model, she signed with Warner Music Group in 2015 and released her debut album in 2017. Her disco-influenced second album Future Nostalgia earned critical acclaim.',
     genres: ['Pop', 'Dance-pop', 'Disco'],
     imageUrl: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400',
+    monthlyListeners: '65M',
+    followers: '50M',
+    originCountry: 'United Kingdom',
+    activeYears: '2015-present',
+    recordLabel: 'Warner Records',
+    merchUrl: 'https://store.dualipa.com',
+    socialMedia: { instagram: 'https://instagram.com/dualipa', twitter: 'https://twitter.com/DUALIPA', tiktok: 'https://tiktok.com/@dualipaofficial' },
+    fanFacts: [
+      'She was born in London to Kosovar Albanian parents',
+      'Dua started a YouTube channel at age 14 covering songs',
+      'She founded the Sunny Hill Foundation with her father',
+      'Levitating is inspired by Olivia Newton-John\'s "Physical"'
+    ],
+    timeline: [
+      { year: 2017, event: 'New Rules', description: 'Breakthrough hit with feminist message' },
+      { year: 2019, event: 'Grammy Win', description: 'Best New Artist and Best Dance Recording' },
+      { year: 2020, event: 'Future Nostalgia', description: 'Disco album became pandemic soundtrack' },
+      { year: 2024, event: 'Radical Optimism', description: 'Third studio album released' }
+    ],
+    discography: [
+      { title: 'Future Nostalgia', year: 2020, type: 'album' },
+      { title: 'Radical Optimism', year: 2024, type: 'album' },
+      { title: 'Dua Lipa', year: 2017, type: 'album' }
+    ],
+    similarArtists: ['Rina Sawayama', 'Charli XCX', 'Kim Petras', 'Kylie Minogue'],
+    awards: ['3 Grammy Awards', '6 Brit Awards', 'MTV Europe Music Award']
   },
   'Michael Jackson': {
     name: 'Michael Jackson',
     spotifyUrl: 'https://open.spotify.com/artist/3fMbdgg4jU18AjLCKBhRSm',
     appleMusicUrl: 'https://music.apple.com/artist/michael-jackson/32940',
     youtubeUrl: 'https://www.youtube.com/channel/UC5OrDvL9DscpcAstz7JnQGA',
+    tidalUrl: 'https://tidal.com/browse/artist/606',
+    amazonMusicUrl: 'https://music.amazon.com/artists/B000QJIV58',
+    websiteUrl: 'https://www.michaeljackson.com',
     bio: 'The King of Pop, one of the most significant cultural figures of the 20th century.',
+    fullBio: 'Michael Joseph Jackson was an American singer, songwriter, and dancer. Dubbed the "King of Pop", he is regarded as one of the most significant cultural figures of the 20th century. His contributions to music, dance, and fashion made him a global figure.',
     genres: ['Pop', 'R&B', 'Dance'],
     imageUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400',
+    monthlyListeners: '35M',
+    followers: '30M',
+    originCountry: 'United States',
+    activeYears: '1964-2009',
+    recordLabel: 'Epic/Sony',
+    merchUrl: 'https://shop.michaeljackson.com',
+    socialMedia: { facebook: 'https://facebook.com/michaeljackson', instagram: 'https://instagram.com/michaeljackson' },
+    fanFacts: [
+      'Thriller is the best-selling album of all time (70M+ copies)',
+      'He debuted the moonwalk on TV during Billie Jean in 1983',
+      'MJ owned the rights to The Beatles catalog from 1985-2016',
+      'He patented special shoes for his "lean" dance move'
+    ],
+    timeline: [
+      { year: 1969, event: 'Jackson 5 Debut', description: 'I Want You Back topped charts at age 11' },
+      { year: 1982, event: 'Thriller', description: 'Best-selling album changed music industry' },
+      { year: 1983, event: 'Moonwalk', description: 'Iconic dance move debuted on Motown 25' },
+      { year: 1995, event: 'HIStory', description: 'Double album set multi-disc sales records' }
+    ],
+    discography: [
+      { title: 'Thriller', year: 1982, type: 'album' },
+      { title: 'Bad', year: 1987, type: 'album' },
+      { title: 'Dangerous', year: 1991, type: 'album' },
+      { title: 'Off the Wall', year: 1979, type: 'album' }
+    ],
+    similarArtists: ['Prince', 'James Brown', 'Janet Jackson', 'Bruno Mars'],
+    awards: ['13 Grammy Awards', 'Grammy Legend Award', 'Rock and Roll Hall of Fame (twice)']
   },
   'Adele': {
     name: 'Adele',
     spotifyUrl: 'https://open.spotify.com/artist/4dpARuHxo51G3z768sgnrY',
     appleMusicUrl: 'https://music.apple.com/artist/adele/262836961',
     youtubeUrl: 'https://www.youtube.com/channel/UCsRM0YB_dabtEPGPTKo-gcw',
+    tidalUrl: 'https://tidal.com/browse/artist/3640967',
+    amazonMusicUrl: 'https://music.amazon.com/artists/B001EERBCW',
+    websiteUrl: 'https://www.adele.com',
     bio: 'British powerhouse vocalist known for emotional ballads and soul-influenced pop.',
+    fullBio: 'Adele Laurie Blue Adkins MBE is an English singer-songwriter. Known for her mezzo-soprano vocals, emotional ballads, and genre-spanning albums, she has become one of the world\'s best-selling music artists.',
     genres: ['Pop', 'Soul', 'R&B'],
     imageUrl: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400',
+    monthlyListeners: '45M',
+    followers: '40M',
+    originCountry: 'United Kingdom',
+    activeYears: '2006-present',
+    recordLabel: 'Columbia Records',
+    merchUrl: 'https://shop.adele.com',
+    socialMedia: { instagram: 'https://instagram.com/adele', twitter: 'https://twitter.com/Adele' },
+    fanFacts: [
+      '21 is the best-selling album of the 21st century',
+      'She wrote Someone Like You in just 20 minutes',
+      'Her albums are named after her age when she wrote them',
+      'She had a vocal cord hemorrhage and underwent laser surgery'
+    ],
+    timeline: [
+      { year: 2008, event: '19', description: 'Debut album won Grammy for Best New Artist' },
+      { year: 2011, event: '21', description: 'Rolling in the Deep became worldwide hit' },
+      { year: 2015, event: 'Hello', description: 'First song to sell 1M+ digital copies in a week' },
+      { year: 2022, event: 'Las Vegas Residency', description: 'Weekends with Adele began' }
+    ],
+    discography: [
+      { title: '30', year: 2021, type: 'album' },
+      { title: '25', year: 2015, type: 'album' },
+      { title: '21', year: 2011, type: 'album' },
+      { title: '19', year: 2008, type: 'album' }
+    ],
+    similarArtists: ['Amy Winehouse', 'Sam Smith', 'Lewis Capaldi', 'Duffy'],
+    awards: ['16 Grammy Awards', 'Academy Award', '9 Brit Awards', 'MBE']
   },
+  'Olivia Rodrigo': {
+    name: 'Olivia Rodrigo',
+    spotifyUrl: 'https://open.spotify.com/artist/1McMsnEElThX1knmY4oliG',
+    appleMusicUrl: 'https://music.apple.com/artist/olivia-rodrigo/979458609',
+    youtubeUrl: 'https://www.youtube.com/channel/UCwppdrjsBPAZg5_cUwQjfMQ',
+    tidalUrl: 'https://tidal.com/browse/artist/9088229',
+    amazonMusicUrl: 'https://music.amazon.com/artists/B08LDCP2B4',
+    websiteUrl: 'https://www.oliviarodrigo.com',
+    bio: 'Gen Z superstar whose confessional songwriting captures teenage angst.',
+    fullBio: 'Olivia Isabel Rodrigo is an American singer-songwriter and actress. She rose to fame with her debut single "Drivers License," which broke multiple records. Her music is known for its confessional lyrics and blend of pop-rock and alternative sounds.',
+    genres: ['Pop', 'Pop Rock', 'Alternative'],
+    imageUrl: 'https://images.unsplash.com/photo-1598387993441-a364f854c3e1?w=400',
+    monthlyListeners: '55M',
+    followers: '35M',
+    originCountry: 'United States',
+    activeYears: '2020-present',
+    recordLabel: 'Geffen Records',
+    merchUrl: 'https://store.oliviarodrigo.com',
+    socialMedia: { instagram: 'https://instagram.com/oliviarodrigo', twitter: 'https://twitter.com/oliviarodrigo', tiktok: 'https://tiktok.com/@livbedumb' },
+    fanFacts: [
+      'Drivers License broke the Spotify record for most streams in a single day',
+      'She started acting on Disney Channel at age 12',
+      'Taylor Swift is one of her biggest songwriting inspirations',
+      'She visited the White House to promote youth vaccination'
+    ],
+    timeline: [
+      { year: 2021, event: 'Drivers License', description: 'Viral hit broke streaming records' },
+      { year: 2021, event: 'SOUR', description: 'Debut album swept Grammy Awards' },
+      { year: 2022, event: 'Grammys', description: 'Won Best New Artist and Best Pop Vocal Album' },
+      { year: 2023, event: 'GUTS', description: 'Sophomore album debuted at #1' }
+    ],
+    discography: [
+      { title: 'SOUR', year: 2021, type: 'album' },
+      { title: 'GUTS', year: 2023, type: 'album' }
+    ],
+    similarArtists: ['Billie Eilish', 'Gracie Abrams', 'Conan Gray', 'Reneé Rapp'],
+    awards: ['4 Grammy Awards', 'American Music Award', 'Billboard Music Award']
+  },
+  'Harry Styles': {
+    name: 'Harry Styles',
+    spotifyUrl: 'https://open.spotify.com/artist/6KImCVD70vtIoJWnq6nGn3',
+    appleMusicUrl: 'https://music.apple.com/artist/harry-styles/471260289',
+    youtubeUrl: 'https://www.youtube.com/channel/UCZFWPqqPkFlNwIxcpsLOwew',
+    tidalUrl: 'https://tidal.com/browse/artist/5118610',
+    amazonMusicUrl: 'https://music.amazon.com/artists/B004A3BLCA',
+    websiteUrl: 'https://www.hstyles.co.uk',
+    bio: 'Former One Direction member turned solo superstar with eclectic rock-pop style.',
+    fullBio: 'Harry Edward Styles is an English singer, songwriter and actor. His musical career began in 2010 as a solo contestant on The X Factor UK. He later became a member of One Direction before launching a successful solo career in 2017.',
+    genres: ['Pop', 'Rock', 'Soft Rock'],
+    imageUrl: 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=400',
+    monthlyListeners: '50M',
+    followers: '45M',
+    originCountry: 'United Kingdom',
+    activeYears: '2010-present',
+    recordLabel: 'Columbia Records',
+    merchUrl: 'https://shop.hstyles.co.uk',
+    socialMedia: { instagram: 'https://instagram.com/harrystyles', twitter: 'https://twitter.com/Harry_Styles', tiktok: 'https://tiktok.com/@harrystyles' },
+    fanFacts: [
+      'As It Was was the fastest song to reach 1 billion Spotify streams in 2022',
+      'He\'s known for his gender-fluid fashion and Gucci campaigns',
+      'Harry was the first man to appear solo on a US Vogue cover',
+      'He launched his own beauty brand Pleasing in 2021'
+    ],
+    timeline: [
+      { year: 2010, event: 'X Factor', description: 'One Direction formed on UK competition' },
+      { year: 2017, event: 'Solo Debut', description: 'Sign of the Times showed rock influences' },
+      { year: 2022, event: 'Harry\'s House', description: 'As It Was became year\'s biggest hit' },
+      { year: 2023, event: 'Grammys', description: 'Won Album of the Year for Harry\'s House' }
+    ],
+    discography: [
+      { title: 'Harry\'s House', year: 2022, type: 'album' },
+      { title: 'Fine Line', year: 2019, type: 'album' },
+      { title: 'Harry Styles', year: 2017, type: 'album' }
+    ],
+    similarArtists: ['Niall Horan', 'Louis Tomlinson', 'Shawn Mendes', 'Post Malone'],
+    awards: ['2 Grammy Awards', 'Brit Award', 'American Music Award']
+  },
+  'Miley Cyrus': {
+    name: 'Miley Cyrus',
+    spotifyUrl: 'https://open.spotify.com/artist/5YGY8feqx7naU7z4HrwZM6',
+    appleMusicUrl: 'https://music.apple.com/artist/miley-cyrus/137057909',
+    youtubeUrl: 'https://www.youtube.com/user/MileyCyrusVEVO',
+    tidalUrl: 'https://tidal.com/browse/artist/3630846',
+    amazonMusicUrl: 'https://music.amazon.com/artists/B0014J0UXI',
+    websiteUrl: 'https://www.mileycyrus.com',
+    bio: 'Multi-talented artist who evolved from Disney star to rock-pop powerhouse.',
+    fullBio: 'Miley Ray Cyrus is an American singer, songwriter, and actress. She achieved fame as a teenager with the Disney Channel series Hannah Montana. Her music has evolved through pop, hip-hop, country, and rock phases.',
+    genres: ['Pop', 'Rock', 'Country'],
+    imageUrl: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400',
+    monthlyListeners: '55M',
+    followers: '40M',
+    originCountry: 'United States',
+    activeYears: '2006-present',
+    recordLabel: 'Columbia Records',
+    merchUrl: 'https://store.mileycyrus.com',
+    socialMedia: { instagram: 'https://instagram.com/mileycyrus', twitter: 'https://twitter.com/MileyCyrus', tiktok: 'https://tiktok.com/@mileycyrus' },
+    fanFacts: [
+      'Flowers broke the Spotify record for most streams in a single week',
+      'She was named after the country song "Achy Breaky Heart"',
+      'Miley founded the Happy Hippie Foundation for homeless youth',
+      'She\'s performed with legends like Billy Idol and Joan Jett'
+    ],
+    timeline: [
+      { year: 2006, event: 'Hannah Montana', description: 'Disney show made her a teen icon' },
+      { year: 2013, event: 'Bangerz Era', description: 'Wrecking Ball marked reinvention' },
+      { year: 2020, event: 'Plastic Hearts', description: 'Rock album showcased vocal power' },
+      { year: 2023, event: 'Flowers', description: 'Biggest hit, empowerment anthem' }
+    ],
+    discography: [
+      { title: 'Endless Summer Vacation', year: 2023, type: 'album' },
+      { title: 'Plastic Hearts', year: 2020, type: 'album' },
+      { title: 'Bangerz', year: 2013, type: 'album' }
+    ],
+    similarArtists: ['Demi Lovato', 'Selena Gomez', 'Halsey', 'Dua Lipa'],
+    awards: ['Grammy Award', 'MTV Video Music Award', 'World Music Award']
+  }
 };
 
 export const EXPANDED_SONG_LIBRARY: SongMetadata[] = [
