@@ -1,5 +1,6 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback } from 'react';
 import { Platform } from 'react-native';
@@ -33,9 +34,33 @@ interface PasswordResetRequest {
 }
 
 const PASSWORD_RESET_STORAGE_KEY = 'melodyx_password_resets';
-
 const AUTH_STORAGE_KEY = 'melodyx_auth_state';
+const AUTH_TOKEN_KEY = 'melodyx_auth_token';
 const USERS_STORAGE_KEY = 'melodyx_users_db';
+
+async function secureSet(key: string, value: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    await AsyncStorage.setItem(key, value);
+  } else {
+    await SecureStore.setItemAsync(key, value);
+  }
+}
+
+async function secureGet(key: string): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    return AsyncStorage.getItem(key);
+  } else {
+    return SecureStore.getItemAsync(key);
+  }
+}
+
+async function secureDelete(key: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    await AsyncStorage.removeItem(key);
+  } else {
+    await SecureStore.deleteItemAsync(key);
+  }
+}
 
 const ERROR_MESSAGES = {
   NETWORK_ERROR: 'Network error. Please check your connection and try again.',
@@ -178,6 +203,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         const stored = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored) as AuthState;
+          if (parsed.isAuthenticated && parsed.user) {
+            const token = await secureGet(AUTH_TOKEN_KEY);
+            if (!token) {
+              console.log('[Auth] No session token found, clearing auth state');
+              return { user: null, isAuthenticated: false, isAnonymous: false };
+            }
+            console.log('[Auth] Session token validated');
+          }
           console.log('[Auth] Restored auth state:', parsed.user?.email || 'anonymous');
           return parsed;
         }
@@ -191,6 +224,13 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const { mutateAsync: saveAuthState } = useMutation({
     mutationFn: async (state: AuthState) => {
       await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(state));
+      if (state.user && state.isAuthenticated) {
+        const token = `session_${state.user.uid}_${Date.now()}`;
+        await secureSet(AUTH_TOKEN_KEY, token);
+        console.log('[Auth] Session token stored securely');
+      } else {
+        await secureDelete(AUTH_TOKEN_KEY);
+      }
       return state;
     },
     onSuccess: () => {

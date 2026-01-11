@@ -50,7 +50,7 @@ import { generateShareText } from '@/utils/gameLogic';
 const { width } = Dimensions.get('window');
 const ONBOARDING_KEY = 'melodyx_onboarding_completed';
 
-function AnimatedStatCard({ 
+const AnimatedStatCard = React.memo(function AnimatedStatCard({ 
   value, 
   label, 
   icon, 
@@ -65,9 +65,10 @@ function AnimatedStatCard({
 }) {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
-    Animated.sequence([
+    animationRef.current = Animated.sequence([
       Animated.delay(delay),
       Animated.parallel([
         Animated.spring(scaleAnim, {
@@ -82,7 +83,14 @@ function AnimatedStatCard({
           useNativeDriver: true,
         }),
       ]),
-    ]).start();
+    ]);
+    animationRef.current.start();
+
+    return () => {
+      animationRef.current?.stop();
+      scaleAnim.setValue(0);
+      opacityAnim.setValue(0);
+    };
   }, [delay, scaleAnim, opacityAnim]);
 
   return (
@@ -102,9 +110,9 @@ function AnimatedStatCard({
       <Text style={styles.statLabel}>{label}</Text>
     </Animated.View>
   );
-}
+});
 
-function ModeCard({
+const ModeCard = React.memo(function ModeCard({
   icon,
   title,
   subtitle,
@@ -160,9 +168,9 @@ function ModeCard({
       </TouchableOpacity>
     </Animated.View>
   );
-}
+});
 
-function CountdownTimer() {
+const CountdownTimer = React.memo(function CountdownTimer() {
   const [timeLeft, setTimeLeft] = React.useState({ hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
@@ -198,7 +206,7 @@ function CountdownTimer() {
       </Text>
     </View>
   );
-}
+});
 
 function DailyRewardBanner({ 
   onClaim, 
@@ -211,10 +219,11 @@ function DailyRewardBanner({
 }) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
+  const animationsRef = useRef<Animated.CompositeAnimation[]>([]);
 
   useEffect(() => {
     if (canClaim) {
-      Animated.loop(
+      const pulseAnimation = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
             toValue: 1.05,
@@ -227,9 +236,9 @@ function DailyRewardBanner({
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
 
-      Animated.loop(
+      const glowAnimation = Animated.loop(
         Animated.sequence([
           Animated.timing(glowAnim, {
             toValue: 1,
@@ -242,8 +251,19 @@ function DailyRewardBanner({
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+
+      animationsRef.current = [pulseAnimation, glowAnimation];
+      pulseAnimation.start();
+      glowAnimation.start();
     }
+
+    return () => {
+      animationsRef.current.forEach(anim => anim.stop());
+      animationsRef.current = [];
+      pulseAnim.setValue(1);
+      glowAnim.setValue(0);
+    };
   }, [canClaim, pulseAnim, glowAnim]);
 
   if (!canClaim) return null;
