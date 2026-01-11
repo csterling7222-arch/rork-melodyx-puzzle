@@ -116,6 +116,22 @@ export const PACKAGE_IDENTIFIERS = {
   LEARNING_HINTS_BUNDLE: 'learning_hints_bundle',
   FAMILY_MONTHLY: 'family_monthly',
   FAMILY_YEARLY: 'family_yearly',
+  COLOR_PACK_PRO: 'color_pack_pro',
+  STARTER_KIT: 'starter_kit',
+  POWER_UP_PACK: 'power_up_pack',
+  COSMETIC_COLLECTION: 'cosmetic_collection',
+  LEARNING_COMPLETE: 'learning_complete',
+  FEVER_CHAMPION: 'fever_champion',
+  INSTRUMENT_MASTER: 'instrument_master',
+  SKIN_COLLECTOR: 'skin_collector',
+  AI_DRILL_BEGINNER: 'ai_drill_beginner',
+  AI_DRILL_ADVANCED: 'ai_drill_advanced',
+  JAZZ_CURRICULUM: 'jazz_curriculum',
+  ROCK_CURRICULUM: 'rock_curriculum',
+  CLASSICAL_CURRICULUM: 'classical_curriculum',
+  EAR_TRAINING_PRO: 'ear_training_pro',
+  GUITAR_GLOW: 'guitar_glow',
+  NEON_ALL_PACK: 'neon_all_pack',
 } as const;
 
 export interface PromoOffer {
@@ -147,6 +163,166 @@ export interface MockPackage {
 }
 
 const MOCK_PACKAGES: MockPackage[] = [
+  {
+    identifier: 'color_pack_pro',
+    product: {
+      identifier: 'melodyx_color_pack_pro',
+      priceString: '$1.99',
+      price: 1.99,
+      title: 'Color Pack Pro',
+      description: 'All color themes + unlimited swaps',
+    },
+  },
+  {
+    identifier: 'starter_kit',
+    product: {
+      identifier: 'melodyx_starter_kit',
+      priceString: '$0.99',
+      price: 0.99,
+      title: 'Starter Kit',
+      description: '10 hints + Neon theme',
+    },
+  },
+  {
+    identifier: 'power_up_pack',
+    product: {
+      identifier: 'melodyx_power_up_pack',
+      priceString: '$2.99',
+      price: 2.99,
+      title: 'Power Up Pack',
+      description: 'Essential power-ups bundle',
+    },
+  },
+  {
+    identifier: 'cosmetic_collection',
+    product: {
+      identifier: 'melodyx_cosmetic_collection',
+      priceString: '$9.99',
+      price: 9.99,
+      title: 'Cosmetic Collection',
+      description: 'Badges, frames, and effects',
+    },
+  },
+  {
+    identifier: 'learning_complete',
+    product: {
+      identifier: 'melodyx_learning_complete',
+      priceString: '$19.99',
+      price: 19.99,
+      title: 'Learning Complete',
+      description: 'All learning packs + AI drills',
+    },
+  },
+  {
+    identifier: 'fever_champion',
+    product: {
+      identifier: 'melodyx_fever_champion',
+      priceString: '$3.99',
+      price: 3.99,
+      title: 'Fever Champion',
+      description: 'Fever mode essentials',
+    },
+  },
+  {
+    identifier: 'instrument_master',
+    product: {
+      identifier: 'melodyx_instrument_master',
+      priceString: '$7.99',
+      price: 7.99,
+      title: 'Instrument Master',
+      description: 'All instrument add-ons',
+    },
+  },
+  {
+    identifier: 'skin_collector',
+    product: {
+      identifier: 'melodyx_skin_collector',
+      priceString: '$14.99',
+      price: 14.99,
+      title: 'Skin Collector',
+      description: 'All keyboard skins',
+    },
+  },
+  {
+    identifier: 'ai_drill_beginner',
+    product: {
+      identifier: 'melodyx_ai_drill_beginner',
+      priceString: '$2.99',
+      price: 2.99,
+      title: 'AI Beginner Drills',
+      description: 'AI-powered practice for beginners',
+    },
+  },
+  {
+    identifier: 'ai_drill_advanced',
+    product: {
+      identifier: 'melodyx_ai_drill_advanced',
+      priceString: '$5.99',
+      price: 5.99,
+      title: 'AI Advanced Drills',
+      description: 'Advanced AI training modules',
+    },
+  },
+  {
+    identifier: 'jazz_curriculum',
+    product: {
+      identifier: 'melodyx_jazz_curriculum',
+      priceString: '$4.99',
+      price: 4.99,
+      title: 'Jazz Mastery',
+      description: 'Complete jazz improvisation course',
+    },
+  },
+  {
+    identifier: 'rock_curriculum',
+    product: {
+      identifier: 'melodyx_rock_curriculum',
+      priceString: '$3.99',
+      price: 3.99,
+      title: 'Rock Legends',
+      description: 'Classic rock techniques',
+    },
+  },
+  {
+    identifier: 'classical_curriculum',
+    product: {
+      identifier: 'melodyx_classical_curriculum',
+      priceString: '$6.99',
+      price: 6.99,
+      title: 'Classical Foundations',
+      description: 'Classical music theory and practice',
+    },
+  },
+  {
+    identifier: 'ear_training_pro',
+    product: {
+      identifier: 'melodyx_ear_training_pro',
+      priceString: '$9.99',
+      price: 9.99,
+      title: 'Ear Training Pro',
+      description: 'Professional ear training',
+    },
+  },
+  {
+    identifier: 'guitar_glow',
+    product: {
+      identifier: 'melodyx_guitar_glow',
+      priceString: '$2.99',
+      price: 2.99,
+      title: 'Guitar Glow Pack',
+      description: 'Visual effects for guitar',
+    },
+  },
+  {
+    identifier: 'neon_all_pack',
+    product: {
+      identifier: 'melodyx_neon_all_pack',
+      priceString: '$4.99',
+      price: 4.99,
+      title: 'Neon All Pack',
+      description: 'Neon effects for all instruments',
+    },
+  },
   {
     identifier: '$rc_monthly',
     product: {

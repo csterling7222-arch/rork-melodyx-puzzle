@@ -22,6 +22,20 @@ export interface UserInventory {
   ownedSkins: string[];
   equippedSkin: string;
   ownedBadges: string[];
+  ownedThemes: string[];
+  equippedTheme: string;
+  ownedCosmetics: string[];
+  equippedCosmetics: {
+    badge: string | null;
+    frame: string | null;
+    title: string | null;
+    watermark: string | null;
+    avatarEffect: string | null;
+  };
+  ownedPowerUps: Record<string, number>;
+  ownedLearningPacks: string[];
+  ownedInstrumentAddons: string[];
+  ownedBundles: string[];
 }
 
 export interface UserProgress {
@@ -80,6 +94,20 @@ function createDefaultUserState(userId: string, username: string, email: string 
       ownedSkins: ['default'],
       equippedSkin: 'default',
       ownedBadges: [],
+      ownedThemes: ['default'],
+      equippedTheme: 'default',
+      ownedCosmetics: [],
+      equippedCosmetics: {
+        badge: null,
+        frame: null,
+        title: null,
+        watermark: null,
+        avatarEffect: null,
+      },
+      ownedPowerUps: {},
+      ownedLearningPacks: [],
+      ownedInstrumentAddons: [],
+      ownedBundles: [],
     },
     progress: {
       totalWins: 0,
@@ -392,6 +420,164 @@ export const [UserProvider, useUser] = createContextHook(() => {
     saveUserState(newState);
   }, [userState, saveUserState]);
 
+  const purchaseTheme = useCallback((themeId: string): boolean => {
+    if (userState.inventory.ownedThemes?.includes(themeId)) return false;
+    const newState: UserState = {
+      ...userState,
+      inventory: {
+        ...userState.inventory,
+        ownedThemes: [...(userState.inventory.ownedThemes || ['default']), themeId],
+      },
+    };
+    saveUserState(newState);
+    return true;
+  }, [userState, saveUserState]);
+
+  const equipTheme = useCallback((themeId: string) => {
+    if (!userState.inventory.ownedThemes?.includes(themeId)) return;
+    const newState: UserState = {
+      ...userState,
+      inventory: {
+        ...userState.inventory,
+        equippedTheme: themeId,
+      },
+    };
+    saveUserState(newState);
+  }, [userState, saveUserState]);
+
+  const purchaseCosmetic = useCallback((cosmeticId: string): boolean => {
+    if (userState.inventory.ownedCosmetics?.includes(cosmeticId)) return false;
+    const newState: UserState = {
+      ...userState,
+      inventory: {
+        ...userState.inventory,
+        ownedCosmetics: [...(userState.inventory.ownedCosmetics || []), cosmeticId],
+      },
+    };
+    saveUserState(newState);
+    return true;
+  }, [userState, saveUserState]);
+
+  const equipCosmetic = useCallback((cosmeticId: string, slot: 'badge' | 'frame' | 'title' | 'watermark' | 'avatarEffect') => {
+    if (!userState.inventory.ownedCosmetics?.includes(cosmeticId)) return;
+    const newState: UserState = {
+      ...userState,
+      inventory: {
+        ...userState.inventory,
+        equippedCosmetics: {
+          ...(userState.inventory.equippedCosmetics || { badge: null, frame: null, title: null, watermark: null, avatarEffect: null }),
+          [slot]: cosmeticId,
+        },
+      },
+    };
+    saveUserState(newState);
+  }, [userState, saveUserState]);
+
+  const unequipCosmetic = useCallback((slot: 'badge' | 'frame' | 'title' | 'watermark' | 'avatarEffect') => {
+    const newState: UserState = {
+      ...userState,
+      inventory: {
+        ...userState.inventory,
+        equippedCosmetics: {
+          ...(userState.inventory.equippedCosmetics || { badge: null, frame: null, title: null, watermark: null, avatarEffect: null }),
+          [slot]: null,
+        },
+      },
+    };
+    saveUserState(newState);
+  }, [userState, saveUserState]);
+
+  const purchasePowerUp = useCallback((powerUpId: string, quantity: number = 1): boolean => {
+    const currentOwned = userState.inventory.ownedPowerUps || {};
+    const newState: UserState = {
+      ...userState,
+      inventory: {
+        ...userState.inventory,
+        ownedPowerUps: {
+          ...currentOwned,
+          [powerUpId]: (currentOwned[powerUpId] || 0) + quantity,
+        },
+      },
+    };
+    saveUserState(newState);
+    return true;
+  }, [userState, saveUserState]);
+
+  const usePowerUp = useCallback((powerUpId: string): boolean => {
+    const currentOwned = userState.inventory.ownedPowerUps || {};
+    if (!currentOwned[powerUpId] || currentOwned[powerUpId] < 1) return false;
+    const newState: UserState = {
+      ...userState,
+      inventory: {
+        ...userState.inventory,
+        ownedPowerUps: {
+          ...currentOwned,
+          [powerUpId]: currentOwned[powerUpId] - 1,
+        },
+      },
+    };
+    saveUserState(newState);
+    return true;
+  }, [userState, saveUserState]);
+
+  const purchaseLearningPack = useCallback((packId: string): boolean => {
+    if (userState.inventory.ownedLearningPacks?.includes(packId)) return false;
+    const newState: UserState = {
+      ...userState,
+      inventory: {
+        ...userState.inventory,
+        ownedLearningPacks: [...(userState.inventory.ownedLearningPacks || []), packId],
+      },
+    };
+    saveUserState(newState);
+    return true;
+  }, [userState, saveUserState]);
+
+  const purchaseInstrumentAddon = useCallback((addonId: string): boolean => {
+    if (userState.inventory.ownedInstrumentAddons?.includes(addonId)) return false;
+    const newState: UserState = {
+      ...userState,
+      inventory: {
+        ...userState.inventory,
+        ownedInstrumentAddons: [...(userState.inventory.ownedInstrumentAddons || []), addonId],
+      },
+    };
+    saveUserState(newState);
+    return true;
+  }, [userState, saveUserState]);
+
+  const purchaseBundle = useCallback((bundleId: string, itemIds: string[]): boolean => {
+    if (userState.inventory.ownedBundles?.includes(bundleId)) return false;
+    const newOwnedSkins = [...userState.inventory.ownedSkins];
+    const newOwnedThemes = [...(userState.inventory.ownedThemes || ['default'])];
+    const newOwnedCosmetics = [...(userState.inventory.ownedCosmetics || [])];
+    const newOwnedPowerUps = { ...(userState.inventory.ownedPowerUps || {}) };
+    
+    itemIds.forEach(itemId => {
+      if (itemId.startsWith('skin_') && !newOwnedSkins.includes(itemId.replace('skin_', ''))) {
+        newOwnedSkins.push(itemId.replace('skin_', ''));
+      } else if (itemId.startsWith('theme_') && !newOwnedThemes.includes(itemId.replace('theme_', ''))) {
+        newOwnedThemes.push(itemId.replace('theme_', ''));
+      } else if (!newOwnedCosmetics.includes(itemId)) {
+        newOwnedCosmetics.push(itemId);
+      }
+    });
+    
+    const newState: UserState = {
+      ...userState,
+      inventory: {
+        ...userState.inventory,
+        ownedSkins: newOwnedSkins,
+        ownedThemes: newOwnedThemes,
+        ownedCosmetics: newOwnedCosmetics,
+        ownedPowerUps: newOwnedPowerUps,
+        ownedBundles: [...(userState.inventory.ownedBundles || []), bundleId],
+      },
+    };
+    saveUserState(newState);
+    return true;
+  }, [userState, saveUserState]);
+
   const claimDailyReward = useCallback((): { coins: number; hints?: number; bonus?: string; description?: string; streakMilestone?: { badge: string; coins: number; hints: number } } | null => {
     const today = getTodayString();
     if (userState.dailyReward.claimedToday) return null;
@@ -474,7 +660,17 @@ export const [UserProvider, useUser] = createContextHook(() => {
   return {
     profile: { ...userState.profile, isPremium },
     isPremium,
-    inventory: userState.inventory,
+    inventory: {
+      ...userState.inventory,
+      ownedThemes: userState.inventory.ownedThemes || ['default'],
+      equippedTheme: userState.inventory.equippedTheme || 'default',
+      ownedCosmetics: userState.inventory.ownedCosmetics || [],
+      equippedCosmetics: userState.inventory.equippedCosmetics || { badge: null, frame: null, title: null, watermark: null, avatarEffect: null },
+      ownedPowerUps: userState.inventory.ownedPowerUps || {},
+      ownedLearningPacks: userState.inventory.ownedLearningPacks || [],
+      ownedInstrumentAddons: userState.inventory.ownedInstrumentAddons || [],
+      ownedBundles: userState.inventory.ownedBundles || [],
+    },
     progress: userState.progress,
     achievements: userState.achievements,
     dailyReward: userState.dailyReward,
@@ -491,6 +687,16 @@ export const [UserProvider, useUser] = createContextHook(() => {
     useHint,
     purchaseSkin,
     equipSkin,
+    purchaseTheme,
+    equipTheme,
+    purchaseCosmetic,
+    equipCosmetic,
+    unequipCosmetic,
+    purchasePowerUp,
+    usePowerUp,
+    purchaseLearningPack,
+    purchaseInstrumentAddon,
+    purchaseBundle,
     claimDailyReward,
     updateUsername,
     clearAchievementPopup,

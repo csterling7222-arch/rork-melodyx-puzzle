@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,19 +8,31 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
-  TextInput,
-  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
-  Coins, Palette, Lightbulb, Crown, Check, RotateCcw, Sparkles, Star, Tag, Gift, Clock, X, Zap, Music, Users
+  Coins, Palette, Crown, Check, RotateCcw, Sparkles, Star, Gift, Clock,
+  Paintbrush, Award, Shield, BookOpen, Guitar
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useUser } from '@/contexts/UserContext';
 import { usePurchases, PACKAGE_IDENTIFIERS } from '@/contexts/PurchasesContext';
-import { KEYBOARD_SKINS, KeyboardSkin } from '@/constants/shop';
-import { INSTRUMENT_BUNDLES } from '@/constants/instruments';
+import { 
+  KEYBOARD_SKINS, KeyboardSkin, COLOR_THEMES, ColorTheme, COSMETIC_ITEMS, CosmeticItem,
+  POWER_UPS, PowerUp, LEARNING_PACKS, LearningPack, INSTRUMENT_ADDONS, InstrumentAddon,
+  SHOP_BUNDLES, ShopBundle, getFeaturedBundles
+} from '@/constants/shop';
+
+
+type ShopTab = 'featured' | 'themes' | 'skins' | 'cosmetics' | 'powerups' | 'learning' | 'instruments' | 'coins' | 'premium';
+
+const RARITY_COLORS: Record<string, string> = {
+  common: '#9CA3AF',
+  rare: '#3B82F6',
+  epic: '#A855F7',
+  legendary: '#FFD700',
+};
 
 function TrialBanner({ daysRemaining, onUpgrade }: { daysRemaining: number; onUpgrade: () => void }) {
   if (daysRemaining <= 0) return null;
@@ -93,97 +105,6 @@ const trialStyles = StyleSheet.create({
   },
 });
 
-function SubscriptionStatusCard({ status, onManage }: { 
-  status: { isActive: boolean; willRenew: boolean; expirationDate: string | null; productIdentifier: string } | null;
-  onManage: () => void;
-}) {
-  if (!status) return null;
-  
-  const expirationDate = status.expirationDate ? new Date(status.expirationDate) : null;
-  const formattedDate = expirationDate?.toLocaleDateString('en-US', { 
-    month: 'short', 
-    day: 'numeric', 
-    year: 'numeric' 
-  });
-  
-  return (
-    <View style={subStatusStyles.container}>
-      <View style={subStatusStyles.header}>
-        <Crown size={20} color="#FFD700" />
-        <Text style={subStatusStyles.title}>Premium Active</Text>
-        <View style={[subStatusStyles.badge, status.willRenew ? subStatusStyles.badgeActive : subStatusStyles.badgeCancelled]}>
-          <Text style={subStatusStyles.badgeText}>
-            {status.willRenew ? 'Auto-Renew' : 'Cancelled'}
-          </Text>
-        </View>
-      </View>
-      {expirationDate && (
-        <Text style={subStatusStyles.expiration}>
-          {status.willRenew ? 'Renews' : 'Expires'} {formattedDate}
-        </Text>
-      )}
-      <TouchableOpacity style={subStatusStyles.manageButton} onPress={onManage}>
-        <Text style={subStatusStyles.manageText}>Manage Subscription</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-const subStatusStyles = StyleSheet.create({
-  container: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#FFD700' + '30',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: Colors.text,
-    flex: 1,
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  badgeActive: {
-    backgroundColor: Colors.correct + '20',
-  },
-  badgeCancelled: {
-    backgroundColor: '#EF4444' + '20',
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '700' as const,
-    color: Colors.text,
-  },
-  expiration: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginTop: 8,
-  },
-  manageButton: {
-    backgroundColor: Colors.surfaceLight,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  manageText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: Colors.text,
-  },
-});
-
 function SkinPreview({ skin, isOwned, isEquipped, onBuy, onEquip }: { 
   skin: KeyboardSkin; 
   isOwned: boolean;
@@ -194,268 +115,952 @@ function SkinPreview({ skin, isOwned, isEquipped, onBuy, onEquip }: {
   const notes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
   
   return (
-    <View style={[styles.skinCard, isEquipped && styles.skinCardEquipped]}>
-      <View style={styles.skinHeader}>
-        <Text style={styles.skinIcon}>{skin.icon}</Text>
-        <View style={styles.skinInfo}>
-          <Text style={styles.skinName}>{skin.name}</Text>
-          <Text style={styles.skinPreviewText}>{skin.preview}</Text>
+    <View style={[skinStyles.skinCard, isEquipped && skinStyles.skinCardEquipped]}>
+      <View style={skinStyles.skinHeader}>
+        <Text style={skinStyles.skinIcon}>{skin.icon}</Text>
+        <View style={skinStyles.skinInfo}>
+          <Text style={skinStyles.skinName}>{skin.name}</Text>
+          <Text style={skinStyles.skinPreviewText}>{skin.preview}</Text>
         </View>
+        {skin.rarity && (
+          <View style={[skinStyles.rarityBadge, { backgroundColor: RARITY_COLORS[skin.rarity] + '20' }]}>
+            <Text style={[skinStyles.rarityText, { color: RARITY_COLORS[skin.rarity] }]}>
+              {skin.rarity.toUpperCase()}
+            </Text>
+          </View>
+        )}
         {isEquipped && (
-          <View style={styles.equippedBadge}>
+          <View style={skinStyles.equippedBadge}>
             <Check size={12} color={Colors.correct} />
           </View>
         )}
       </View>
       
-      <View style={styles.skinPreview}>
+      <View style={skinStyles.skinPreview}>
         {notes.map(note => (
           <View 
             key={note}
-            style={[
-              styles.previewKey,
-              { backgroundColor: skin.colors[note] }
-            ]}
+            style={[skinStyles.previewKey, { backgroundColor: skin.colors[note] }]}
           >
-            <Text style={[styles.previewKeyText, { color: skin.textColors[note] }]}>
-              {note}
-            </Text>
+            <Text style={[skinStyles.previewKeyText, { color: skin.textColors[note] }]}>{note}</Text>
           </View>
         ))}
       </View>
 
       {!isOwned ? (
-        <TouchableOpacity style={styles.buyButton} onPress={onBuy}>
+        <TouchableOpacity style={skinStyles.buyButton} onPress={onBuy}>
           <Coins size={14} color="#FFD700" />
-          <Text style={styles.buyButtonText}>500</Text>
+          <Text style={skinStyles.buyButtonText}>{skin.price || 500}</Text>
         </TouchableOpacity>
       ) : !isEquipped ? (
-        <TouchableOpacity style={styles.equipButton} onPress={onEquip}>
-          <Text style={styles.equipButtonText}>Equip</Text>
+        <TouchableOpacity style={skinStyles.equipButton} onPress={onEquip}>
+          <Text style={skinStyles.equipButtonText}>Equip</Text>
         </TouchableOpacity>
       ) : null}
     </View>
   );
 }
 
-interface IAPItemCardProps {
-  icon: string;
-  name: string;
-  description: string;
-  price: string;
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
-  onPurchase: () => void;
-  isLoading?: boolean;
-  disabled?: boolean;
-  bonus?: string;
-}
-
-function IAPItemCard({ icon, name, description, price, rarity, onPurchase, isLoading, disabled, bonus }: IAPItemCardProps) {
-  const rarityColors: Record<string, string> = {
-    common: '#9CA3AF',
-    rare: '#3B82F6',
-    epic: '#A855F7',
-    legendary: '#FFD700',
-  };
-
-  return (
-    <TouchableOpacity 
-      style={[styles.itemCard, disabled && styles.itemCardDisabled]}
-      onPress={onPurchase}
-      disabled={disabled || isLoading}
-    >
-      <View style={[styles.itemIconBg, { backgroundColor: rarityColors[rarity] + '20' }]}>
-        {isLoading ? (
-          <ActivityIndicator size="small" color={rarityColors[rarity]} />
-        ) : (
-          <Text style={styles.itemIcon}>{icon}</Text>
-        )}
-      </View>
-      <View style={styles.itemInfo}>
-        <Text style={styles.itemName}>{name}</Text>
-        <Text style={styles.itemDesc}>{description}</Text>
-      </View>
-      <View style={styles.itemPriceSection}>
-        {bonus && (
-          <View style={styles.bonusBadge}>
-            <Text style={styles.bonusBadgeText}>{bonus}</Text>
-          </View>
-        )}
-        <View style={[styles.rarityBadge, { backgroundColor: rarityColors[rarity] + '20' }]}>
-          <Text style={[styles.rarityText, { color: rarityColors[rarity] }]}>
-            {rarity.toUpperCase()}
-          </Text>
-        </View>
-        <Text style={styles.priceTextUsd}>{price}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-function UpsellModal({ visible, onClose, onSubscribe, onStartTrial, hasUsedTrial }: {
-  visible: boolean;
-  onClose: () => void;
-  onSubscribe: () => void;
-  onStartTrial: () => void;
-  hasUsedTrial: boolean;
-}) {
-  return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={upsellStyles.overlay}>
-        <View style={upsellStyles.modal}>
-          <TouchableOpacity style={upsellStyles.closeButton} onPress={onClose}>
-            <X size={24} color={Colors.textSecondary} />
-          </TouchableOpacity>
-          
-          <View style={upsellStyles.iconContainer}>
-            <Crown size={48} color="#FFD700" />
-            <Sparkles size={20} color="#FFD700" style={upsellStyles.sparkle} />
-          </View>
-          
-          <Text style={upsellStyles.title}>Unlock Everything!</Text>
-          <Text style={upsellStyles.subtitle}>
-            Get unlimited access to all premium features
-          </Text>
-          
-          <View style={upsellStyles.features}>
-            {[
-              'All 5 instruments',
-              'Unlimited practice',
-              'Ad-free experience',
-              'Exclusive skins',
-              'Advanced lessons',
-            ].map((feature, idx) => (
-              <View key={idx} style={upsellStyles.featureRow}>
-                <Zap size={16} color={Colors.correct} />
-                <Text style={upsellStyles.featureText}>{feature}</Text>
-              </View>
-            ))}
-          </View>
-          
-          {!hasUsedTrial && (
-            <TouchableOpacity style={upsellStyles.trialButton} onPress={onStartTrial}>
-              <Gift size={18} color="#000" />
-              <Text style={upsellStyles.trialButtonText}>Start 7-Day Free Trial</Text>
-            </TouchableOpacity>
-          )}
-          
-          <TouchableOpacity style={upsellStyles.subscribeButton} onPress={onSubscribe}>
-            <Text style={upsellStyles.subscribeButtonText}>
-              {hasUsedTrial ? 'Subscribe Now' : 'View Plans'}
-            </Text>
-          </TouchableOpacity>
-          
-          <Text style={upsellStyles.note}>Cancel anytime. No commitment.</Text>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-const upsellStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modal: {
+const skinStyles = StyleSheet.create({
+  skinCard: {
     backgroundColor: Colors.surface,
-    borderRadius: 24,
-    padding: 24,
-    width: '100%',
-    maxWidth: 340,
-    alignItems: 'center',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    padding: 4,
-    zIndex: 10,
-  },
-  iconContainer: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#FFD700' + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    position: 'relative',
-  },
-  sparkle: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '800' as const,
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  features: {
-    width: '100%',
-    gap: 10,
-    marginBottom: 24,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  featureText: {
-    fontSize: 14,
-    color: Colors.text,
-  },
-  trialButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#FFD700',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 14,
-    width: '100%',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
     marginBottom: 12,
   },
-  trialButtonText: {
+  skinCardEquipped: {
+    borderColor: Colors.correct,
+  },
+  skinHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  skinIcon: {
+    fontSize: 32,
+    marginRight: 12,
+  },
+  skinInfo: {
+    flex: 1,
+  },
+  skinName: {
     fontSize: 16,
     fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  skinPreviewText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  equippedBadge: {
+    backgroundColor: Colors.correct + '20',
+    padding: 6,
+    borderRadius: 12,
+  },
+  rarityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  rarityText: {
+    fontSize: 9,
+    fontWeight: '700' as const,
+  },
+  skinPreview: {
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: 12,
+  },
+  previewKey: {
+    flex: 1,
+    height: 36,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewKeyText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+  },
+  buyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.surfaceLight,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  buyButtonText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#FFD700',
+  },
+  equipButton: {
+    backgroundColor: Colors.accent,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  equipButtonText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+});
+
+function ThemeCard({ theme, isOwned, isEquipped, onBuy, onEquip }: {
+  theme: ColorTheme;
+  isOwned: boolean;
+  isEquipped: boolean;
+  onBuy: () => void;
+  onEquip: () => void;
+}) {
+  return (
+    <View style={[themeStyles.card, isEquipped && themeStyles.cardEquipped]}>
+      <View style={themeStyles.preview}>
+        <View style={[themeStyles.previewBar, { backgroundColor: theme.primary }]} />
+        <View style={[themeStyles.previewBar, { backgroundColor: theme.secondary }]} />
+        <View style={[themeStyles.previewBar, { backgroundColor: theme.accent }]} />
+      </View>
+      <View style={themeStyles.header}>
+        <Text style={themeStyles.icon}>{theme.icon}</Text>
+        <View style={themeStyles.info}>
+          <Text style={themeStyles.name}>{theme.name}</Text>
+          <Text style={themeStyles.description} numberOfLines={1}>{theme.description}</Text>
+        </View>
+      </View>
+      <View style={themeStyles.badges}>
+        <View style={[themeStyles.rarityBadge, { backgroundColor: RARITY_COLORS[theme.rarity] + '20' }]}>
+          <Text style={[themeStyles.rarityText, { color: RARITY_COLORS[theme.rarity] }]}>
+            {theme.rarity.toUpperCase()}
+          </Text>
+        </View>
+        {theme.hasGlow && (
+          <View style={themeStyles.featureBadge}>
+            <Sparkles size={10} color={Colors.accent} />
+            <Text style={themeStyles.featureText}>Glow</Text>
+          </View>
+        )}
+        {theme.hasParticles && (
+          <View style={themeStyles.featureBadge}>
+            <Star size={10} color={Colors.warning} />
+            <Text style={themeStyles.featureText}>Particles</Text>
+          </View>
+        )}
+      </View>
+      {!isOwned ? (
+        <TouchableOpacity style={themeStyles.buyButton} onPress={onBuy}>
+          <Coins size={14} color="#FFD700" />
+          <Text style={themeStyles.buyButtonText}>{theme.price}</Text>
+        </TouchableOpacity>
+      ) : !isEquipped ? (
+        <TouchableOpacity style={themeStyles.equipButton} onPress={onEquip}>
+          <Text style={themeStyles.equipButtonText}>Equip</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={themeStyles.equippedIndicator}>
+          <Check size={14} color={Colors.correct} />
+          <Text style={themeStyles.equippedText}>Equipped</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const themeStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  cardEquipped: {
+    borderColor: Colors.correct,
+  },
+  preview: {
+    flexDirection: 'row',
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  previewBar: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  icon: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  info: {
+    flex: 1,
+  },
+  name: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  description: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  badges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  rarityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  rarityText: {
+    fontSize: 9,
+    fontWeight: '700' as const,
+  },
+  featureBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.surfaceLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  featureText: {
+    fontSize: 9,
+    fontWeight: '600' as const,
+    color: Colors.textSecondary,
+  },
+  buyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.surfaceLight,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  buyButtonText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#FFD700',
+  },
+  equipButton: {
+    backgroundColor: Colors.accent,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  equipButtonText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  equippedIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+  },
+  equippedText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.correct,
+  },
+});
+
+function CosmeticCard({ item, isOwned, onBuy }: {
+  item: CosmeticItem;
+  isOwned: boolean;
+  onBuy: () => void;
+}) {
+  return (
+    <View style={cosmeticStyles.card}>
+      <Text style={cosmeticStyles.icon}>{item.icon}</Text>
+      <Text style={cosmeticStyles.name}>{item.name}</Text>
+      <Text style={cosmeticStyles.type}>{item.type.replace('_', ' ')}</Text>
+      <View style={[cosmeticStyles.rarityBadge, { backgroundColor: RARITY_COLORS[item.rarity] + '20' }]}>
+        <Text style={[cosmeticStyles.rarityText, { color: RARITY_COLORS[item.rarity] }]}>
+          {item.rarity.toUpperCase()}
+        </Text>
+      </View>
+      {!isOwned ? (
+        <TouchableOpacity style={cosmeticStyles.buyButton} onPress={onBuy}>
+          {item.currency === 'coins' ? (
+            <Coins size={12} color="#FFD700" />
+          ) : (
+            <Text style={cosmeticStyles.dollarSign}>$</Text>
+          )}
+          <Text style={cosmeticStyles.buyButtonText}>
+            {item.currency === 'coins' ? item.price : item.price.toFixed(2)}
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={cosmeticStyles.ownedBadge}>
+          <Check size={12} color={Colors.correct} />
+          <Text style={cosmeticStyles.ownedText}>Owned</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const cosmeticStyles = StyleSheet.create({
+  card: {
+    width: '48%',
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    padding: 14,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  icon: {
+    fontSize: 36,
+    marginBottom: 8,
+  },
+  name: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  type: {
+    fontSize: 10,
+    color: Colors.textSecondary,
+    textTransform: 'capitalize',
+    marginBottom: 8,
+  },
+  rarityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginBottom: 10,
+  },
+  rarityText: {
+    fontSize: 9,
+    fontWeight: '700' as const,
+  },
+  buyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: Colors.surfaceLight,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    width: '100%',
+  },
+  dollarSign: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: Colors.correct,
+  },
+  buyButtonText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: '#FFD700',
+  },
+  ownedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.correct + '20',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  ownedText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: Colors.correct,
+  },
+});
+
+function PowerUpCard({ powerUp, owned, onBuy }: {
+  powerUp: PowerUp;
+  owned: number;
+  onBuy: () => void;
+}) {
+  return (
+    <View style={powerUpStyles.card}>
+      <View style={powerUpStyles.header}>
+        <Text style={powerUpStyles.icon}>{powerUp.icon}</Text>
+        <View style={powerUpStyles.info}>
+          <Text style={powerUpStyles.name}>{powerUp.name}</Text>
+          <Text style={powerUpStyles.description} numberOfLines={2}>{powerUp.description}</Text>
+        </View>
+        {owned > 0 && (
+          <View style={powerUpStyles.ownedBadge}>
+            <Text style={powerUpStyles.ownedCount}>x{owned}</Text>
+          </View>
+        )}
+      </View>
+      <View style={powerUpStyles.footer}>
+        <View style={[powerUpStyles.rarityBadge, { backgroundColor: RARITY_COLORS[powerUp.rarity] + '20' }]}>
+          <Text style={[powerUpStyles.rarityText, { color: RARITY_COLORS[powerUp.rarity] }]}>
+            {powerUp.rarity.toUpperCase()}
+          </Text>
+        </View>
+        <TouchableOpacity style={powerUpStyles.buyButton} onPress={onBuy}>
+          <Coins size={12} color="#FFD700" />
+          <Text style={powerUpStyles.buyButtonText}>{powerUp.price}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const powerUpStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  icon: {
+    fontSize: 32,
+    marginRight: 12,
+  },
+  info: {
+    flex: 1,
+  },
+  name: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  description: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  ownedBadge: {
+    backgroundColor: Colors.accent + '30',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  ownedCount: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.accent,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  rarityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  rarityText: {
+    fontSize: 9,
+    fontWeight: '700' as const,
+  },
+  buyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.surfaceLight,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  buyButtonText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: '#FFD700',
+  },
+});
+
+function LearningPackCard({ pack, isOwned, onBuy }: {
+  pack: LearningPack;
+  isOwned: boolean;
+  onBuy: () => void;
+}) {
+  return (
+    <View style={learningStyles.card}>
+      <View style={learningStyles.header}>
+        <Text style={learningStyles.icon}>{pack.icon}</Text>
+        <View style={learningStyles.info}>
+          <Text style={learningStyles.name}>{pack.name}</Text>
+          <Text style={learningStyles.lessons}>{pack.lessons} lessons</Text>
+        </View>
+        <View style={[learningStyles.difficultyBadge, { backgroundColor: getDifficultyColor(pack.difficulty) + '20' }]}>
+          <Text style={[learningStyles.difficultyText, { color: getDifficultyColor(pack.difficulty) }]}>
+            {pack.difficulty.toUpperCase()}
+          </Text>
+        </View>
+      </View>
+      <Text style={learningStyles.description}>{pack.description}</Text>
+      <View style={learningStyles.features}>
+        {pack.features.slice(0, 3).map((feature, idx) => (
+          <View key={idx} style={learningStyles.featureItem}>
+            <Check size={12} color={Colors.correct} />
+            <Text style={learningStyles.featureText}>{feature}</Text>
+          </View>
+        ))}
+      </View>
+      {!isOwned ? (
+        <TouchableOpacity style={learningStyles.buyButton} onPress={onBuy}>
+          <Text style={learningStyles.buyButtonText}>${pack.price.toFixed(2)}</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={learningStyles.ownedBadge}>
+          <Check size={14} color={Colors.correct} />
+          <Text style={learningStyles.ownedText}>Owned</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function getDifficultyColor(difficulty: string): string {
+  switch (difficulty) {
+    case 'beginner': return '#22C55E';
+    case 'intermediate': return '#F59E0B';
+    case 'advanced': return '#EF4444';
+    case 'master': return '#A855F7';
+    default: return Colors.textSecondary;
+  }
+}
+
+const learningStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  icon: {
+    fontSize: 36,
+    marginRight: 12,
+  },
+  info: {
+    flex: 1,
+  },
+  name: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  lessons: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  difficultyBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  difficultyText: {
+    fontSize: 9,
+    fontWeight: '700' as const,
+  },
+  description: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  features: {
+    gap: 6,
+    marginBottom: 14,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  featureText: {
+    fontSize: 12,
+    color: Colors.text,
+  },
+  buyButton: {
+    backgroundColor: Colors.accent,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  buyButtonText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  ownedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.correct + '20',
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  ownedText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.correct,
+  },
+});
+
+function BundleCard({ bundle, isOwned, onBuy }: {
+  bundle: ShopBundle;
+  isOwned: boolean;
+  onBuy: () => void;
+}) {
+  return (
+    <View style={[bundleStyles.card, bundle.featured && bundleStyles.cardFeatured]}>
+      {bundle.featured && (
+        <View style={bundleStyles.featuredBadge}>
+          <Star size={10} color="#000" fill="#FFD700" />
+          <Text style={bundleStyles.featuredText}>FEATURED</Text>
+        </View>
+      )}
+      <Text style={bundleStyles.icon}>{bundle.icon}</Text>
+      <Text style={bundleStyles.name}>{bundle.name}</Text>
+      <Text style={bundleStyles.description}>{bundle.description}</Text>
+      <View style={bundleStyles.pricing}>
+        <Text style={bundleStyles.originalPrice}>${bundle.originalPrice.toFixed(2)}</Text>
+        <Text style={bundleStyles.bundlePrice}>${bundle.bundlePrice.toFixed(2)}</Text>
+        <View style={bundleStyles.savingsBadge}>
+          <Text style={bundleStyles.savingsText}>-{bundle.savings}%</Text>
+        </View>
+      </View>
+      {!isOwned ? (
+        <TouchableOpacity style={bundleStyles.buyButton} onPress={onBuy}>
+          <Text style={bundleStyles.buyButtonText}>Get Bundle</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={bundleStyles.ownedBadge}>
+          <Check size={14} color={Colors.correct} />
+          <Text style={bundleStyles.ownedText}>Owned</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const bundleStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 14,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  cardFeatured: {
+    borderColor: '#FFD700',
+  },
+  featuredBadge: {
+    position: 'absolute',
+    top: -10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  featuredText: {
+    fontSize: 9,
+    fontWeight: '800' as const,
     color: '#000',
   },
-  subscribeButton: {
-    backgroundColor: Colors.surfaceLight,
+  icon: {
+    fontSize: 44,
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  name: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  description: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  pricing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 14,
+  },
+  originalPrice: {
+    fontSize: 14,
+    color: Colors.textMuted,
+    textDecorationLine: 'line-through',
+  },
+  bundlePrice: {
+    fontSize: 22,
+    fontWeight: '800' as const,
+    color: '#FFD700',
+  },
+  savingsBadge: {
+    backgroundColor: Colors.correct + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  savingsText: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+    color: Colors.correct,
+  },
+  buyButton: {
+    backgroundColor: Colors.accent,
     paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
     borderRadius: 12,
     width: '100%',
     alignItems: 'center',
   },
-  subscribeButtonText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
+  buyButtonText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
     color: Colors.text,
   },
-  note: {
+  ownedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.correct + '20',
+    paddingVertical: 12,
+    borderRadius: 12,
+    width: '100%',
+  },
+  ownedText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.correct,
+  },
+});
+
+function InstrumentAddonCard({ addon, isOwned, onBuy }: {
+  addon: InstrumentAddon;
+  isOwned: boolean;
+  onBuy: () => void;
+}) {
+  return (
+    <View style={addonStyles.card}>
+      <View style={addonStyles.header}>
+        <Text style={addonStyles.icon}>{addon.icon}</Text>
+        <View style={addonStyles.info}>
+          <Text style={addonStyles.name}>{addon.name}</Text>
+          <Text style={addonStyles.instrument}>{addon.instrument === 'all' ? 'All Instruments' : addon.instrument}</Text>
+        </View>
+        <View style={[addonStyles.rarityBadge, { backgroundColor: RARITY_COLORS[addon.rarity] + '20' }]}>
+          <Text style={[addonStyles.rarityText, { color: RARITY_COLORS[addon.rarity] }]}>
+            {addon.rarity.toUpperCase()}
+          </Text>
+        </View>
+      </View>
+      <Text style={addonStyles.description}>{addon.description}</Text>
+      {addon.effects && (
+        <View style={addonStyles.effects}>
+          {addon.effects.map((effect, idx) => (
+            <View key={idx} style={addonStyles.effectTag}>
+              <Text style={addonStyles.effectText}>{effect}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+      {!isOwned ? (
+        <TouchableOpacity style={addonStyles.buyButton} onPress={onBuy}>
+          {addon.currency === 'coins' ? (
+            <Coins size={14} color="#FFD700" />
+          ) : null}
+          <Text style={addonStyles.buyButtonText}>
+            {addon.currency === 'coins' ? addon.price : `$${addon.price.toFixed(2)}`}
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={addonStyles.ownedBadge}>
+          <Check size={14} color={Colors.correct} />
+          <Text style={addonStyles.ownedText}>Owned</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const addonStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  icon: {
+    fontSize: 32,
+    marginRight: 12,
+  },
+  info: {
+    flex: 1,
+  },
+  name: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  instrument: {
     fontSize: 11,
-    color: Colors.textMuted,
-    marginTop: 12,
+    color: Colors.textSecondary,
+    textTransform: 'capitalize',
+    marginTop: 2,
+  },
+  rarityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  rarityText: {
+    fontSize: 9,
+    fontWeight: '700' as const,
+  },
+  description: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginBottom: 10,
+    lineHeight: 16,
+  },
+  effects: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  effectTag: {
+    backgroundColor: Colors.surfaceLight,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  effectText: {
+    fontSize: 10,
+    color: Colors.text,
+    fontWeight: '600' as const,
+  },
+  buyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.surfaceLight,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  buyButtonText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#FFD700',
+  },
+  ownedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.correct + '20',
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  ownedText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.correct,
   },
 });
 
 export default function ShopScreen() {
   const insets = useSafeAreaInsets();
-  const { inventory, spendCoins, purchaseSkin, equipSkin, addHints, addCoins } = useUser();
+  const { 
+    inventory, spendCoins, purchaseSkin, equipSkin, addHints, addCoins,
+    purchaseTheme, equipTheme, purchaseCosmetic, purchasePowerUp, purchaseLearningPack,
+    purchaseInstrumentAddon, purchaseBundle
+  } = useUser();
   const { 
     purchasePackage, 
     restorePurchases, 
@@ -463,29 +1068,20 @@ export default function ShopScreen() {
     isRestoring,
     isLoading: isPurchasesLoading,
     isConfigured,
-    isDemoMode,
     getPackageByIdentifier,
     getMockPrice,
     calculateSavings,
-    applyPromoCode,
-    clearPromoCode,
-    appliedPromo,
     isPremium,
     isTrialActive,
     trialDaysRemaining,
     hasUsedTrial,
     startFreeTrial,
-    subscriptionStatus,
     enableDemoPremium,
   } = usePurchases();
   
-  const [selectedTab, setSelectedTab] = useState<'skins' | 'hints' | 'coins' | 'premium' | 'bundles'>('premium');
+  const [selectedTab, setSelectedTab] = useState<ShopTab>('featured');
   const [purchasingPackage, setPurchasingPackage] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
-  const [promoCode, setPromoCode] = useState('');
-  const [promoResult, setPromoResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
-  const [showUpsellModal, setShowUpsellModal] = useState(false);
 
   const handleBuySkin = useCallback((skinId: string, price: number) => {
     if (inventory.coins < price) {
@@ -521,6 +1117,40 @@ export default function ShopScreen() {
     }
   }, [equipSkin]);
 
+  const handleBuyTheme = useCallback((themeId: string, price: number) => {
+    if (inventory.coins < price) {
+      Alert.alert('Not Enough Coins', 'You need more coins to purchase this theme.');
+      return;
+    }
+
+    Alert.alert(
+      'Confirm Purchase',
+      `Buy this theme for ${price} coins?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Buy',
+          onPress: () => {
+            const success = spendCoins(price);
+            if (success) {
+              purchaseTheme(themeId);
+              if (Platform.OS !== 'web') {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              }
+            }
+          },
+        },
+      ]
+    );
+  }, [inventory.coins, spendCoins, purchaseTheme]);
+
+  const handleEquipTheme = useCallback((themeId: string) => {
+    equipTheme(themeId);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, [equipTheme]);
+
   const handleIAPPurchase = useCallback(async (packageId: string, rewardType?: 'coins' | 'hints', rewardAmount?: number) => {
     const pkg = getPackageByIdentifier(packageId);
     
@@ -530,7 +1160,6 @@ export default function ShopScreen() {
       console.log('[Shop] Store not configured or package not found, using demo mode for:', packageId);
       
       setPurchasingPackage(packageId);
-      
       await new Promise(resolve => setTimeout(resolve, 800));
       
       if (Platform.OS !== 'web') {
@@ -539,31 +1168,26 @@ export default function ShopScreen() {
       
       if (rewardType === 'coins' && rewardAmount) {
         addCoins(rewardAmount);
-        Alert.alert(
-          '🎉 Demo Purchase!', 
-          `You received ${rewardAmount} coins! (Demo mode - no real charge)`,
-          [{ text: 'Awesome!', style: 'default' }]
-        );
+        Alert.alert('🎉 Demo Purchase!', `You received ${rewardAmount} coins!`);
       } else if (rewardType === 'hints' && rewardAmount) {
         addHints(rewardAmount);
-        Alert.alert(
-          '💡 Demo Hints Added!', 
-          `You received ${rewardAmount} hints! (Demo mode - no real charge)`,
-          [{ text: 'Great!', style: 'default' }]
-        );
+        Alert.alert('💡 Demo Hints Added!', `You received ${rewardAmount} hints!`);
       } else if (packageId.includes('monthly') || packageId.includes('annual') || packageId.includes('yearly')) {
         enableDemoPremium();
-        Alert.alert(
-          '👑 Demo Premium Activated!', 
-          'Premium features enabled for testing. Connect RevenueCat for real purchases.',
-          [{ text: 'Awesome!', style: 'default' }]
-        );
+        Alert.alert('👑 Demo Premium Activated!', 'Premium features enabled for testing.');
+      } else if (packageId.startsWith('bundle_')) {
+        const bundleId = packageId.replace('bundle_', '');
+        const bundle = SHOP_BUNDLES.find(b => b.id === bundleId);
+        if (bundle) {
+          purchaseBundle(bundleId, bundle.items);
+          Alert.alert('🎁 Bundle Purchased!', `${bundle.name} unlocked!`);
+        }
+      } else if (packageId.startsWith('learning_')) {
+        const packId = packageId.replace('learning_', '');
+        purchaseLearningPack(packId);
+        Alert.alert('📚 Learning Pack Unlocked!', 'Your new lessons are ready!');
       } else {
-        Alert.alert(
-          '🎁 Demo Mode', 
-          'This is demo mode. Configure RevenueCat API keys for real purchases.',
-          [{ text: 'OK', style: 'default' }]
-        );
+        Alert.alert('🎁 Demo Mode', 'Demo purchase successful!');
       }
       
       setPurchasingPackage(null);
@@ -582,25 +1206,10 @@ export default function ShopScreen() {
         
         if (rewardType === 'coins' && rewardAmount) {
           addCoins(rewardAmount);
-          Alert.alert(
-            '🎉 Purchase Complete!', 
-            `You received ${rewardAmount} coins! Your balance has been updated.`,
-            [{ text: 'Awesome!', style: 'default' }]
-          );
+          Alert.alert('🎉 Purchase Complete!', `You received ${rewardAmount} coins!`);
         } else if (rewardType === 'hints' && rewardAmount) {
           addHints(rewardAmount);
-          Alert.alert(
-            '💡 Hints Added!', 
-            `You received ${rewardAmount} hints! Use them wisely.`,
-            [{ text: 'Great!', style: 'default' }]
-          );
-        } else if (packageId === PACKAGE_IDENTIFIERS.MONTHLY || packageId === '$rc_monthly' || 
-                   packageId === PACKAGE_IDENTIFIERS.YEARLY || packageId === '$rc_annual') {
-          Alert.alert(
-            '👑 Welcome to Premium!', 
-            'Enjoy ad-free gameplay, unlimited practice, exclusive skins, and all premium features!',
-            [{ text: 'Let\'s Go!', style: 'default' }]
-          );
+          Alert.alert('💡 Hints Added!', `You received ${rewardAmount} hints!`);
         }
       } else if (result.error && result.error !== 'cancelled') {
         Alert.alert('Purchase Failed', result.error);
@@ -611,43 +1220,129 @@ export default function ShopScreen() {
     } finally {
       setPurchasingPackage(null);
     }
-  }, [getPackageByIdentifier, purchasePackage, addCoins, addHints, isConfigured, enableDemoPremium]);
+  }, [getPackageByIdentifier, purchasePackage, addCoins, addHints, isConfigured, enableDemoPremium, purchaseBundle, purchaseLearningPack]);
+
+  const handleBuyCosmetic = useCallback((cosmetic: CosmeticItem) => {
+    if (cosmetic.currency === 'coins') {
+      if (inventory.coins < cosmetic.price) {
+        Alert.alert('Not Enough Coins', 'You need more coins to purchase this item.');
+        return;
+      }
+
+      Alert.alert(
+        'Confirm Purchase',
+        `Buy ${cosmetic.name} for ${cosmetic.price} coins?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Buy',
+            onPress: () => {
+              const success = spendCoins(cosmetic.price);
+              if (success) {
+                purchaseCosmetic(cosmetic.id);
+                if (Platform.OS !== 'web') {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      handleIAPPurchase(`cosmetic_${cosmetic.id}`);
+    }
+  }, [inventory.coins, spendCoins, purchaseCosmetic, handleIAPPurchase]);
+
+  const handleBuyPowerUp = useCallback((powerUp: PowerUp) => {
+    if (inventory.coins < powerUp.price) {
+      Alert.alert('Not Enough Coins', 'You need more coins to purchase this power-up.');
+      return;
+    }
+
+    Alert.alert(
+      'Confirm Purchase',
+      `Buy ${powerUp.name} for ${powerUp.price} coins?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Buy',
+          onPress: () => {
+            const success = spendCoins(powerUp.price);
+            if (success) {
+              purchasePowerUp(powerUp.id, 1);
+              if (Platform.OS !== 'web') {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              }
+            }
+          },
+        },
+      ]
+    );
+  }, [inventory.coins, spendCoins, purchasePowerUp]);
+
+  const handleBuyLearningPack = useCallback((pack: LearningPack) => {
+    handleIAPPurchase(`learning_${pack.id}`);
+  }, [handleIAPPurchase]);
+
+  const handleBuyInstrumentAddon = useCallback((addon: InstrumentAddon) => {
+    if (addon.currency === 'coins') {
+      if (inventory.coins < addon.price) {
+        Alert.alert('Not Enough Coins', 'You need more coins to purchase this add-on.');
+        return;
+      }
+
+      Alert.alert(
+        'Confirm Purchase',
+        `Buy ${addon.name} for ${addon.price} coins?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Buy',
+            onPress: () => {
+              const success = spendCoins(addon.price);
+              if (success) {
+                purchaseInstrumentAddon(addon.id);
+                if (Platform.OS !== 'web') {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      handleIAPPurchase(`addon_${addon.id}`);
+    }
+  }, [inventory.coins, spendCoins, purchaseInstrumentAddon, handleIAPPurchase]);
+
+  const handleBuyBundle = useCallback((bundle: ShopBundle) => {
+    handleIAPPurchase(`bundle_${bundle.id}`);
+  }, [handleIAPPurchase]);
 
   const handleRestorePurchases = useCallback(async () => {
     await restorePurchases();
   }, [restorePurchases]);
 
-  const handleManageSubscription = useCallback(() => {
-    Alert.alert(
-      'Manage Subscription',
-      'To manage or cancel your subscription, go to your device settings.',
-      [
-        { text: 'OK', style: 'default' },
-      ]
-    );
-  }, []);
-
   const handleStartTrial = useCallback(() => {
     const success = startFreeTrial();
     if (success) {
-      setShowUpsellModal(false);
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-      Alert.alert(
-        '🎉 Trial Started!',
-        'Enjoy 7 days of premium features for free!',
-        [{ text: 'Awesome!', style: 'default' }]
-      );
+      Alert.alert('🎉 Trial Started!', 'Enjoy 7 days of premium features for free!');
     }
   }, [startFreeTrial]);
 
-  const tabs = [
-    { key: 'premium' as const, label: 'Premium', icon: <Crown size={18} /> },
-    { key: 'bundles' as const, label: 'Bundles', icon: <Music size={18} /> },
-    { key: 'skins' as const, label: 'Skins', icon: <Palette size={18} /> },
-    { key: 'hints' as const, label: 'Hints', icon: <Lightbulb size={18} /> },
-    { key: 'coins' as const, label: 'Coins', icon: <Coins size={18} /> },
+  const tabs: { key: ShopTab; label: string; icon: React.ReactElement }[] = [
+    { key: 'featured', label: 'Featured', icon: <Star size={16} /> },
+    { key: 'themes', label: 'Themes', icon: <Paintbrush size={16} /> },
+    { key: 'skins', label: 'Skins', icon: <Palette size={16} /> },
+    { key: 'cosmetics', label: 'Cosmetics', icon: <Award size={16} /> },
+    { key: 'powerups', label: 'Power-ups', icon: <Shield size={16} /> },
+    { key: 'learning', label: 'Learning', icon: <BookOpen size={16} /> },
+    { key: 'instruments', label: 'Instruments', icon: <Guitar size={16} /> },
+    { key: 'coins', label: 'Coins', icon: <Coins size={16} /> },
+    { key: 'premium', label: 'Premium', icon: <Crown size={16} /> },
   ];
 
   const getPackagePrice = (identifier: string): string => {
@@ -656,22 +1351,7 @@ export default function ShopScreen() {
     return getMockPrice(identifier);
   };
 
-  const handleApplyPromo = useCallback(async () => {
-    if (!promoCode.trim()) return;
-    setIsApplyingPromo(true);
-    const result = await applyPromoCode(promoCode.trim());
-    setPromoResult(result);
-    setIsApplyingPromo(false);
-    if (result.success && Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-  }, [promoCode, applyPromoCode]);
-
-  const handleClearPromo = useCallback(() => {
-    clearPromoCode();
-    setPromoCode('');
-    setPromoResult(null);
-  }, [clearPromoCode]);
+  const featuredBundles = useMemo(() => getFeaturedBundles(), []);
 
   const monthlyPrice = 4.99;
   const yearlyPrice = 39.99;
@@ -700,14 +1380,19 @@ export default function ShopScreen() {
         </View>
       </View>
 
-      <View style={styles.tabContainer}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabScrollView}
+        contentContainerStyle={styles.tabContainer}
+      >
         {tabs.map(tab => (
           <TouchableOpacity
             key={tab.key}
             style={[styles.tab, selectedTab === tab.key && styles.tabActive]}
             onPress={() => setSelectedTab(tab.key)}
           >
-            {React.cloneElement(tab.icon, { 
+            {React.cloneElement(tab.icon as React.ReactElement<{ color: string }>, { 
               color: selectedTab === tab.key ? Colors.background : Colors.textSecondary 
             })}
             <Text style={[styles.tabText, selectedTab === tab.key && styles.tabTextActive]}>
@@ -715,7 +1400,7 @@ export default function ShopScreen() {
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       {isPurchasesLoading ? (
         <View style={styles.loadingContainer}>
@@ -735,238 +1420,231 @@ export default function ShopScreen() {
             />
           )}
 
-          {subscriptionStatus && selectedTab === 'premium' && (
-            <SubscriptionStatusCard 
-              status={subscriptionStatus}
-              onManage={handleManageSubscription}
-            />
-          )}
-
-          {selectedTab === 'bundles' && (
-            <View style={styles.bundlesSection}>
-              <Text style={styles.sectionTitle}>🎸 Instrument Bundles</Text>
-              <Text style={styles.sectionSubtitle}>Unlock premium instruments with effects</Text>
+          {selectedTab === 'featured' && (
+            <View>
+              <Text style={styles.sectionTitle}>🔥 Featured Bundles</Text>
+              <Text style={styles.sectionSubtitle}>Best value packs with exclusive savings</Text>
               
-              {INSTRUMENT_BUNDLES.filter(b => b.featured).map(bundle => (
-                <TouchableOpacity
+              {featuredBundles.map(bundle => (
+                <BundleCard
                   key={bundle.id}
-                  style={styles.featuredBundleCard}
-                  onPress={() => handleIAPPurchase(bundle.id)}
-                  disabled={isPurchasing}
-                >
-                  <View style={styles.featuredBadge}>
-                    <Star size={12} color="#000" fill="#FFD700" />
-                    <Text style={styles.featuredBadgeText}>FEATURED</Text>
-                  </View>
-                  <Text style={styles.bundleIcon}>{bundle.icon}</Text>
-                  <Text style={styles.bundleName}>{bundle.name}</Text>
-                  <Text style={styles.bundleDesc}>{bundle.description}</Text>
-                  <View style={styles.bundlePricing}>
-                    <Text style={styles.bundleOriginalPrice}>${bundle.originalPrice.toFixed(2)}</Text>
-                    <Text style={styles.bundlePrice}>${bundle.bundlePrice.toFixed(2)}</Text>
-                    <View style={styles.bundleSavingsBadge}>
-                      <Text style={styles.bundleSavingsText}>-{bundle.savings}%</Text>
-                    </View>
-                  </View>
-                  <View style={styles.bundleInstruments}>
-                    {bundle.instruments.map((inst, idx) => (
-                      <View key={idx} style={styles.bundleInstrumentTag}>
-                        <Text style={styles.bundleInstrumentText}>{inst}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </TouchableOpacity>
+                  bundle={bundle}
+                  isOwned={inventory.ownedBundles?.includes(bundle.id) || false}
+                  onBuy={() => handleBuyBundle(bundle)}
+                />
               ))}
 
-              <View style={styles.bundlesGrid}>
-                {INSTRUMENT_BUNDLES.filter(b => !b.featured).map(bundle => (
-                  <TouchableOpacity
-                    key={bundle.id}
-                    style={styles.bundleCard}
-                    onPress={() => handleIAPPurchase(bundle.id)}
-                    disabled={isPurchasing}
-                  >
-                    <Text style={styles.bundleCardIcon}>{bundle.icon}</Text>
-                    <Text style={styles.bundleCardName}>{bundle.name}</Text>
-                    <Text style={styles.bundleCardDesc} numberOfLines={2}>{bundle.description}</Text>
-                    <View style={styles.bundleCardPricing}>
-                      <Text style={styles.bundleCardOriginal}>${bundle.originalPrice.toFixed(2)}</Text>
-                      <Text style={styles.bundleCardPrice}>${bundle.bundlePrice.toFixed(2)}</Text>
-                    </View>
-                    <View style={styles.bundleCardSavings}>
-                      <Text style={styles.bundleCardSavingsText}>Save {bundle.savings}%</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <Text style={[styles.sectionTitle, { marginTop: 24 }]}>🎁 All Bundles</Text>
+              {SHOP_BUNDLES.filter(b => !b.featured).map(bundle => (
+                <BundleCard
+                  key={bundle.id}
+                  bundle={bundle}
+                  isOwned={inventory.ownedBundles?.includes(bundle.id) || false}
+                  onBuy={() => handleBuyBundle(bundle)}
+                />
+              ))}
+            </View>
+          )}
 
-              <View style={styles.familySection}>
-                <View style={styles.familySectionHeader}>
-                  <Users size={24} color={Colors.accent} />
-                  <Text style={styles.familySectionTitle}>Family Plans</Text>
-                </View>
-                <Text style={styles.familySectionDesc}>Share premium with up to 6 family members</Text>
-                
-                <View style={styles.familyPlans}>
-                  <TouchableOpacity
-                    style={styles.familyPlanCard}
-                    onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.FAMILY_MONTHLY)}
-                    disabled={isPurchasing}
-                  >
-                    <Text style={styles.familyPlanName}>Family Monthly</Text>
-                    <Text style={styles.familyPlanPrice}>{getPackagePrice(PACKAGE_IDENTIFIERS.FAMILY_MONTHLY)}/mo</Text>
-                    <Text style={styles.familyPlanMembers}>Up to 6 members</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    style={[styles.familyPlanCard, styles.familyPlanCardFeatured]}
-                    onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.FAMILY_YEARLY)}
-                    disabled={isPurchasing}
-                  >
-                    <View style={styles.familyPlanBadge}>
-                      <Text style={styles.familyPlanBadgeText}>BEST VALUE</Text>
-                    </View>
-                    <Text style={styles.familyPlanName}>Family Yearly</Text>
-                    <Text style={styles.familyPlanPrice}>{getPackagePrice(PACKAGE_IDENTIFIERS.FAMILY_YEARLY)}/yr</Text>
-                    <Text style={styles.familyPlanMembers}>Save 33% annually</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+          {selectedTab === 'themes' && (
+            <View>
+              <Text style={styles.sectionTitle}>🎨 Color Themes</Text>
+              <Text style={styles.sectionSubtitle}>Customize your app look</Text>
+              
+              {COLOR_THEMES.map(theme => (
+                <ThemeCard
+                  key={theme.id}
+                  theme={theme}
+                  isOwned={inventory.ownedThemes?.includes(theme.id) || false}
+                  isEquipped={inventory.equippedTheme === theme.id}
+                  onBuy={() => handleBuyTheme(theme.id, theme.price)}
+                  onEquip={() => handleEquipTheme(theme.id)}
+                />
+              ))}
             </View>
           )}
 
           {selectedTab === 'skins' && (
-            <View style={styles.skinsGrid}>
+            <View>
+              <Text style={styles.sectionTitle}>🎹 Keyboard Skins</Text>
+              <Text style={styles.sectionSubtitle}>Personalize your piano</Text>
+              
               {KEYBOARD_SKINS.map(skin => (
                 <SkinPreview
                   key={skin.id}
                   skin={skin}
                   isOwned={inventory.ownedSkins.includes(skin.id)}
                   isEquipped={inventory.equippedSkin === skin.id}
-                  onBuy={() => handleBuySkin(skin.id, 500)}
+                  onBuy={() => handleBuySkin(skin.id, skin.price || 500)}
                   onEquip={() => handleEquipSkin(skin.id)}
                 />
               ))}
             </View>
           )}
 
-          {selectedTab === 'hints' && (
-            <View style={styles.itemsGrid}>
-              <IAPItemCard
-                icon="💡"
-                name="5 Hints Pack"
-                description="Get 5 extra hints for tricky puzzles"
-                price={getPackagePrice(PACKAGE_IDENTIFIERS.HINTS_SMALL)}
-                rarity="common"
-                onPurchase={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.HINTS_SMALL, 'hints', 5)}
-                isLoading={purchasingPackage === PACKAGE_IDENTIFIERS.HINTS_SMALL}
-                disabled={isPurchasing}
-              />
-              <IAPItemCard
-                icon="🌟"
-                name="50 Hints Pack"
-                description="Get 50 hints - best value!"
-                price={getPackagePrice(PACKAGE_IDENTIFIERS.HINTS_LARGE)}
-                rarity="rare"
-                onPurchase={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.HINTS_LARGE, 'hints', 50)}
-                isLoading={purchasingPackage === PACKAGE_IDENTIFIERS.HINTS_LARGE}
-                disabled={isPurchasing}
-                bonus="+10 FREE"
-              />
+          {selectedTab === 'cosmetics' && (
+            <View>
+              <Text style={styles.sectionTitle}>✨ Cosmetics</Text>
+              <Text style={styles.sectionSubtitle}>Badges, frames, titles & more</Text>
+              
+              <View style={styles.cosmeticsGrid}>
+                {COSMETIC_ITEMS.map(item => (
+                  <CosmeticCard
+                    key={item.id}
+                    item={item}
+                    isOwned={inventory.ownedCosmetics?.includes(item.id) || false}
+                    onBuy={() => handleBuyCosmetic(item)}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
+
+          {selectedTab === 'powerups' && (
+            <View>
+              <Text style={styles.sectionTitle}>⚡ Power-ups</Text>
+              <Text style={styles.sectionSubtitle}>Boost your gameplay</Text>
+              
+              {POWER_UPS.map(powerUp => (
+                <PowerUpCard
+                  key={powerUp.id}
+                  powerUp={powerUp}
+                  owned={inventory.ownedPowerUps?.[powerUp.id] || 0}
+                  onBuy={() => handleBuyPowerUp(powerUp)}
+                />
+              ))}
+            </View>
+          )}
+
+          {selectedTab === 'learning' && (
+            <View>
+              <Text style={styles.sectionTitle}>📚 Learning Packs</Text>
+              <Text style={styles.sectionSubtitle}>Master music with AI-powered lessons</Text>
+              
+              {LEARNING_PACKS.map(pack => (
+                <LearningPackCard
+                  key={pack.id}
+                  pack={pack}
+                  isOwned={inventory.ownedLearningPacks?.includes(pack.id) || false}
+                  onBuy={() => handleBuyLearningPack(pack)}
+                />
+              ))}
+            </View>
+          )}
+
+          {selectedTab === 'instruments' && (
+            <View>
+              <Text style={styles.sectionTitle}>🎸 Instrument Add-ons</Text>
+              <Text style={styles.sectionSubtitle}>Sound packs & visual effects</Text>
+              
+              {INSTRUMENT_ADDONS.map(addon => (
+                <InstrumentAddonCard
+                  key={addon.id}
+                  addon={addon}
+                  isOwned={inventory.ownedInstrumentAddons?.includes(addon.id) || false}
+                  onBuy={() => handleBuyInstrumentAddon(addon)}
+                />
+              ))}
             </View>
           )}
 
           {selectedTab === 'coins' && (
-            <View style={styles.itemsGrid}>
-              <IAPItemCard
-                icon="💰"
-                name="500 Coins"
-                description="Starter coin pack"
-                price={getPackagePrice(PACKAGE_IDENTIFIERS.COINS_500)}
-                rarity="common"
-                onPurchase={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.COINS_500, 'coins', 500)}
-                isLoading={purchasingPackage === PACKAGE_IDENTIFIERS.COINS_500}
-                disabled={isPurchasing}
-              />
-              <IAPItemCard
-                icon="💰"
-                name="1500 Coins"
-                description="Value pack with bonus"
-                price={getPackagePrice(PACKAGE_IDENTIFIERS.COINS_1500)}
-                rarity="rare"
-                onPurchase={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.COINS_1500, 'coins', 1500)}
-                isLoading={purchasingPackage === PACKAGE_IDENTIFIERS.COINS_1500}
-                disabled={isPurchasing}
-                bonus="+20%"
-              />
-              <IAPItemCard
-                icon="💎"
-                name="5000 Coins"
-                description="Premium pack with mega bonus"
-                price={getPackagePrice(PACKAGE_IDENTIFIERS.COINS_5000)}
-                rarity="epic"
-                onPurchase={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.COINS_5000, 'coins', 5000)}
-                isLoading={purchasingPackage === PACKAGE_IDENTIFIERS.COINS_5000}
-                disabled={isPurchasing}
-                bonus="+50%"
-              />
+            <View>
+              <Text style={styles.sectionTitle}>💰 Coin Packs</Text>
+              <Text style={styles.sectionSubtitle}>Get coins for shop purchases</Text>
+              
+              <View style={styles.coinCards}>
+                <TouchableOpacity 
+                  style={styles.coinCard}
+                  onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.COINS_500, 'coins', 500)}
+                  disabled={isPurchasing}
+                >
+                  <Text style={styles.coinIcon}>💰</Text>
+                  <Text style={styles.coinAmount}>500</Text>
+                  <Text style={styles.coinLabel}>Coins</Text>
+                  <Text style={styles.coinPrice}>{getPackagePrice(PACKAGE_IDENTIFIERS.COINS_500)}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.coinCard, styles.coinCardPopular]}
+                  onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.COINS_1500, 'coins', 1500)}
+                  disabled={isPurchasing}
+                >
+                  <View style={styles.coinCardBadge}>
+                    <Text style={styles.coinCardBadgeText}>+20%</Text>
+                  </View>
+                  <Text style={styles.coinIcon}>💰</Text>
+                  <Text style={styles.coinAmount}>1,500</Text>
+                  <Text style={styles.coinLabel}>Coins</Text>
+                  <Text style={styles.coinPrice}>{getPackagePrice(PACKAGE_IDENTIFIERS.COINS_1500)}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.coinCard, styles.coinCardBest]}
+                  onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.COINS_5000, 'coins', 5000)}
+                  disabled={isPurchasing}
+                >
+                  <View style={[styles.coinCardBadge, styles.coinCardBadgeBest]}>
+                    <Text style={styles.coinCardBadgeText}>+50%</Text>
+                  </View>
+                  <Text style={styles.coinIcon}>💎</Text>
+                  <Text style={styles.coinAmount}>5,000</Text>
+                  <Text style={styles.coinLabel}>Coins</Text>
+                  <Text style={styles.coinPrice}>{getPackagePrice(PACKAGE_IDENTIFIERS.COINS_5000)}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={[styles.sectionTitle, { marginTop: 24 }]}>💡 Hint Packs</Text>
+              
+              <View style={styles.hintCards}>
+                <TouchableOpacity 
+                  style={styles.hintCard}
+                  onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.HINTS_SMALL, 'hints', 5)}
+                  disabled={isPurchasing}
+                >
+                  <Text style={styles.hintIcon}>💡</Text>
+                  <Text style={styles.hintAmount}>5 Hints</Text>
+                  <Text style={styles.hintPrice}>{getPackagePrice(PACKAGE_IDENTIFIERS.HINTS_SMALL)}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.hintCard, styles.hintCardBest]}
+                  onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.HINTS_LARGE, 'hints', 50)}
+                  disabled={isPurchasing}
+                >
+                  <View style={styles.hintCardBadge}>
+                    <Text style={styles.hintCardBadgeText}>BEST VALUE</Text>
+                  </View>
+                  <Text style={styles.hintIcon}>🌟</Text>
+                  <Text style={styles.hintAmount}>50 Hints</Text>
+                  <Text style={styles.hintPrice}>{getPackagePrice(PACKAGE_IDENTIFIERS.HINTS_LARGE)}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
           {selectedTab === 'premium' && (
             <View style={styles.premiumSection}>
-              {isPremium && !subscriptionStatus ? (
+              {isPremium ? (
                 <View style={styles.premiumActiveCard}>
-                  <View style={styles.premiumActiveIconContainer}>
-                    <Crown size={48} color="#FFD700" />
-                    <Sparkles size={20} color="#FFD700" style={styles.sparkleIcon} />
-                  </View>
-                  <Text style={styles.premiumActiveTitle}>
-                    {isTrialActive ? 'Premium Trial Active' : 'You\'re Premium!'}
-                  </Text>
+                  <Crown size={48} color="#FFD700" />
+                  <Text style={styles.premiumActiveTitle}>You are Premium!</Text>
                   <Text style={styles.premiumActiveDesc}>
-                    {isTrialActive 
-                      ? `${trialDaysRemaining} day${trialDaysRemaining !== 1 ? 's' : ''} remaining in your trial`
-                      : 'Enjoy all premium benefits including ad-free gameplay, unlimited practice, and exclusive features.'
-                    }
+                    Enjoy all premium benefits including ad-free gameplay, unlimited practice, and exclusive features.
                   </Text>
                   <View style={styles.premiumBenefitsList}>
-                    {[
-                      'Ad-free forever',
-                      'All instruments unlocked',
-                      'Exclusive skins access',
-                      'Advanced learning lessons',
-                      'Priority support',
-                    ].map((benefit, idx) => (
+                    {['Ad-free forever', 'All instruments unlocked', 'Exclusive skins', 'Advanced lessons', 'Priority support'].map((benefit, idx) => (
                       <View key={idx} style={styles.benefitItem}>
                         <Star size={16} color="#FFD700" fill="#FFD700" />
                         <Text style={styles.benefitText}>{benefit}</Text>
                       </View>
                     ))}
                   </View>
-                  {isTrialActive && (
-                    <TouchableOpacity 
-                      style={styles.upgradeTrialButton}
-                      onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.YEARLY)}
-                    >
-                      <Text style={styles.upgradeTrialButtonText}>Upgrade Now - Save {savings}%</Text>
-                    </TouchableOpacity>
-                  )}
                 </View>
-              ) : !isPremium && (
+              ) : (
                 <View style={styles.premiumCard}>
                   <Crown size={48} color="#FFD700" />
                   <Text style={styles.premiumTitle}>Melodyx Premium</Text>
-                  {isDemoMode && (
-                    <View style={styles.sandboxBadge}>
-                      <Text style={styles.sandboxText}>DEMO MODE</Text>
-                    </View>
-                  )}
-                  {isConfigured && __DEV__ && (
-                    <View style={[styles.sandboxBadge, { backgroundColor: '#10B981' + '20' }]}>
-                      <Text style={[styles.sandboxText, { color: '#10B981' }]}>SANDBOX</Text>
-                    </View>
-                  )}
 
                   {!hasUsedTrial && (
                     <TouchableOpacity style={styles.freeTrialBanner} onPress={handleStartTrial}>
@@ -997,61 +1675,12 @@ export default function ShopScreen() {
                   </View>
                   
                   <View style={styles.premiumFeatures}>
-                    {[
-                      'Ad-free experience',
-                      'Unlimited practice mode',
-                      'All instruments unlocked',
-                      'Exclusive keyboard skins',
-                      'Priority access to events',
-                      'Advanced learning lessons',
-                    ].map((feature, idx) => (
+                    {['Ad-free experience', 'Unlimited practice mode', 'All instruments unlocked', 'Exclusive keyboard skins', 'Priority access to events', 'Advanced learning lessons'].map((feature, idx) => (
                       <View key={idx} style={styles.featureRow}>
                         <Check size={18} color={Colors.correct} />
                         <Text style={styles.featureText}>{feature}</Text>
                       </View>
                     ))}
-                  </View>
-
-                  <View style={styles.promoCodeSection}>
-                    <View style={styles.promoInputRow}>
-                      <Tag size={18} color={Colors.textSecondary} />
-                      <TextInput
-                        style={styles.promoInput}
-                        placeholder="Promo code"
-                        placeholderTextColor={Colors.textMuted}
-                        value={promoCode}
-                        onChangeText={setPromoCode}
-                        autoCapitalize="characters"
-                      />
-                      {appliedPromo ? (
-                        <TouchableOpacity style={styles.promoClearButton} onPress={handleClearPromo}>
-                          <X size={16} color={Colors.textSecondary} />
-                        </TouchableOpacity>
-                      ) : (
-                        <TouchableOpacity
-                          style={[styles.promoApplyButton, (!promoCode.trim() || isApplyingPromo) && styles.promoApplyButtonDisabled]}
-                          onPress={handleApplyPromo}
-                          disabled={!promoCode.trim() || isApplyingPromo}
-                        >
-                          {isApplyingPromo ? (
-                            <ActivityIndicator size="small" color={Colors.text} />
-                          ) : (
-                            <Text style={styles.promoApplyText}>Apply</Text>
-                          )}
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                    {promoResult && (
-                      <Text style={[styles.promoResultText, promoResult.success ? styles.promoSuccess : styles.promoError]}>
-                        {promoResult.message}
-                      </Text>
-                    )}
-                    {appliedPromo && (
-                      <View style={styles.appliedPromoContainer}>
-                        <Check size={14} color={Colors.correct} />
-                        <Text style={styles.appliedPromoText}>{appliedPromo.description}</Text>
-                      </View>
-                    )}
                   </View>
 
                   <TouchableOpacity 
@@ -1077,17 +1706,6 @@ export default function ShopScreen() {
           )}
         </ScrollView>
       )}
-
-      <UpsellModal
-        visible={showUpsellModal}
-        onClose={() => setShowUpsellModal(false)}
-        onSubscribe={() => {
-          setShowUpsellModal(false);
-          setSelectedTab('premium');
-        }}
-        onStartTrial={handleStartTrial}
-        hasUsedTrial={hasUsedTrial}
-      />
     </View>
   );
 }
@@ -1132,19 +1750,20 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: Colors.text,
   },
+  tabScrollView: {
+    maxHeight: 44,
+    marginBottom: 12,
+  },
   tabContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     gap: 8,
-    marginBottom: 16,
   },
   tab: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
+    gap: 6,
     paddingVertical: 10,
+    paddingHorizontal: 14,
     borderRadius: 12,
     backgroundColor: Colors.surface,
   },
@@ -1152,7 +1771,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent,
   },
   tabText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600' as const,
     color: Colors.textSecondary,
   },
@@ -1176,150 +1795,119 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 40,
   },
-  skinsGrid: {
-    gap: 16,
-  },
-  skinCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  skinCardEquipped: {
-    borderColor: Colors.correct,
-  },
-  skinHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  skinIcon: {
-    fontSize: 32,
-    marginRight: 12,
-  },
-  skinInfo: {
-    flex: 1,
-  },
-  skinName: {
-    fontSize: 16,
+  sectionTitle: {
+    fontSize: 20,
     fontWeight: '700' as const,
     color: Colors.text,
+    marginBottom: 4,
   },
-  skinPreviewText: {
-    fontSize: 12,
+  sectionSubtitle: {
+    fontSize: 14,
     color: Colors.textSecondary,
-    marginTop: 2,
+    marginBottom: 16,
   },
-  equippedBadge: {
-    backgroundColor: Colors.correct + '20',
-    padding: 6,
-    borderRadius: 12,
-  },
-  skinPreview: {
+  cosmeticsGrid: {
     flexDirection: 'row',
-    gap: 4,
-    marginBottom: 12,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
-  previewKey: {
-    flex: 1,
-    height: 36,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  previewKeyText: {
-    fontSize: 12,
-    fontWeight: '700' as const,
-  },
-  buyButton: {
+  coinCards: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: Colors.surfaceLight,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  buyButtonText: {
-    fontSize: 14,
-    fontWeight: '700' as const,
-    color: '#FFD700',
-  },
-  equipButton: {
-    backgroundColor: Colors.accent,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  equipButtonText: {
-    fontSize: 14,
-    fontWeight: '700' as const,
-    color: Colors.text,
-  },
-  itemsGrid: {
     gap: 12,
+    marginBottom: 16,
   },
-  itemCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  coinCard: {
+    flex: 1,
     backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 16,
-  },
-  itemCardDisabled: {
-    opacity: 0.5,
-  },
-  itemIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
+    position: 'relative',
   },
-  itemIcon: {
-    fontSize: 24,
+  coinCardPopular: {
+    borderWidth: 2,
+    borderColor: Colors.accent,
   },
-  itemInfo: {
-    flex: 1,
+  coinCardBest: {
+    borderWidth: 2,
+    borderColor: '#FFD700',
   },
-  itemName: {
-    fontSize: 15,
-    fontWeight: '700' as const,
-    color: Colors.text,
-  },
-  itemDesc: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  itemPriceSection: {
-    alignItems: 'flex-end',
-    gap: 6,
-  },
-  bonusBadge: {
-    backgroundColor: Colors.correct + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  bonusBadgeText: {
-    fontSize: 10,
-    fontWeight: '700' as const,
-    color: Colors.correct,
-  },
-  rarityBadge: {
+  coinCardBadge: {
+    position: 'absolute',
+    top: -8,
+    backgroundColor: Colors.accent,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
-  rarityText: {
+  coinCardBadgeBest: {
+    backgroundColor: '#FFD700',
+  },
+  coinCardBadgeText: {
     fontSize: 9,
     fontWeight: '700' as const,
+    color: Colors.text,
   },
-  priceTextUsd: {
+  coinIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  coinAmount: {
+    fontSize: 18,
+    fontWeight: '800' as const,
+    color: Colors.text,
+  },
+  coinLabel: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginBottom: 8,
+  },
+  coinPrice: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: Colors.accent,
+  },
+  hintCards: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  hintCard: {
+    flex: 1,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  hintCardBest: {
+    borderWidth: 2,
+    borderColor: Colors.correct,
+  },
+  hintCardBadge: {
+    position: 'absolute',
+    top: -8,
+    backgroundColor: Colors.correct,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  hintCardBadgeText: {
+    fontSize: 9,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  hintIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  hintAmount: {
     fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    marginBottom: 8,
+  },
+  hintPrice: {
+    fontSize: 15,
     fontWeight: '700' as const,
     color: Colors.accent,
   },
@@ -1355,14 +1943,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16,
   },
-  premiumActiveIconContainer: {
-    position: 'relative',
-  },
-  sparkleIcon: {
-    position: 'absolute',
-    top: -8,
-    right: -12,
-  },
   premiumBenefitsList: {
     width: '100%',
     gap: 10,
@@ -1375,20 +1955,6 @@ const styles = StyleSheet.create({
   benefitText: {
     fontSize: 14,
     color: Colors.text,
-  },
-  upgradeTrialButton: {
-    backgroundColor: '#FFD700',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 14,
-    marginTop: 20,
-    width: '100%',
-    alignItems: 'center',
-  },
-  upgradeTrialButtonText: {
-    fontSize: 15,
-    fontWeight: '700' as const,
-    color: '#000',
   },
   premiumTitle: {
     fontSize: 24,
@@ -1451,19 +2017,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingHorizontal: 20,
   },
-  sandboxBadge: {
-    backgroundColor: '#FF6B35' + '20',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  sandboxText: {
-    fontSize: 10,
-    fontWeight: '700' as const,
-    color: '#FF6B35',
-    letterSpacing: 0.5,
-  },
   planSelector: {
     flexDirection: 'row',
     gap: 12,
@@ -1506,234 +2059,6 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     marginTop: 2,
   },
-  bundlesSection: {
-    paddingVertical: 8,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginBottom: 16,
-  },
-  featuredBundleCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#FFD700',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  featuredBadge: {
-    position: 'absolute',
-    top: -10,
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  featuredBadgeText: {
-    fontSize: 10,
-    fontWeight: '800' as const,
-    color: '#000',
-  },
-  bundleIcon: {
-    fontSize: 48,
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  bundleName: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  bundleDesc: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  bundlePricing: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
-  },
-  bundleOriginalPrice: {
-    fontSize: 16,
-    color: Colors.textMuted,
-    textDecorationLine: 'line-through',
-  },
-  bundlePrice: {
-    fontSize: 24,
-    fontWeight: '800' as const,
-    color: '#FFD700',
-  },
-  bundleSavingsBadge: {
-    backgroundColor: Colors.correct + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  bundleSavingsText: {
-    fontSize: 12,
-    fontWeight: '700' as const,
-    color: Colors.correct,
-  },
-  bundleInstruments: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    justifyContent: 'center',
-  },
-  bundleInstrumentTag: {
-    backgroundColor: Colors.surfaceLight,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  bundleInstrumentText: {
-    fontSize: 12,
-    color: Colors.text,
-    fontWeight: '600' as const,
-    textTransform: 'capitalize',
-  },
-  bundlesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 24,
-  },
-  bundleCard: {
-    width: '47%',
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 14,
-    alignItems: 'center',
-  },
-  bundleCardIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  bundleCardName: {
-    fontSize: 14,
-    fontWeight: '700' as const,
-    color: Colors.text,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  bundleCardDesc: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 8,
-    lineHeight: 15,
-  },
-  bundleCardPricing: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  bundleCardOriginal: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    textDecorationLine: 'line-through',
-  },
-  bundleCardPrice: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: Colors.accent,
-  },
-  bundleCardSavings: {
-    backgroundColor: Colors.correct + '15',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  bundleCardSavingsText: {
-    fontSize: 10,
-    fontWeight: '700' as const,
-    color: Colors.correct,
-  },
-  familySection: {
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-  },
-  familySectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 4,
-  },
-  familySectionTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.text,
-  },
-  familySectionDesc: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginBottom: 16,
-  },
-  familyPlans: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  familyPlanCard: {
-    flex: 1,
-    backgroundColor: Colors.surfaceLight,
-    borderRadius: 14,
-    padding: 14,
-    alignItems: 'center',
-    position: 'relative',
-  },
-  familyPlanCardFeatured: {
-    borderWidth: 2,
-    borderColor: Colors.accent,
-  },
-  familyPlanBadge: {
-    position: 'absolute',
-    top: -8,
-    backgroundColor: Colors.accent,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  familyPlanBadgeText: {
-    fontSize: 9,
-    fontWeight: '700' as const,
-    color: Colors.text,
-  },
-  familyPlanName: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text,
-    marginBottom: 4,
-    marginTop: 4,
-  },
-  familyPlanPrice: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.accent,
-    marginBottom: 4,
-  },
-  familyPlanMembers: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-  },
   savingsBadge: {
     position: 'absolute',
     top: -10,
@@ -1747,67 +2072,5 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700' as const,
     color: Colors.text,
-  },
-  promoCodeSection: {
-    width: '100%',
-    marginBottom: 16,
-  },
-  promoInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surfaceLight,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    gap: 8,
-  },
-  promoInput: {
-    flex: 1,
-    fontSize: 14,
-    color: Colors.text,
-    paddingVertical: 12,
-  },
-  promoApplyButton: {
-    backgroundColor: Colors.accent,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  promoApplyButtonDisabled: {
-    opacity: 0.5,
-  },
-  promoApplyText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: Colors.text,
-  },
-  promoClearButton: {
-    padding: 8,
-  },
-  promoResultText: {
-    fontSize: 12,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  promoSuccess: {
-    color: Colors.correct,
-  },
-  promoError: {
-    color: '#EF4444',
-  },
-  appliedPromoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 8,
-    backgroundColor: Colors.correct + '15',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    alignSelf: 'center',
-  },
-  appliedPromoText: {
-    fontSize: 12,
-    color: Colors.correct,
-    fontWeight: '600' as const,
   },
 });
