@@ -790,13 +790,7 @@ function BundleCard({ bundle, isOwned, onBuy }: {
       <Text style={bundleStyles.icon}>{bundle.icon}</Text>
       <Text style={bundleStyles.name}>{bundle.name}</Text>
       <Text style={bundleStyles.description}>{bundle.description}</Text>
-      <View style={bundleStyles.pricing}>
-        <Text style={bundleStyles.originalPrice}>${bundle.originalPrice.toFixed(2)}</Text>
-        <Text style={bundleStyles.bundlePrice}>${bundle.bundlePrice.toFixed(2)}</Text>
-        <View style={bundleStyles.savingsBadge}>
-          <Text style={bundleStyles.savingsText}>-{bundle.savings}%</Text>
-        </View>
-      </View>
+      <Text style={bundleStyles.bundlePrice}>${bundle.bundlePrice.toFixed(2)}</Text>
       {!isOwned ? (
         <TouchableOpacity style={bundleStyles.buyButton} onPress={onBuy}>
           <Text style={bundleStyles.buyButtonText}>Get Bundle</Text>
@@ -857,32 +851,11 @@ const bundleStyles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 12,
   },
-  pricing: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 14,
-  },
-  originalPrice: {
-    fontSize: 14,
-    color: Colors.textMuted,
-    textDecorationLine: 'line-through',
-  },
   bundlePrice: {
     fontSize: 22,
     fontWeight: '800' as const,
     color: '#FFD700',
-  },
-  savingsBadge: {
-    backgroundColor: Colors.correct + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  savingsText: {
-    fontSize: 11,
-    fontWeight: '700' as const,
-    color: Colors.correct,
+    marginBottom: 14,
   },
   buyButton: {
     backgroundColor: Colors.accent,
