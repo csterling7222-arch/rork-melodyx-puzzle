@@ -1,11 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { initErrorTracking, addBreadcrumb, captureError } from '@/utils/errorTracking';
 import { initAccessibility } from '@/utils/accessibility';
+import { initGlitchFreeEngine, logNavigation } from '@/utils/glitchFreeEngine';
+import { PerformanceMonitor } from '@/components/PerformanceMonitor';
 import { GameProvider } from '@/contexts/GameContext';
 import { FeverProvider } from '@/contexts/FeverContext';
 import { UserProvider } from '@/contexts/UserContext';
@@ -33,24 +35,38 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const [showPerfMonitor, setShowPerfMonitor] = useState(__DEV__);
+
   useEffect(() => {
-    initErrorTracking();
-    initAccessibility().then(settings => {
-      console.log('[App] Accessibility initialized:', settings.screenReaderEnabled ? 'Screen reader active' : 'Standard mode');
-    });
-    addBreadcrumb({ category: 'lifecycle', message: 'App launched', level: 'info' });
-    console.log('[App] Error tracking initialized');
-    
-    const hideSplash = async () => {
+    const initializeApp = async () => {
       try {
+        initErrorTracking();
+        console.log('[App] Error tracking initialized');
+        
+        await initGlitchFreeEngine();
+        console.log('[App] Glitch-free engine initialized');
+        logNavigation('app_launch');
+        
+        const accessSettings = await initAccessibility();
+        console.log('[App] Accessibility initialized:', accessSettings.screenReaderEnabled ? 'Screen reader active' : 'Standard mode');
+        
+        addBreadcrumb({ category: 'lifecycle', message: 'App launched', level: 'info' });
+        
         await SplashScreen.hideAsync();
         addBreadcrumb({ category: 'lifecycle', message: 'Splash screen hidden', level: 'info' });
       } catch (error) {
-        captureError(error, { tags: { component: 'RootLayout', action: 'hideSplash' } });
+        console.error('[App] Initialization error:', error);
+        captureError(error, { tags: { component: 'RootLayout', action: 'initialize' } });
+        
+        try {
+          await SplashScreen.hideAsync();
+        } catch (splashError) {
+          console.log('[App] Splash hide error:', splashError);
+        }
       }
     };
     
-    hideSplash();
+    initializeApp();
   }, []);
 
   return (
@@ -70,6 +86,12 @@ export default function RootLayout() {
                           <PlaylistProvider>
                               <StatusBar style="light" />
                               <RootLayoutNav />
+                              <PerformanceMonitor 
+                                visible={showPerfMonitor} 
+                                position="top-right"
+                                compact={true}
+                                onToggle={() => setShowPerfMonitor(prev => !prev)}
+                              />
                             </PlaylistProvider>
                           </EcoProvider>
                         </EventsProvider>

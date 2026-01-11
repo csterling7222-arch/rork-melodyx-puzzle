@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,9 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
+  Animated,
+  Easing,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { 
   X, 
@@ -30,6 +33,11 @@ import {
   getDeviceInfo,
   getCurrentFPS,
 } from '@/utils/errorTracking';
+import { 
+  getGlitchDiagnostics, 
+  getAdaptiveConfig,
+  GlitchDiagnostics,
+} from '@/utils/glitchFreeEngine';
 import { usePurchases } from '@/contexts/PurchasesContext';
 
 interface GlitchReportModalProps {
@@ -86,9 +94,37 @@ export function GlitchReportModal({ visible, onClose }: GlitchReportModalProps) 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [reportId, setReportId] = useState<string | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<GlitchDiagnostics | null>(null);
+  
+  const slideAnim = useRef(new Animated.Value(300)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const deviceInfo = getDeviceInfo();
   const currentFPS = getCurrentFPS();
+  const adaptiveConfig = getAdaptiveConfig();
+
+  useEffect(() => {
+    if (visible) {
+      setDiagnostics(getGlitchDiagnostics());
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      slideAnim.setValue(300);
+      fadeAnim.setValue(0);
+    }
+  }, [visible, slideAnim, fadeAnim]);
 
   const handleCategorySelect = useCallback((category: GlitchCategory) => {
     setSelectedCategory(category);
@@ -122,24 +158,50 @@ export function GlitchReportModal({ visible, onClose }: GlitchReportModalProps) 
   }, [selectedCategory, description]);
 
   const handleClose = useCallback(() => {
-    setSelectedCategory(null);
-    setDescription('');
-    setIsSubmitted(false);
-    setReportId(null);
-    onClose();
-  }, [onClose]);
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: 300,
+        duration: 200,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setSelectedCategory(null);
+      setDescription('');
+      setIsSubmitted(false);
+      setReportId(null);
+      setShowDiagnostics(false);
+      onClose();
+    });
+  }, [onClose, slideAnim, fadeAnim]);
+
+  const toggleDiagnostics = useCallback(() => {
+    setShowDiagnostics(prev => !prev);
+    if (Platform.OS !== 'web') {
+      Haptics.selectionAsync();
+    }
+  }, []);
 
   const canSubmit = selectedCategory && description.trim().length >= 10;
 
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="none"
       transparent
       onRequestClose={handleClose}
     >
-      <View style={styles.overlay}>
-        <View style={styles.container}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
+          <Animated.View style={[styles.container, { transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <Bug size={24} color={Colors.accent} />
@@ -228,13 +290,42 @@ export function GlitchReportModal({ visible, onClose }: GlitchReportModalProps) 
                 {description.length}/1000 (min 10 characters)
               </Text>
 
-              <View style={styles.deviceInfo}>
-                <Text style={styles.deviceInfoTitle}>Device Info (auto-captured)</Text>
+              <TouchableOpacity 
+                style={styles.deviceInfo} 
+                onPress={toggleDiagnostics}
+                activeOpacity={0.8}
+              >
+                <View style={styles.deviceInfoHeader}>
+                  <Text style={styles.deviceInfoTitle}>Diagnostics (auto-captured)</Text>
+                  <Text style={styles.expandText}>{showDiagnostics ? '▲ Hide' : '▼ Show'}</Text>
+                </View>
                 <Text style={styles.deviceInfoText}>
                   Platform: {deviceInfo.platform} • FPS: {currentFPS} • 
                   Screen: {deviceInfo.screenWidth}x{deviceInfo.screenHeight}
                 </Text>
-              </View>
+                {showDiagnostics && diagnostics && (
+                  <View style={styles.diagnosticsExpanded}>
+                    <Text style={styles.diagnosticsText}>
+                      Session: {diagnostics.sessionId.slice(0, 20)}...
+                    </Text>
+                    <Text style={styles.diagnosticsText}>
+                      Performance: {diagnostics.deviceCapabilities.performanceLevel}
+                    </Text>
+                    <Text style={styles.diagnosticsText}>
+                      Network: {diagnostics.deviceCapabilities.networkQuality}
+                    </Text>
+                    <Text style={styles.diagnosticsText}>
+                      Events captured: {diagnostics.events.length}
+                    </Text>
+                    <Text style={styles.diagnosticsText}>
+                      Crashes: {diagnostics.crashCount} • Memory warnings: {diagnostics.memoryWarnings}
+                    </Text>
+                    <Text style={styles.diagnosticsText}>
+                      Audio: {adaptiveConfig.audioQuality} • Particles: {adaptiveConfig.particleCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
@@ -267,13 +358,17 @@ export function GlitchReportModal({ visible, onClose }: GlitchReportModalProps) 
               )}
             </ScrollView>
           )}
-        </View>
-      </View>
+          </Animated.View>
+        </Animated.View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardView: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
@@ -401,16 +496,40 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 10,
     marginTop: 16,
+    borderWidth: 1,
+    borderColor: Colors.surfaceLight,
+  },
+  deviceInfoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   deviceInfoTitle: {
     fontSize: 12,
     fontWeight: '600' as const,
     color: Colors.textSecondary,
-    marginBottom: 4,
+  },
+  expandText: {
+    fontSize: 10,
+    color: Colors.accent,
+    fontWeight: '500' as const,
   },
   deviceInfoText: {
     fontSize: 11,
     color: Colors.textMuted,
+  },
+  diagnosticsExpanded: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.surfaceLight,
+    gap: 4,
+  },
+  diagnosticsText: {
+    fontSize: 10,
+    color: Colors.textMuted,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   submitButton: {
     flexDirection: 'row',

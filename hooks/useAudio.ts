@@ -4,6 +4,7 @@ import { Audio } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Instrument, getInstrumentById, DEFAULT_INSTRUMENT_ID } from '@/constants/instruments';
 import { captureError, addBreadcrumb } from '@/utils/errorTracking';
+import { logAudioEvent } from '@/utils/glitchFreeEngine';
 
 const NOTE_FREQUENCIES: Record<string, number> = {
   'C': 261.63,
@@ -55,6 +56,10 @@ const PRELOAD_DELAY_MS = 30;
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 200;
 
+const activeSounds = new Map<string, { sound: Audio.Sound; startTime: number }>();
+const SOUND_CLEANUP_INTERVAL = 2000;
+let cleanupInterval: ReturnType<typeof setInterval> | null = null;
+
 const offlineCache = new Map<string, boolean>();
 let isOfflineMode = false;
 const AUDIO_CACHE_KEY = 'melodyx_audio_cache_status';
@@ -63,6 +68,37 @@ export function setOfflineMode(offline: boolean) {
   isOfflineMode = offline;
   console.log('[Audio] Offline mode:', offline);
   addBreadcrumb({ category: 'audio', message: `Offline mode: ${offline}`, level: 'info' });
+  logAudioEvent('offline_mode_changed', { offline });
+}
+
+function startSoundCleanup() {
+  if (cleanupInterval) return;
+  
+  cleanupInterval = setInterval(() => {
+    const now = Date.now();
+    const toRemove: string[] = [];
+    
+    activeSounds.forEach((data, key) => {
+      if (now - data.startTime > 3000) {
+        toRemove.push(key);
+      }
+    });
+    
+    toRemove.forEach(key => {
+      activeSounds.delete(key);
+    });
+    
+    if (toRemove.length > 0) {
+      console.log('[Audio] Cleaned up', toRemove.length, 'finished sounds');
+    }
+  }, SOUND_CLEANUP_INTERVAL);
+}
+
+export function stopSoundCleanup() {
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
+  }
 }
 
 export async function loadCacheStatus(): Promise<void> {
@@ -154,13 +190,16 @@ async function initNativeAudio() {
     audioInitialized = true;
     console.log('[Audio] Native audio initialized successfully');
     addBreadcrumb({ category: 'audio', message: 'Native audio initialized', level: 'info' });
+    logAudioEvent('native_audio_initialized', { platform: Platform.OS });
     
     await loadCacheStatus();
+    startSoundCleanup();
     
     return true;
   } catch (error) {
     console.log('[Audio] Failed to initialize native audio:', error);
     captureError(error, { tags: { component: 'Audio', action: 'initNativeAudio' } });
+    logAudioEvent('native_audio_init_failed', { error: String(error) });
     return false;
   }
 }
