@@ -23,6 +23,7 @@ import { SocialShareProvider } from '@/contexts/SocialShareContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { PurchasesProvider } from '@/contexts/PurchasesContext';
 import { InstrumentProvider } from '@/contexts/InstrumentContext';
+import { TuneSnippetProvider } from '@/contexts/TuneSnippetContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 SplashScreen.preventAutoHideAsync();
@@ -96,14 +97,16 @@ export default function RootLayout() {
                       <EcoProvider>
                           <PlaylistProvider>
                             <SocialShareProvider>
-                              <StatusBar style="light" />
-                              <RootLayoutNav />
-                              <PerformanceMonitor 
-                                visible={showPerfMonitor} 
-                                position="top-right"
-                                compact={true}
-                                onToggle={() => setShowPerfMonitor(prev => !prev)}
-                              />
+                              <TuneSnippetProvider>
+                                <StatusBar style="light" />
+                                <RootLayoutNav />
+                                <PerformanceMonitor 
+                                  visible={showPerfMonitor} 
+                                  position="top-right"
+                                  compact={true}
+                                  onToggle={() => setShowPerfMonitor(prev => !prev)}
+                                />
+                              </TuneSnippetProvider>
                             </SocialShareProvider>
                             </PlaylistProvider>
                           </EcoProvider>
