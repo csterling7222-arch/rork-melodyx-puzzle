@@ -748,3 +748,262 @@ export function getAverageTimeMs(analytics: PuzzleAnalytics[]): number {
   const totalTime = completed.reduce((sum, a) => sum + a.timeSpentMs, 0);
   return totalTime / completed.length;
 }
+
+// === ENHANCED POST-LAUNCH METRICS ===
+
+export interface SessionMetrics {
+  sessionId: string;
+  startTime: string;
+  endTime?: string;
+  screenViews: ScreenView[];
+  interactions: UserInteraction[];
+  puzzlesAttempted: number;
+  puzzlesCompleted: number;
+  totalTimeMs: number;
+  deviceInfo: DeviceInfo;
+}
+
+export interface ScreenView {
+  screenName: string;
+  timestamp: string;
+  durationMs?: number;
+}
+
+export interface UserInteraction {
+  type: 'tap' | 'swipe' | 'play_audio' | 'submit_guess' | 'share' | 'purchase' | 'settings_change';
+  target: string;
+  timestamp: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface EngagementMetrics {
+  dailyActiveUsers: number;
+  weeklyActiveUsers: number;
+  monthlyActiveUsers: number;
+  averageSessionDuration: number;
+  sessionsPerUser: number;
+  retentionDay1: number;
+  retentionDay7: number;
+  retentionDay30: number;
+}
+
+export interface DropOffMetrics {
+  screen: string;
+  dropOffRate: number;
+  averageTimeBeforeDropOff: number;
+  commonExitPoints: string[];
+}
+
+export interface DifficultyMetrics {
+  melodyName: string;
+  attemptCount: number;
+  winRate: number;
+  averageGuesses: number;
+  averageTimeMs: number;
+  difficultyScore: number;
+}
+
+const SESSION_METRICS_KEY = 'melodyx_session_metrics';
+const DIFFICULTY_KEY = 'melodyx_difficulty';
+
+let currentSession: SessionMetrics | null = null;
+let screenViewStart: number | null = null;
+let currentScreen: string | null = null;
+
+export function startSession(): void {
+  currentSession = {
+    sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    startTime: new Date().toISOString(),
+    screenViews: [],
+    interactions: [],
+    puzzlesAttempted: 0,
+    puzzlesCompleted: 0,
+    totalTimeMs: 0,
+    deviceInfo: errorTracker.getDeviceInfo(),
+  };
+  console.log('[Analytics] Session started:', currentSession.sessionId);
+}
+
+export function endSession(): void {
+  if (!currentSession) return;
+  
+  currentSession.endTime = new Date().toISOString();
+  currentSession.totalTimeMs = new Date(currentSession.endTime).getTime() - 
+    new Date(currentSession.startTime).getTime();
+  
+  saveSessionMetrics(currentSession);
+  console.log('[Analytics] Session ended:', currentSession.sessionId, 
+    'Duration:', currentSession.totalTimeMs, 'ms');
+  
+  currentSession = null;
+}
+
+export function trackScreenView(screenName: string): void {
+  if (!currentSession) startSession();
+  
+  const now = Date.now();
+  
+  if (currentScreen && screenViewStart) {
+    const lastView = currentSession?.screenViews[currentSession.screenViews.length - 1];
+    if (lastView) {
+      lastView.durationMs = now - screenViewStart;
+    }
+  }
+  
+  currentSession?.screenViews.push({
+    screenName,
+    timestamp: new Date().toISOString(),
+  });
+  
+  currentScreen = screenName;
+  screenViewStart = now;
+  
+  console.log('[Analytics] Screen view:', screenName);
+}
+
+export function trackInteraction(
+  type: UserInteraction['type'],
+  target: string,
+  metadata?: Record<string, unknown>
+): void {
+  if (!currentSession) startSession();
+  
+  currentSession?.interactions.push({
+    type,
+    target,
+    timestamp: new Date().toISOString(),
+    metadata,
+  });
+  
+  console.log('[Analytics] Interaction:', type, target);
+}
+
+export function trackPuzzleAttempt(): void {
+  if (currentSession) {
+    currentSession.puzzlesAttempted++;
+  }
+}
+
+export function trackPuzzleComplete(): void {
+  if (currentSession) {
+    currentSession.puzzlesCompleted++;
+  }
+}
+
+async function saveSessionMetrics(session: SessionMetrics): Promise<void> {
+  try {
+    const stored = await AsyncStorage.getItem(SESSION_METRICS_KEY);
+    const sessions: SessionMetrics[] = stored ? JSON.parse(stored) : [];
+    sessions.push(session);
+    
+    const last30 = sessions.slice(-30);
+    await AsyncStorage.setItem(SESSION_METRICS_KEY, JSON.stringify(last30));
+    
+    sendAnalyticsToServer('session_end', {
+      session_id: session.sessionId,
+      duration_ms: session.totalTimeMs,
+      screens_viewed: session.screenViews.length,
+      interactions: session.interactions.length,
+      puzzles_attempted: session.puzzlesAttempted,
+      puzzles_completed: session.puzzlesCompleted,
+    });
+  } catch (error) {
+    console.log('[Analytics] Failed to save session:', error);
+  }
+}
+
+export async function getSessionHistory(): Promise<SessionMetrics[]> {
+  try {
+    const stored = await AsyncStorage.getItem(SESSION_METRICS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function calculateEngagementMetrics(): Promise<Partial<EngagementMetrics>> {
+  const sessions = await getSessionHistory();
+  if (sessions.length === 0) return {};
+  
+  const totalDuration = sessions.reduce((sum, s) => sum + s.totalTimeMs, 0);
+  const avgDuration = totalDuration / sessions.length;
+  
+  return {
+    averageSessionDuration: avgDuration,
+    sessionsPerUser: sessions.length,
+  };
+}
+
+export async function trackDropOff(screen: string, reason?: string): Promise<void> {
+  console.log('[Analytics] Drop-off tracked:', screen, reason);
+  
+  await sendAnalyticsToServer('drop_off', {
+    screen,
+    reason,
+    timestamp: new Date().toISOString(),
+    session_id: currentSession?.sessionId,
+  });
+}
+
+export async function trackDifficultyFeedback(
+  melodyName: string,
+  won: boolean,
+  guessCount: number,
+  timeMs: number
+): Promise<void> {
+  try {
+    const stored = await AsyncStorage.getItem(DIFFICULTY_KEY);
+    const metrics: Record<string, DifficultyMetrics> = stored ? JSON.parse(stored) : {};
+    
+    if (!metrics[melodyName]) {
+      metrics[melodyName] = {
+        melodyName,
+        attemptCount: 0,
+        winRate: 0,
+        averageGuesses: 0,
+        averageTimeMs: 0,
+        difficultyScore: 50,
+      };
+    }
+    
+    const m = metrics[melodyName];
+    const totalWins = m.winRate * m.attemptCount / 100;
+    const newTotalWins = totalWins + (won ? 1 : 0);
+    
+    m.attemptCount++;
+    m.winRate = (newTotalWins / m.attemptCount) * 100;
+    m.averageGuesses = ((m.averageGuesses * (m.attemptCount - 1)) + guessCount) / m.attemptCount;
+    m.averageTimeMs = ((m.averageTimeMs * (m.attemptCount - 1)) + timeMs) / m.attemptCount;
+    
+    m.difficultyScore = Math.round(
+      (100 - m.winRate) * 0.4 +
+      (m.averageGuesses / 6 * 100) * 0.3 +
+      Math.min(m.averageTimeMs / 60000 * 100, 100) * 0.3
+    );
+    
+    await AsyncStorage.setItem(DIFFICULTY_KEY, JSON.stringify(metrics));
+    
+    console.log('[Analytics] Difficulty tracked:', melodyName, 'Score:', m.difficultyScore);
+  } catch (error) {
+    console.log('[Analytics] Failed to track difficulty:', error);
+  }
+}
+
+export async function getDifficultyMetrics(): Promise<DifficultyMetrics[]> {
+  try {
+    const stored = await AsyncStorage.getItem(DIFFICULTY_KEY);
+    if (!stored) return [];
+    const metrics: Record<string, DifficultyMetrics> = JSON.parse(stored);
+    return Object.values(metrics).sort((a, b) => b.difficultyScore - a.difficultyScore);
+  } catch {
+    return [];
+  }
+}
+
+export function getHardestMelodies(count: number = 10): Promise<DifficultyMetrics[]> {
+  return getDifficultyMetrics().then(metrics => metrics.slice(0, count));
+}
+
+export function getEasiestMelodies(count: number = 10): Promise<DifficultyMetrics[]> {
+  return getDifficultyMetrics().then(metrics => metrics.slice(-count).reverse());
+}

@@ -1571,6 +1571,663 @@ export const MELODIES: Melody[] = [
     mood: "upbeat",
     artist: "Dua Lipa"
   },
+
+  // === EXPANDED LIBRARY - 50+ NEW SONGS ===
+  
+  // Classic Rock Legends
+  {
+    name: "Stairway to Heaven",
+    notes: ["A", "B", "C", "E", "D", "C", "A"],
+    extendedNotes: ["A", "B", "C", "E", "D", "C", "A", "G", "A", "B", "C", "D"],
+    hint: "There's a lady who's sure all that glitters is gold",
+    category: "Rock",
+    genre: "Rock",
+    era: "70s",
+    mood: "epic",
+    artist: "Led Zeppelin"
+  },
+  {
+    name: "Hotel California",
+    notes: ["B", "D", "F#", "A", "G", "F#", "E"],
+    extendedNotes: ["B", "D", "F#", "A", "G", "F#", "E", "D", "C#", "B", "A", "G"],
+    hint: "On a dark desert highway, cool wind in my hair",
+    category: "Rock",
+    genre: "Rock",
+    era: "70s",
+    mood: "mysterious",
+    artist: "Eagles"
+  },
+  {
+    name: "Comfortably Numb",
+    notes: ["B", "D", "E", "F#", "E", "D", "B"],
+    extendedNotes: ["B", "D", "E", "F#", "E", "D", "B", "A", "G", "F#", "E", "D"],
+    hint: "Hello? Is there anybody in there?",
+    category: "Rock",
+    genre: "Rock",
+    era: "70s",
+    mood: "peaceful",
+    artist: "Pink Floyd"
+  },
+  {
+    name: "Dream On",
+    notes: ["F", "G", "A", "C", "B", "A", "G"],
+    extendedNotes: ["F", "G", "A", "C", "B", "A", "G", "F", "E", "D", "C", "D"],
+    hint: "Sing with me, sing for the year",
+    category: "Rock",
+    genre: "Rock",
+    era: "70s",
+    mood: "epic",
+    artist: "Aerosmith"
+  },
+  {
+    name: "Livin On A Prayer",
+    notes: ["E", "E", "G", "A", "B", "A", "G"],
+    extendedNotes: ["E", "E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A"],
+    hint: "Tommy used to work on the docks",
+    category: "Rock",
+    genre: "Rock",
+    era: "80s",
+    mood: "energetic",
+    artist: "Bon Jovi"
+  },
+  {
+    name: "Welcome To The Jungle",
+    notes: ["E", "G", "A", "B", "D", "B", "A"],
+    extendedNotes: ["E", "G", "A", "B", "D", "B", "A", "G", "E", "D", "E", "G"],
+    hint: "We got fun and games",
+    category: "Rock",
+    genre: "Rock",
+    era: "80s",
+    mood: "energetic",
+    artist: "Guns N' Roses"
+  },
+  {
+    name: "Paranoid",
+    notes: ["E", "E", "G", "E", "D", "E", "G"],
+    extendedNotes: ["E", "E", "G", "E", "D", "E", "G", "A", "G", "E", "D", "E"],
+    hint: "Finished with my woman cause she couldn't help me",
+    category: "Rock",
+    genre: "Rock",
+    era: "70s",
+    mood: "energetic",
+    artist: "Black Sabbath"
+  },
+  {
+    name: "Enter Sandman",
+    notes: ["E", "F", "E", "G", "E", "F", "E"],
+    extendedNotes: ["E", "F", "E", "G", "E", "F", "E", "D", "E", "F", "G", "A"],
+    hint: "Exit light, enter night",
+    category: "Rock",
+    genre: "Rock",
+    era: "90s",
+    mood: "dramatic",
+    artist: "Metallica"
+  },
+
+  // 90s-2000s Pop/Rock
+  {
+    name: "Smells Like Teen Spirit",
+    notes: ["F", "A#", "G#", "C#", "F", "A#"],
+    extendedNotes: ["F", "A#", "G#", "C#", "F", "A#", "G#", "C#", "F", "A#", "G#", "C#"],
+    hint: "With the lights out, it's less dangerous",
+    category: "Rock",
+    genre: "Rock",
+    era: "90s",
+    mood: "energetic",
+    artist: "Nirvana"
+  },
+  {
+    name: "Wonderwall",
+    notes: ["E", "G", "D", "A", "E", "G"],
+    extendedNotes: ["E", "G", "D", "A", "E", "G", "D", "A", "E", "B", "G", "D"],
+    hint: "Maybe you're gonna be the one that saves me",
+    category: "Rock",
+    genre: "Rock",
+    era: "90s",
+    mood: "nostalgic",
+    artist: "Oasis"
+  },
+  {
+    name: "Creep",
+    notes: ["G", "B", "C", "C", "B", "B", "A"],
+    extendedNotes: ["G", "B", "C", "C", "B", "B", "A", "G", "F#", "E", "D", "E"],
+    hint: "I'm a creep, I'm a weirdo",
+    category: "Rock",
+    genre: "Rock",
+    era: "90s",
+    mood: "nostalgic",
+    artist: "Radiohead"
+  },
+  {
+    name: "Mr Brightside",
+    notes: ["C", "D", "E", "G", "E", "D", "C"],
+    extendedNotes: ["C", "D", "E", "G", "E", "D", "C", "B", "C", "D", "E", "F"],
+    hint: "Coming out of my cage and I've been doing just fine",
+    category: "Rock",
+    genre: "Rock",
+    era: "2000s",
+    mood: "energetic",
+    artist: "The Killers"
+  },
+  {
+    name: "Clocks",
+    notes: ["E", "B", "A", "E", "B", "G#"],
+    extendedNotes: ["E", "B", "A", "E", "B", "G#", "A", "E", "B", "G#", "A", "E"],
+    hint: "The lights go out and I can't be saved",
+    category: "Rock",
+    genre: "Rock",
+    era: "2000s",
+    mood: "epic",
+    artist: "Coldplay"
+  },
+  {
+    name: "Yellow",
+    notes: ["B", "A", "G#", "E", "B", "A"],
+    extendedNotes: ["B", "A", "G#", "E", "B", "A", "G#", "F#", "E", "D#", "C#", "B"],
+    hint: "Look at the stars, look how they shine for you",
+    category: "Rock",
+    genre: "Rock",
+    era: "2000s",
+    mood: "peaceful",
+    artist: "Coldplay"
+  },
+
+  // Modern Pop Hits 2020s
+  {
+    name: "Espresso",
+    notes: ["F#", "A", "B", "C#", "B", "A"],
+    extendedNotes: ["F#", "A", "B", "C#", "B", "A", "F#", "E", "F#", "A", "B", "C#"],
+    hint: "That's that me espresso",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "upbeat",
+    artist: "Sabrina Carpenter"
+  },
+  {
+    name: "Vampire",
+    notes: ["D", "E", "F#", "A", "G", "F#", "E"],
+    extendedNotes: ["D", "E", "F#", "A", "G", "F#", "E", "D", "C#", "D", "E", "F#"],
+    hint: "I used to think I was smart",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "dramatic",
+    artist: "Olivia Rodrigo"
+  },
+  {
+    name: "Drivers License",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "G", "A", "B"],
+    hint: "I got my driver's license last week",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "nostalgic",
+    artist: "Olivia Rodrigo"
+  },
+  {
+    name: "Good 4 U",
+    notes: ["E", "G", "A", "B", "A", "G", "E"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"],
+    hint: "Well, good for you, I guess you moved on really easily",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "energetic",
+    artist: "Olivia Rodrigo"
+  },
+  {
+    name: "Watermelon Sugar",
+    notes: ["E", "G#", "A", "B", "A", "G#"],
+    extendedNotes: ["E", "G#", "A", "B", "A", "G#", "E", "D#", "E", "G#", "A", "B"],
+    hint: "Tastes like strawberries on a summer evening",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "upbeat",
+    artist: "Harry Styles"
+  },
+  {
+    name: "Save Your Tears",
+    notes: ["C", "D", "E", "G", "F", "E", "D"],
+    extendedNotes: ["C", "D", "E", "G", "F", "E", "D", "C", "B", "C", "D", "E"],
+    hint: "I saw you dancing in a crowded room",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "nostalgic",
+    artist: "The Weeknd"
+  },
+  {
+    name: "Peaches",
+    notes: ["G", "A", "B", "D", "C", "B", "G"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "G", "F#", "G", "A", "B", "C"],
+    hint: "I got my peaches out in Georgia",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "upbeat",
+    artist: "Justin Bieber"
+  },
+  {
+    name: "Stay",
+    notes: ["E", "D", "C#", "B", "A", "B", "C#"],
+    extendedNotes: ["E", "D", "C#", "B", "A", "B", "C#", "D", "E", "F#", "G#", "A"],
+    hint: "I do the same thing I told you that I never would",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "energetic",
+    artist: "The Kid LAROI & Justin Bieber"
+  },
+  {
+    name: "Heat Waves",
+    notes: ["D", "F#", "A", "G", "F#", "E", "D"],
+    extendedNotes: ["D", "F#", "A", "G", "F#", "E", "D", "C#", "D", "E", "F#", "G"],
+    hint: "Late nights in the middle of June",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "nostalgic",
+    artist: "Glass Animals"
+  },
+
+  // R&B & Soul
+  {
+    name: "Superstition",
+    notes: ["E", "G", "A", "E", "G", "A", "B"],
+    extendedNotes: ["E", "G", "A", "E", "G", "A", "B", "C", "B", "A", "G", "E"],
+    hint: "Very superstitious, writing's on the wall",
+    category: "R&B",
+    genre: "R&B",
+    era: "70s",
+    mood: "energetic",
+    artist: "Stevie Wonder"
+  },
+  {
+    name: "Isnt She Lovely",
+    notes: ["C#", "D#", "E", "G#", "F#", "E", "D#"],
+    extendedNotes: ["C#", "D#", "E", "G#", "F#", "E", "D#", "C#", "B", "C#", "D#", "E"],
+    hint: "I never thought through love we'd be making one as lovely as she",
+    category: "R&B",
+    genre: "R&B",
+    era: "70s",
+    mood: "upbeat",
+    artist: "Stevie Wonder"
+  },
+  {
+    name: "Respect",
+    notes: ["C", "C", "E", "G", "G", "E", "C"],
+    extendedNotes: ["C", "C", "E", "G", "G", "E", "C", "D", "E", "F", "G", "A"],
+    hint: "R-E-S-P-E-C-T, find out what it means to me",
+    category: "R&B",
+    genre: "R&B",
+    era: "60s",
+    mood: "energetic",
+    artist: "Aretha Franklin"
+  },
+  {
+    name: "I Will Always Love You",
+    notes: ["A", "G#", "E", "F#", "G#", "A", "B"],
+    extendedNotes: ["A", "G#", "E", "F#", "G#", "A", "B", "C#", "B", "A", "G#", "F#"],
+    hint: "And I will always love you",
+    category: "R&B",
+    genre: "R&B",
+    era: "90s",
+    mood: "dramatic",
+    artist: "Whitney Houston"
+  },
+  {
+    name: "Blinding Lights Remix",
+    notes: ["F#", "E", "D#", "C#", "D#", "E", "F#"],
+    extendedNotes: ["F#", "E", "D#", "C#", "D#", "E", "F#", "G#", "A", "G#", "F#", "E"],
+    hint: "I'm running out of time",
+    category: "R&B",
+    genre: "R&B",
+    era: "2020s",
+    mood: "nostalgic",
+    artist: "The Weeknd"
+  },
+
+  // EDM & Electronic
+  {
+    name: "Levels",
+    notes: ["E", "F#", "G#", "A", "B", "A", "G#"],
+    extendedNotes: ["E", "F#", "G#", "A", "B", "A", "G#", "F#", "E", "D#", "C#", "B"],
+    hint: "Oh, sometimes I get a good feeling",
+    category: "EDM",
+    genre: "EDM",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Avicii"
+  },
+  {
+    name: "Wake Me Up",
+    notes: ["A", "B", "C#", "E", "D", "C#", "B"],
+    extendedNotes: ["A", "B", "C#", "E", "D", "C#", "B", "A", "G#", "A", "B", "C#"],
+    hint: "Feeling my way through the darkness",
+    category: "EDM",
+    genre: "EDM",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Avicii"
+  },
+  {
+    name: "Titanium",
+    notes: ["D", "E", "F#", "A", "G", "F#", "E"],
+    extendedNotes: ["D", "E", "F#", "A", "G", "F#", "E", "D", "C#", "D", "E", "F#"],
+    hint: "I'm bulletproof, nothing to lose",
+    category: "EDM",
+    genre: "EDM",
+    era: "2010s",
+    mood: "epic",
+    artist: "David Guetta ft. Sia"
+  },
+  {
+    name: "Clarity",
+    notes: ["E", "F#", "G", "A", "G", "F#", "E"],
+    extendedNotes: ["E", "F#", "G", "A", "G", "F#", "E", "D", "E", "F#", "G", "A"],
+    hint: "If our love is tragedy, why are you my remedy?",
+    category: "EDM",
+    genre: "EDM",
+    era: "2010s",
+    mood: "dramatic",
+    artist: "Zedd ft. Foxes"
+  },
+  {
+    name: "Sandstorm",
+    notes: ["B", "B", "E", "B", "D", "C#", "B"],
+    extendedNotes: ["B", "B", "E", "B", "D", "C#", "B", "A", "B", "C#", "D", "E"],
+    hint: "Du du du du du",
+    category: "EDM",
+    genre: "EDM",
+    era: "2000s",
+    mood: "energetic",
+    artist: "Darude"
+  },
+
+  // Country
+  {
+    name: "Take Me Home Country Roads",
+    notes: ["G", "A", "B", "D", "B", "A", "G"],
+    extendedNotes: ["G", "A", "B", "D", "B", "A", "G", "E", "D", "E", "G", "A"],
+    hint: "Almost heaven, West Virginia",
+    category: "Country",
+    genre: "Country",
+    era: "70s",
+    mood: "nostalgic",
+    artist: "John Denver"
+  },
+  {
+    name: "Jolene",
+    notes: ["A", "C", "E", "A", "G", "E", "C"],
+    extendedNotes: ["A", "C", "E", "A", "G", "E", "C", "D", "E", "G", "A", "C"],
+    hint: "Please don't take my man",
+    category: "Country",
+    genre: "Country",
+    era: "70s",
+    mood: "dramatic",
+    artist: "Dolly Parton"
+  },
+  {
+    name: "Ring Of Fire",
+    notes: ["G", "A", "B", "D", "B", "A", "G"],
+    extendedNotes: ["G", "A", "B", "D", "B", "A", "G", "F#", "E", "D", "E", "G"],
+    hint: "I fell into a burning ring of fire",
+    category: "Country",
+    genre: "Country",
+    era: "60s",
+    mood: "energetic",
+    artist: "Johnny Cash"
+  },
+
+  // Jazz Standards
+  {
+    name: "Fly Me To The Moon",
+    notes: ["C", "B", "A", "G", "F", "G", "A"],
+    extendedNotes: ["C", "B", "A", "G", "F", "G", "A", "B", "C", "D", "E", "F"],
+    hint: "Let me play among the stars",
+    category: "Jazz",
+    genre: "Jazz",
+    era: "60s",
+    mood: "peaceful",
+    artist: "Frank Sinatra"
+  },
+  {
+    name: "What A Wonderful World",
+    notes: ["C", "E", "G", "A", "G", "E", "C"],
+    extendedNotes: ["C", "E", "G", "A", "G", "E", "C", "D", "E", "F", "G", "A"],
+    hint: "I see trees of green, red roses too",
+    category: "Jazz",
+    genre: "Jazz",
+    era: "60s",
+    mood: "peaceful",
+    artist: "Louis Armstrong"
+  },
+  {
+    name: "Summertime",
+    notes: ["E", "A", "B", "C", "B", "A", "E"],
+    extendedNotes: ["E", "A", "B", "C", "B", "A", "E", "D", "E", "G", "A", "B"],
+    hint: "And the livin' is easy",
+    category: "Jazz",
+    genre: "Jazz",
+    era: "30s",
+    mood: "peaceful",
+    artist: "Gershwin"
+  },
+
+  // Latin Pop
+  {
+    name: "Livin La Vida Loca",
+    notes: ["E", "G", "A", "B", "A", "G", "E"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"],
+    hint: "She'll make you take your clothes off",
+    category: "Latin",
+    genre: "Latin",
+    era: "90s",
+    mood: "energetic",
+    artist: "Ricky Martin"
+  },
+  {
+    name: "Bailando",
+    notes: ["A", "B", "C", "E", "D", "C", "B"],
+    extendedNotes: ["A", "B", "C", "E", "D", "C", "B", "A", "G", "A", "B", "C"],
+    hint: "Yo te miro, se me corta la respiración",
+    category: "Latin",
+    genre: "Latin",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Enrique Iglesias"
+  },
+  {
+    name: "Hips Dont Lie",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "G", "A", "B"],
+    hint: "Lucky that my lips not only mumble",
+    category: "Latin",
+    genre: "Latin",
+    era: "2000s",
+    mood: "upbeat",
+    artist: "Shakira"
+  },
+
+  // Anime & Video Game Modern
+  {
+    name: "Cruel Angels Thesis",
+    notes: ["A", "B", "C#", "E", "D", "C#", "B"],
+    extendedNotes: ["A", "B", "C#", "E", "D", "C#", "B", "A", "G#", "A", "B", "C#"],
+    hint: "Evangelion opening theme",
+    category: "Anime",
+    genre: "Anime",
+    era: "90s",
+    mood: "epic",
+    country: "Japan",
+    flag: "🇯🇵"
+  },
+  {
+    name: "Unravel",
+    notes: ["E", "F#", "G#", "B", "A", "G#", "F#"],
+    extendedNotes: ["E", "F#", "G#", "B", "A", "G#", "F#", "E", "D#", "E", "F#", "G#"],
+    hint: "Tokyo Ghoul opening - Oshiete yo",
+    category: "Anime",
+    genre: "Anime",
+    era: "2010s",
+    mood: "dramatic",
+    country: "Japan",
+    flag: "🇯🇵"
+  },
+  {
+    name: "Gurenge",
+    notes: ["D", "E", "F#", "A", "G", "F#", "E"],
+    extendedNotes: ["D", "E", "F#", "A", "G", "F#", "E", "D", "C#", "D", "E", "F#"],
+    hint: "Demon Slayer opening by LiSA",
+    category: "Anime",
+    genre: "Anime",
+    era: "2010s",
+    mood: "energetic",
+    country: "Japan",
+    flag: "🇯🇵"
+  },
+  {
+    name: "Undertale Theme",
+    notes: ["G", "C", "E", "G", "B", "E", "C"],
+    extendedNotes: ["G", "C", "E", "G", "B", "E", "C", "D", "E", "F", "G", "A"],
+    hint: "Megalovania - You're gonna have a bad time",
+    category: "Video Game",
+    genre: "Video Game",
+    era: "2010s",
+    mood: "energetic"
+  },
+  {
+    name: "Among Us Theme",
+    notes: ["C", "D#", "F", "F#", "F", "D#", "C"],
+    extendedNotes: ["C", "D#", "F", "F#", "F", "D#", "C", "A#", "C", "D#", "F", "F#"],
+    hint: "Sus! Emergency meeting!",
+    category: "Video Game",
+    genre: "Video Game",
+    era: "2020s",
+    mood: "mysterious"
+  },
+  {
+    name: "Fortnite Default Dance",
+    notes: ["E", "G", "A", "C", "B", "A", "G"],
+    extendedNotes: ["E", "G", "A", "C", "B", "A", "G", "E", "D", "E", "G", "A"],
+    hint: "That iconic battle royale emote",
+    category: "Video Game",
+    genre: "Video Game",
+    era: "2010s",
+    mood: "playful"
+  },
+
+  // More K-Pop Hits
+  {
+    name: "Ditto",
+    notes: ["E", "G#", "A", "B", "A", "G#", "E"],
+    extendedNotes: ["E", "G#", "A", "B", "A", "G#", "E", "D#", "E", "F#", "G#", "A"],
+    hint: "I wonder if you could hear it too",
+    category: "K-Pop",
+    genre: "K-Pop",
+    era: "2020s",
+    mood: "peaceful",
+    artist: "NewJeans",
+    country: "Korea",
+    flag: "🇰🇷"
+  },
+  {
+    name: "Super Shy",
+    notes: ["F#", "G#", "A", "B", "A", "G#", "F#"],
+    extendedNotes: ["F#", "G#", "A", "B", "A", "G#", "F#", "E", "F#", "G#", "A", "B"],
+    hint: "I'm super shy, super shy",
+    category: "K-Pop",
+    genre: "K-Pop",
+    era: "2020s",
+    mood: "upbeat",
+    artist: "NewJeans",
+    country: "Korea",
+    flag: "🇰🇷"
+  },
+  {
+    name: "ANTIFRAGILE",
+    notes: ["D", "F", "G", "A", "G", "F", "D"],
+    extendedNotes: ["D", "F", "G", "A", "G", "F", "D", "C", "D", "F", "G", "A"],
+    hint: "Anti-ti-ti-ti-fragile",
+    category: "K-Pop",
+    genre: "K-Pop",
+    era: "2020s",
+    mood: "energetic",
+    artist: "LE SSERAFIM",
+    country: "Korea",
+    flag: "🇰🇷"
+  },
+  {
+    name: "FEARLESS",
+    notes: ["A", "B", "C#", "E", "D", "C#", "B"],
+    extendedNotes: ["A", "B", "C#", "E", "D", "C#", "B", "A", "G#", "A", "B", "C#"],
+    hint: "What you looking at?",
+    category: "K-Pop",
+    genre: "K-Pop",
+    era: "2020s",
+    mood: "energetic",
+    artist: "LE SSERAFIM",
+    country: "Korea",
+    flag: "🇰🇷"
+  },
+
+  // TikTok Viral
+  {
+    name: "Say So",
+    notes: ["F", "G", "A", "C", "A", "G", "F"],
+    extendedNotes: ["F", "G", "A", "C", "A", "G", "F", "E", "F", "G", "A", "B"],
+    hint: "Day to night to morning, keep with me",
+    category: "Viral",
+    genre: "Viral",
+    era: "2020s",
+    mood: "upbeat",
+    artist: "Doja Cat"
+  },
+  {
+    name: "Renegade",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "G", "A", "B"],
+    hint: "K Camp's TikTok dance hit",
+    category: "Viral",
+    genre: "Viral",
+    era: "2020s",
+    mood: "energetic",
+    artist: "K Camp"
+  },
+  {
+    name: "Savage Love",
+    notes: ["E", "G", "A", "B", "A", "G", "E"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"],
+    hint: "Savage love, did somebody break your heart?",
+    category: "Viral",
+    genre: "Viral",
+    era: "2020s",
+    mood: "upbeat",
+    artist: "Jawsh 685 & Jason Derulo"
+  },
+  {
+    name: "Oh No",
+    notes: ["A", "B", "C", "D", "C", "B", "A"],
+    extendedNotes: ["A", "B", "C", "D", "C", "B", "A", "G", "A", "B", "C", "D"],
+    hint: "Oh no, oh no, oh no no no no",
+    category: "Viral",
+    genre: "Viral",
+    era: "2020s",
+    mood: "playful"
+  },
+  {
+    name: "Monkeys Spinning",
+    notes: ["C", "D", "E", "F", "G", "A", "B"],
+    extendedNotes: ["C", "D", "E", "F", "G", "A", "B", "C", "B", "A", "G", "F"],
+    hint: "Round and round they go - viral meme",
+    category: "Meme",
+    genre: "Meme",
+    era: "2020s",
+    mood: "playful"
+  },
 ];
 
 export const INTERNATIONAL_MELODIES = MELODIES.filter(m => m.country && m.flag);
