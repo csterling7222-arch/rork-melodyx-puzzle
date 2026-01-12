@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, Flame, User, Trophy, GraduationCap } from 'lucide-react-native';
+import { Home, Flame, User, Trophy, GraduationCap, PenTool } from 'lucide-react-native';
 import React from 'react';
 import { Colors } from '@/constants/colors';
 
@@ -56,6 +56,13 @@ export default function TabLayout() {
         options={{
           title: 'Learn',
           tabBarIcon: ({ color, size }) => <GraduationCap size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="create"
+        options={{
+          title: 'Create',
+          tabBarIcon: ({ color, size }) => <PenTool size={size} color={color} />,
         }}
       />
       <Tabs.Screen
