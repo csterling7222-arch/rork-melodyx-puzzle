@@ -24,6 +24,7 @@ import GuessGrid from '@/components/GuessGrid';
 import PianoKeyboard from '@/components/PianoKeyboard';
 import GameModal from '@/components/GameModal';
 import { getThemeEmoji } from '@/utils/aiSongChooser';
+import { hasRealSnippet, playMelodySnippet, initAudioSnippets } from '@/utils/audioSnippets';
 
 function StreakBadge({ streak }: { streak: number }) {
   if (streak === 0) return null;
@@ -136,6 +137,7 @@ export default function DailyPuzzleScreen() {
   } = useAudio(currentInstrument.id);
   const [audioHintPlayed, setAudioHintPlayed] = useState(false);
   const [hasPlayedMelody, setHasPlayedMelody] = useState(false);
+  const [hasRealAudioSnippet, setHasRealAudioSnippet] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const hasNavigatedRef = useRef(false);
@@ -144,7 +146,13 @@ export default function DailyPuzzleScreen() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-  }, []);
+    
+    initAudioSnippets().then(() => {
+      const hasSnippet = hasRealSnippet(melody.name);
+      setHasRealAudioSnippet(hasSnippet);
+      console.log('[Daily] Melody snippet available:', melody.name, hasSnippet);
+    });
+  }, [melody.name]);
 
   useEffect(() => {
     if (shouldNavigateHome && !showModal && !hasNavigatedRef.current && !isNavigating) {
@@ -181,21 +189,32 @@ export default function DailyPuzzleScreen() {
   const canSubmit = currentGuess.length === melodyLength && gameStatus === 'playing';
   const isDisabled = gameStatus !== 'playing';
 
-  const handlePlayMelody = useCallback(() => {
+  const handlePlayMelody = useCallback(async () => {
     if (gameStatus !== 'playing') {
       initAudio();
       if (playbackState.isPlaying) {
         stopPlayback();
       } else {
-        playSnippet(melody.extendedNotes, () => {
-          setHasPlayedMelody(true);
-        });
+        if (hasRealAudioSnippet) {
+          const played = await playMelodySnippet(melody.name, () => {
+            setHasPlayedMelody(true);
+          });
+          if (!played) {
+            playSnippet(melody.extendedNotes, () => {
+              setHasPlayedMelody(true);
+            });
+          }
+        } else {
+          playSnippet(melody.extendedNotes, () => {
+            setHasPlayedMelody(true);
+          });
+        }
         if (Platform.OS !== 'web') {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
       }
     }
-  }, [gameStatus, melody.extendedNotes, playSnippet, playbackState.isPlaying, stopPlayback, initAudio]);
+  }, [gameStatus, melody.name, melody.extendedNotes, playSnippet, playbackState.isPlaying, stopPlayback, initAudio, hasRealAudioSnippet]);
 
   const handleNotePreview = useCallback((note: string) => {
     initAudio();

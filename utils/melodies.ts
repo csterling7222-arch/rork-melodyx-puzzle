@@ -1328,6 +1328,249 @@ export const MELODIES: Melody[] = [
     country: "USA",
     flag: "🇺🇸"
   },
+
+  // === MODERN POP, HIP-HOP & K-POP ===
+  // Taylor Swift
+  {
+    name: "Anti-Hero",
+    notes: ["E", "E", "D", "C", "D", "E"],
+    extendedNotes: ["E", "E", "D", "C", "D", "E", "G", "E", "D", "C", "A", "G"],
+    hint: "It's me, hi, I'm the problem",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "nostalgic",
+    artist: "Taylor Swift"
+  },
+  {
+    name: "Cruel Summer",
+    notes: ["A", "B", "C#", "E", "D", "C#", "B"],
+    extendedNotes: ["A", "B", "C#", "E", "D", "C#", "B", "A", "G#", "A", "B", "C#"],
+    hint: "Devils roll the dice, angels roll their eyes",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Taylor Swift"
+  },
+  {
+    name: "Shake It Off",
+    notes: ["G", "G", "A", "G", "E", "G"],
+    extendedNotes: ["G", "G", "A", "G", "E", "G", "A", "B", "G", "E", "D", "E"],
+    hint: "Haters gonna hate, hate, hate",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Taylor Swift"
+  },
+
+  // Billie Eilish
+  {
+    name: "Lovely",
+    notes: ["E", "F#", "G", "F#", "E", "D"],
+    extendedNotes: ["E", "F#", "G", "F#", "E", "D", "E", "G", "A", "G", "F#", "E"],
+    hint: "Isn't it lovely, all alone",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "peaceful",
+    artist: "Billie Eilish"
+  },
+  {
+    name: "Ocean Eyes",
+    notes: ["C", "D", "E", "G", "E", "D", "C"],
+    extendedNotes: ["C", "D", "E", "G", "E", "D", "C", "B", "C", "D", "E", "F"],
+    hint: "I've been watching you for some time",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "peaceful",
+    artist: "Billie Eilish"
+  },
+  {
+    name: "Bury A Friend",
+    notes: ["E", "E", "D#", "E", "F#", "E"],
+    extendedNotes: ["E", "E", "D#", "E", "F#", "E", "D#", "C#", "B", "C#", "D#", "E"],
+    hint: "What do you want from me?",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "mysterious",
+    artist: "Billie Eilish"
+  },
+
+  // Hip-Hop
+  {
+    name: "Sicko Mode",
+    notes: ["G", "G", "F", "D#", "D", "C"],
+    extendedNotes: ["G", "G", "F", "D#", "D", "C", "D", "D#", "F", "G", "A#", "G"],
+    hint: "Sun is down, freezin' cold",
+    category: "Hip-Hop",
+    genre: "Hip-Hop",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Travis Scott"
+  },
+  {
+    name: "HUMBLE",
+    notes: ["D", "D", "F", "D", "A", "G", "F"],
+    extendedNotes: ["D", "D", "F", "D", "A", "G", "F", "D", "C", "D", "F", "G"],
+    hint: "Sit down, be humble",
+    category: "Hip-Hop",
+    genre: "Hip-Hop",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Kendrick Lamar"
+  },
+  {
+    name: "God's Plan",
+    notes: ["E", "G", "A", "B", "A", "G"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"],
+    hint: "I only love my bed and my mama",
+    category: "Hip-Hop",
+    genre: "Hip-Hop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Drake"
+  },
+  {
+    name: "Lose Yourself",
+    notes: ["D", "E", "F", "G", "A", "G", "F"],
+    extendedNotes: ["D", "E", "F", "G", "A", "G", "F", "E", "D", "C", "D", "E"],
+    hint: "Mom's spaghetti",
+    category: "Hip-Hop",
+    genre: "Hip-Hop",
+    era: "2000s",
+    mood: "energetic",
+    artist: "Eminem"
+  },
+  {
+    name: "Still Dre",
+    notes: ["C", "C", "D#", "G", "G#", "G"],
+    extendedNotes: ["C", "C", "D#", "G", "G#", "G", "D#", "C", "D#", "G", "G#", "C"],
+    hint: "Still got love for the streets",
+    category: "Hip-Hop",
+    genre: "Hip-Hop",
+    era: "90s",
+    mood: "nostalgic",
+    artist: "Dr. Dre"
+  },
+
+  // K-Pop
+  {
+    name: "Dynamite",
+    notes: ["E", "G", "A", "B", "A", "G", "E"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"],
+    hint: "Light it up like dynamite",
+    category: "K-Pop",
+    genre: "K-Pop",
+    era: "2020s",
+    mood: "upbeat",
+    artist: "BTS",
+    country: "Korea",
+    flag: "🇰🇷"
+  },
+  {
+    name: "Butter",
+    notes: ["G", "A", "B", "D", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "B", "A", "G", "F#", "G", "A", "B", "D"],
+    hint: "Smooth like butter",
+    category: "K-Pop",
+    genre: "K-Pop",
+    era: "2020s",
+    mood: "upbeat",
+    artist: "BTS",
+    country: "Korea",
+    flag: "🇰🇷"
+  },
+  {
+    name: "How You Like That",
+    notes: ["A", "A", "G", "E", "G", "A", "B"],
+    extendedNotes: ["A", "A", "G", "E", "G", "A", "B", "A", "G", "E", "D", "E"],
+    hint: "Look at you, now look at me",
+    category: "K-Pop",
+    genre: "K-Pop",
+    era: "2020s",
+    mood: "energetic",
+    artist: "BLACKPINK",
+    country: "Korea",
+    flag: "🇰🇷"
+  },
+  {
+    name: "Pink Venom",
+    notes: ["D", "E", "F#", "A", "F#", "E"],
+    extendedNotes: ["D", "E", "F#", "A", "F#", "E", "D", "C#", "D", "E", "F#", "A"],
+    hint: "Taste that pink venom",
+    category: "K-Pop",
+    genre: "K-Pop",
+    era: "2020s",
+    mood: "energetic",
+    artist: "BLACKPINK",
+    country: "Korea",
+    flag: "🇰🇷"
+  },
+  {
+    name: "Next Level",
+    notes: ["B", "C#", "D", "E", "D", "C#", "B"],
+    extendedNotes: ["B", "C#", "D", "E", "D", "C#", "B", "A", "B", "C#", "D", "E"],
+    hint: "I'm on the next level",
+    category: "K-Pop",
+    genre: "K-Pop",
+    era: "2020s",
+    mood: "energetic",
+    artist: "aespa",
+    country: "Korea",
+    flag: "🇰🇷"
+  },
+  {
+    name: "Gangnam Style",
+    notes: ["B", "B", "B", "B", "A", "A", "G#"],
+    extendedNotes: ["B", "B", "B", "B", "A", "A", "G#", "F#", "E", "F#", "G#", "A"],
+    hint: "Oppa Gangnam style",
+    category: "K-Pop",
+    genre: "K-Pop",
+    era: "2010s",
+    mood: "playful",
+    artist: "PSY",
+    country: "Korea",
+    flag: "🇰🇷"
+  },
+
+  // More Modern Pop
+  {
+    name: "Flowers",
+    notes: ["E", "E", "D", "C", "D", "E", "G"],
+    extendedNotes: ["E", "E", "D", "C", "D", "E", "G", "E", "D", "C", "B", "C"],
+    hint: "I can buy myself flowers",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "upbeat",
+    artist: "Miley Cyrus"
+  },
+  {
+    name: "As It Was",
+    notes: ["F#", "G#", "A", "B", "A", "G#"],
+    extendedNotes: ["F#", "G#", "A", "B", "A", "G#", "F#", "E", "F#", "G#", "A", "B"],
+    hint: "You know it's not the same as it was",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "nostalgic",
+    artist: "Harry Styles"
+  },
+  {
+    name: "Levitating",
+    notes: ["D", "F", "G", "A", "G", "F", "D"],
+    extendedNotes: ["D", "F", "G", "A", "G", "F", "D", "C", "D", "F", "G", "A"],
+    hint: "I got you, moonlight, you're my starlight",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "upbeat",
+    artist: "Dua Lipa"
+  },
 ];
 
 export const INTERNATIONAL_MELODIES = MELODIES.filter(m => m.country && m.flag);

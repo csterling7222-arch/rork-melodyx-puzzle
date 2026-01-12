@@ -118,6 +118,11 @@ const PianoKey = memo(function PianoKey({ note, onPress, disabled }: PianoKeyPro
         activeOpacity={0.9}
         disabled={disabled}
         testID={`piano-key-${note}`}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel={`Piano key ${note}${isSharp ? ' sharp' : ''}`}
+        accessibilityHint={disabled ? 'Key is disabled' : `Double tap to play ${note}`}
+        accessibilityState={{ disabled }}
       >
         <Animated.View 
           style={[
@@ -277,6 +282,10 @@ function PianoKeyboard({
             onPress={handleDelete}
             disabled={disabled}
             testID="delete-button"
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Delete last note"
+            accessibilityHint="Double tap to remove the last entered note"
           >
             <Delete size={22} color={Colors.text} />
           </TouchableOpacity>
@@ -292,6 +301,11 @@ function PianoKeyboard({
             onPress={handleSubmit}
             disabled={!canSubmit || disabled}
             testID="submit-button"
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={canSubmit ? 'Submit guess' : 'Submit disabled'}
+            accessibilityHint={canSubmit ? 'Double tap to submit your melody guess' : 'Enter all notes before submitting'}
+            accessibilityState={{ disabled: !canSubmit || disabled }}
           >
             {canSubmit && (
               <Animated.View 

@@ -1,5 +1,57 @@
 export type PracticeMode = 'standard' | 'mirror' | 'harmony' | 'improvisation' | 'speed' | 'zen' | 'duet' | 'challenge';
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced' | 'master' | 'virtuoso';
+export type MelodyDifficulty = 'easy' | 'medium' | 'hard';
+
+export interface DifficultySettings {
+  melodyLength: number;
+  maxGuesses: number;
+  hintDelay: number;
+  audioHintEnabled: boolean;
+}
+
+export const MELODY_DIFFICULTY_CONFIG: Record<MelodyDifficulty, DifficultySettings> = {
+  easy: {
+    melodyLength: 5,
+    maxGuesses: 8,
+    hintDelay: 1,
+    audioHintEnabled: true,
+  },
+  medium: {
+    melodyLength: 6,
+    maxGuesses: 6,
+    hintDelay: 2,
+    audioHintEnabled: true,
+  },
+  hard: {
+    melodyLength: 7,
+    maxGuesses: 5,
+    hintDelay: 3,
+    audioHintEnabled: false,
+  },
+};
+
+export const DIFFICULTY_LABELS: Record<MelodyDifficulty, { label: string; description: string; color: string; icon: string }> = {
+  easy: {
+    label: 'Easy',
+    description: '5 notes, 8 guesses, hints available early',
+    color: '#22C55E',
+    icon: '🌱',
+  },
+  medium: {
+    label: 'Medium',
+    description: '6 notes, 6 guesses, standard hints',
+    color: '#F59E0B',
+    icon: '🎯',
+  },
+  hard: {
+    label: 'Hard',
+    description: '7+ notes, 5 guesses, no audio hints',
+    color: '#EF4444',
+    icon: '🔥',
+  },
+};
+
+export const DIFFICULTY_STORAGE_KEY = 'melodyx_difficulty_setting';
 export type SkillCategory = 'earTraining' | 'rhythm' | 'melodyRecognition' | 'noteAccuracy' | 'improvisation' | 'harmony' | 'sightReading' | 'composition' | 'theory';
 export type LessonType = 'drill' | 'song' | 'theory' | 'technique' | 'creative' | 'assessment';
 

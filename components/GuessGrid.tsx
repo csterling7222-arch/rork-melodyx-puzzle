@@ -76,6 +76,14 @@ function Cell({ note, feedback, index, isCurrentRow, isRevealing }: CellProps) {
     outputRange: [Colors.surface, Colors.surface, getBackgroundColor()],
   });
 
+  const getAccessibilityLabel = () => {
+    if (!note) return `Empty cell, position ${index + 1}`;
+    if (feedback === 'empty') return `Note ${note}, position ${index + 1}, not submitted`;
+    if (feedback === 'correct') return `Note ${note}, position ${index + 1}, correct position`;
+    if (feedback === 'present') return `Note ${note}, position ${index + 1}, in melody but wrong position`;
+    return `Note ${note}, position ${index + 1}, not in melody`;
+  };
+
   return (
     <Animated.View
       style={[
@@ -90,6 +98,9 @@ function Cell({ note, feedback, index, isCurrentRow, isRevealing }: CellProps) {
           ],
         },
       ]}
+      accessible={true}
+      accessibilityRole="text"
+      accessibilityLabel={getAccessibilityLabel()}
     >
       <Text style={[
         styles.cellText,
@@ -124,7 +135,16 @@ function GuessRow({ guess, melodyLength, isCurrentRow, isRevealing }: GuessRowPr
     );
   }
 
-  return <View style={styles.row}>{cells}</View>;
+  return (
+    <View 
+      style={styles.row}
+      accessible={true}
+      accessibilityRole="none"
+      accessibilityLabel={`Guess row${isCurrentRow ? ', current row' : ''}`}
+    >
+      {cells}
+    </View>
+  );
 }
 
 export default function GuessGrid({
@@ -176,7 +196,16 @@ export default function GuessGrid({
     }
   }
 
-  return <View style={styles.container}>{rows}</View>;
+  return (
+    <View 
+      style={styles.container}
+      accessible={true}
+      accessibilityRole="none"
+      accessibilityLabel={`Guess grid with ${maxGuesses} rows, ${guesses.length} guesses made`}
+    >
+      {rows}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

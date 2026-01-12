@@ -604,3 +604,147 @@ export function resetAdaptiveSettings() {
 }
 
 export type { PerformanceMetric };
+
+// === ANALYTICS TRACKING ===
+
+export interface PuzzleAnalytics {
+  puzzleId: string;
+  melodyName: string;
+  completed: boolean;
+  won: boolean;
+  guessCount: number;
+  timeSpentMs: number;
+  hintsUsed: number;
+  difficulty: string;
+  timestamp: string;
+}
+
+export interface StreakAnalytics {
+  currentStreak: number;
+  longestStreak: number;
+  lastPlayedDate: string;
+  totalGamesPlayed: number;
+  totalGamesWon: number;
+}
+
+const ANALYTICS_BUFFER_KEY = 'melodyx_analytics_buffer';
+const analyticsBuffer: PuzzleAnalytics[] = [];
+const MAX_ANALYTICS_BUFFER = 20;
+
+export async function trackPuzzleCompletion(analytics: PuzzleAnalytics): Promise<void> {
+  console.log('[Analytics] Tracking puzzle completion:', analytics.melodyName, 'won:', analytics.won);
+  
+  analyticsBuffer.push(analytics);
+  if (analyticsBuffer.length > MAX_ANALYTICS_BUFFER) {
+    analyticsBuffer.shift();
+  }
+  
+  try {
+    await AsyncStorage.setItem(ANALYTICS_BUFFER_KEY, JSON.stringify(analyticsBuffer));
+  } catch (error) {
+    console.log('[Analytics] Failed to save analytics buffer:', error);
+  }
+  
+  await sendAnalyticsToServer('puzzle_completion', {
+    puzzle_id: analytics.puzzleId,
+    melody_name: analytics.melodyName,
+    completed: analytics.completed,
+    won: analytics.won,
+    guess_count: analytics.guessCount,
+    time_spent_ms: analytics.timeSpentMs,
+    hints_used: analytics.hintsUsed,
+    difficulty: analytics.difficulty,
+  });
+}
+
+export async function trackStreakUpdate(streak: StreakAnalytics): Promise<void> {
+  console.log('[Analytics] Tracking streak update:', streak.currentStreak, 'longest:', streak.longestStreak);
+  
+  await sendAnalyticsToServer('streak_update', {
+    current_streak: streak.currentStreak,
+    longest_streak: streak.longestStreak,
+    last_played_date: streak.lastPlayedDate,
+    total_games_played: streak.totalGamesPlayed,
+    total_games_won: streak.totalGamesWon,
+    win_rate: streak.totalGamesPlayed > 0 
+      ? (streak.totalGamesWon / streak.totalGamesPlayed * 100).toFixed(1) 
+      : '0',
+  });
+}
+
+export async function trackGameEvent(
+  eventName: string, 
+  eventData: Record<string, unknown>
+): Promise<void> {
+  console.log('[Analytics] Tracking event:', eventName, eventData);
+  
+  await sendAnalyticsToServer(eventName, eventData);
+}
+
+async function sendAnalyticsToServer(
+  eventType: string, 
+  data: Record<string, unknown>
+): Promise<void> {
+  const payload = {
+    event_type: eventType,
+    timestamp: new Date().toISOString(),
+    session_id: errorTracker.getSessionId(),
+    device_info: errorTracker.getDeviceInfo(),
+    ...data,
+  };
+  
+  if (__DEV__) {
+    console.log('[Analytics] Mock send:', eventType, payload);
+    return;
+  }
+  
+  try {
+    const endpoint = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
+    if (!endpoint) {
+      console.log('[Analytics] No endpoint configured, skipping send');
+      return;
+    }
+    
+    console.log('[Analytics] Sending to endpoint:', endpoint);
+  } catch (error) {
+    console.log('[Analytics] Failed to send analytics:', error);
+  }
+}
+
+export async function loadAnalyticsBuffer(): Promise<PuzzleAnalytics[]> {
+  try {
+    const stored = await AsyncStorage.getItem(ANALYTICS_BUFFER_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.log('[Analytics] Failed to load analytics buffer:', error);
+  }
+  return [];
+}
+
+export function getCompletionRate(analytics: PuzzleAnalytics[]): number {
+  if (analytics.length === 0) return 0;
+  const completed = analytics.filter(a => a.completed).length;
+  return (completed / analytics.length) * 100;
+}
+
+export function getWinRate(analytics: PuzzleAnalytics[]): number {
+  if (analytics.length === 0) return 0;
+  const won = analytics.filter(a => a.won).length;
+  return (won / analytics.length) * 100;
+}
+
+export function getAverageGuesses(analytics: PuzzleAnalytics[]): number {
+  const completed = analytics.filter(a => a.completed);
+  if (completed.length === 0) return 0;
+  const totalGuesses = completed.reduce((sum, a) => sum + a.guessCount, 0);
+  return totalGuesses / completed.length;
+}
+
+export function getAverageTimeMs(analytics: PuzzleAnalytics[]): number {
+  const completed = analytics.filter(a => a.completed);
+  if (completed.length === 0) return 0;
+  const totalTime = completed.reduce((sum, a) => sum + a.timeSpentMs, 0);
+  return totalTime / completed.length;
+}

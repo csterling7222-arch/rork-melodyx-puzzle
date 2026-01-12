@@ -20,7 +20,11 @@
         "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone",
         "UIBackgroundModes": [
           "audio"
-        ]
+        ],
+        "NSFaceIDUsageDescription": "Allow $(PRODUCT_NAME) to access your Face ID biometric data."
+      },
+      "config": {
+        "usesNonExemptEncryption": false
       }
     },
     "android": {
@@ -58,7 +62,13 @@
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone"
         }
       ],
-      "expo-secure-store"
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Allow $(PRODUCT_NAME) to access your Face ID biometric data."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
