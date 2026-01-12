@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Flame, Zap, Trophy, Play, RotateCcw, Home, Volume2, Music, Filter, Sparkles, Globe, Gamepad2, Film, Music2 } from 'lucide-react-native';
+import { Flame, Zap, Trophy, Play, RotateCcw, Home, Volume2, Music, Filter, Sparkles, Globe, Gamepad2, Film, Music2, PenTool } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useFever, FeverGenreFilter } from '@/contexts/FeverContext';
@@ -592,6 +592,14 @@ export default function FeverScreen() {
               <Play size={24} color={Colors.background} fill={Colors.background} />
               <Text style={styles.startButtonText}>Start Game</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.createChallengeButton} 
+              onPress={() => router.push('/(tabs)/create')}
+            >
+              <PenTool size={18} color="#EC4899" />
+              <Text style={styles.createChallengeText}>Create & Challenge Friends</Text>
+            </TouchableOpacity>
           </ScrollView>
         </View>
       </ThemedBackground>
@@ -1149,5 +1157,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
     marginTop: 2,
+  },
+  createChallengeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#EC4899' + '15',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#EC4899' + '30',
+  },
+  createChallengeText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#EC4899',
   },
 });

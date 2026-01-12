@@ -33,6 +33,7 @@ import {
   Gift,
   Star,
   UserPlus,
+  PenTool,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -874,6 +875,14 @@ export default function HomeScreen() {
                 subtitle="Calming puzzles"
                 color="#10B981"
                 onPress={() => navigateTo('/(tabs)/wellness')}
+              />
+              <ModeCard
+                icon={<PenTool size={22} color="#EC4899" />}
+                title="Create & Challenge"
+                subtitle="Make melodies for friends"
+                color="#EC4899"
+                onPress={() => navigateTo('/(tabs)/create')}
+                badge="NEW"
               />
             </View>
           </View>

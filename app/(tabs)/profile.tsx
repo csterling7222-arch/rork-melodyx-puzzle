@@ -13,7 +13,8 @@ import {
   User, Award, Gift, Settings, 
   Coins, Sparkles, Edit2, Check, X,
   Leaf, ListMusic, ChevronRight, Palette,
-  Sun, Moon, Eye, Zap, LogOut, UserPlus, Mail
+  Sun, Moon, Eye, Zap, LogOut, UserPlus, Mail,
+  PenTool, Music, Heart, TrendingUp
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
@@ -27,6 +28,7 @@ import { DAILY_REWARDS } from '@/constants/shop';
 import { useRouter } from 'expo-router';
 import { useEco } from '@/contexts/EcoContext';
 import { usePlaylist } from '@/contexts/PlaylistContext';
+import { useUserMelodies } from '@/contexts/UserMelodiesContext';
 import { ECO_THEME_COLORS } from '@/constants/sustainability';
 
 function AchievementBadge({ achievement, unlocked }: { achievement: Achievement; unlocked: boolean }) {
@@ -121,6 +123,7 @@ export default function ProfileScreen() {
   } = useUser();
   const { ecoPoints, totalOffsetTons } = useEco();
   const { playlists, solvedMelodies } = usePlaylist();
+  const { creatorStats } = useUserMelodies();
   const { user: authUser, isAnonymous, signOut, isSigningOut } = useAuth();
   
   const [isEditing, setIsEditing] = useState(false);
@@ -301,7 +304,61 @@ export default function ProfileScreen() {
             </View>
             <ChevronRight size={20} color={Colors.textMuted} />
           </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.quickLinkCard}
+            onPress={() => router.push('/create' as any)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.quickLinkIcon, { backgroundColor: '#EC4899' + '20' }]}>
+              <PenTool size={22} color="#EC4899" />
+            </View>
+            <View style={styles.quickLinkInfo}>
+              <Text style={styles.quickLinkTitle}>Create & Guess</Text>
+              <Text style={styles.quickLinkStat}>{creatorStats.totalMelodies} created • {creatorStats.totalLikes} ❤️</Text>
+            </View>
+            <ChevronRight size={20} color={Colors.textMuted} />
+          </TouchableOpacity>
         </View>
+
+        {creatorStats.totalMelodies > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <PenTool size={20} color="#EC4899" />
+              <Text style={styles.sectionTitle}>Creator Stats</Text>
+            </View>
+            <View style={styles.creatorStatsGrid}>
+              <View style={styles.creatorStatItem}>
+                <Music size={18} color="#EC4899" />
+                <Text style={styles.creatorStatValue}>{creatorStats.totalMelodies}</Text>
+                <Text style={styles.creatorStatLabel}>Created</Text>
+              </View>
+              <View style={styles.creatorStatItem}>
+                <Eye size={18} color={Colors.secondary} />
+                <Text style={styles.creatorStatValue}>{creatorStats.totalPlays}</Text>
+                <Text style={styles.creatorStatLabel}>Plays</Text>
+              </View>
+              <View style={styles.creatorStatItem}>
+                <Check size={18} color={Colors.correct} />
+                <Text style={styles.creatorStatValue}>{creatorStats.totalSolves}</Text>
+                <Text style={styles.creatorStatLabel}>Solves</Text>
+              </View>
+              <View style={styles.creatorStatItem}>
+                <Heart size={18} color="#EF4444" />
+                <Text style={styles.creatorStatValue}>{creatorStats.totalLikes}</Text>
+                <Text style={styles.creatorStatLabel}>Likes</Text>
+              </View>
+            </View>
+            {creatorStats.totalPlays > 0 && (
+              <View style={styles.solveRateContainer}>
+                <TrendingUp size={14} color={Colors.correct} />
+                <Text style={styles.solveRateText}>
+                  {Math.round(creatorStats.averageSolveRate * 100)}% solve rate
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -1040,5 +1097,43 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.correct + '30',
     borderRadius: 8,
     padding: 2,
+  },
+  creatorStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 12,
+  },
+  creatorStatItem: {
+    width: '47%',
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+    gap: 4,
+  },
+  creatorStatValue: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  creatorStatLabel: {
+    fontSize: 11,
+    color: Colors.textMuted,
+  },
+  solveRateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.correct + '15',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+  },
+  solveRateText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.correct,
   },
 });
