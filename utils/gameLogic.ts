@@ -37,9 +37,13 @@ export function generateShareText(
   puzzleNumber: number,
   won: boolean,
   melodyLength: number,
-  streakCount?: number
+  streakCount?: number,
+  maxGuesses?: number
 ): string {
-  const attemptText = won ? `${guesses.length}/6` : 'X/6';
+  const maxG = maxGuesses || getMaxGuessesForLength(melodyLength);
+  const attemptText = won ? `${guesses.length}/${maxG}` : `X/${maxG}`;
+  const difficulty = getDifficultyFromLength(melodyLength);
+  const diffLabel = MELODY_LENGTH_PRESETS[difficulty].label;
   let grid = '';
   
   for (const guess of guesses) {
@@ -54,8 +58,9 @@ export function generateShareText(
   const winEmoji = won ? (guesses.length <= 2 ? '🔥' : guesses.length <= 4 ? '✨' : '🎉') : '😢';
   const streakText = streakCount && streakCount > 1 ? ` | ${streakCount}🔥 streak` : '';
   const perfectText = won && guesses.length === 1 ? ' PERFECT!' : '';
+  const lengthText = melodyLength > 8 ? ` [${diffLabel} ${melodyLength}🎵]` : '';
   
-  return `🎵 Melodyx #${puzzleNumber} ${attemptText}${perfectText} ${winEmoji}${streakText}\n\n${grid}\n🎹 Can you guess the melody?\nmelodyx.app`;
+  return `🎵 Melodyx #${puzzleNumber} ${attemptText}${perfectText}${lengthText} ${winEmoji}${streakText}\n\n${grid}\n🎹 Can you guess the melody?\nmelodyx.app`;
 }
 
 export function isWin(feedback: GuessResult[]): boolean {
@@ -75,10 +80,35 @@ export interface MelodyValidation {
   complexity: 'simple' | 'moderate' | 'complex';
 }
 
+export const MELODY_LENGTH_PRESETS = {
+  easy: { min: 5, max: 5, label: 'Easy' },
+  medium: { min: 6, max: 6, label: 'Medium' },
+  hard: { min: 7, max: 8, label: 'Hard' },
+  epic: { min: 9, max: 15, label: 'Epic' },
+  legendary: { min: 16, max: 30, label: 'Legendary' },
+} as const;
+
+export type MelodyDifficulty = keyof typeof MELODY_LENGTH_PRESETS;
+
+export function getDifficultyFromLength(length: number): MelodyDifficulty {
+  if (length <= 5) return 'easy';
+  if (length <= 6) return 'medium';
+  if (length <= 8) return 'hard';
+  if (length <= 15) return 'epic';
+  return 'legendary';
+}
+
+export function getMaxGuessesForLength(length: number): number {
+  if (length <= 5) return 6;
+  if (length <= 8) return 7;
+  if (length <= 15) return 8;
+  return 10;
+}
+
 export function validateMelodyNotes(
   notes: string[],
   minNotes: number = 5,
-  maxNotes: number = 8
+  maxNotes: number = 30
 ): MelodyValidation {
   const errors: string[] = [];
   const warnings: string[] = [];

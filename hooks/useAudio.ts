@@ -53,6 +53,21 @@ const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
   fadeOut: true,
 };
 
+const BASE_TEMPO = 400;
+const MIN_TEMPO = 250;
+
+export function getProportionalTempo(noteCount: number): number {
+  if (noteCount <= 6) return BASE_TEMPO;
+  if (noteCount <= 10) return Math.max(MIN_TEMPO, BASE_TEMPO - (noteCount - 6) * 25);
+  if (noteCount <= 20) return Math.max(MIN_TEMPO, 300 - (noteCount - 10) * 5);
+  return MIN_TEMPO;
+}
+
+export function getFullPlaybackDuration(noteCount: number, tempo?: number): number {
+  const effectiveTempo = tempo || getProportionalTempo(noteCount);
+  return noteCount * effectiveTempo + 500;
+}
+
 const DEFAULT_PLAYBACK_STATE: PlaybackState = {
   isPlaying: false,
   isPaused: false,
@@ -643,15 +658,59 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     replayFromStartRef.current = replayFromStart;
   }, [replayFromStart]);
 
-  const playMelody = useCallback((notes: string[], tempo: number = 400) => {
-    playMelodyInternal(notes, tempo, 'melody');
+  const playMelody = useCallback((notes: string[], tempo?: number) => {
+    const effectiveTempo = tempo || getProportionalTempo(notes.length);
+    playMelodyInternal(notes, effectiveTempo, 'melody');
   }, [playMelodyInternal]);
+
+  const playFullMelody = useCallback((notes: string[], onComplete?: () => void) => {
+    stopPlayback();
+    const tempo = getProportionalTempo(notes.length);
+    lastPlayedNotesRef.current = notes;
+    lastPlayedTempoRef.current = tempo;
+    console.log(`[Audio] Playing full melody (${notes.length} notes) at tempo ${tempo}ms`);
+    
+    setPlaybackState({
+      isPlaying: true,
+      isPaused: false,
+      isLooping,
+      currentNoteIndex: 0,
+      totalNotes: notes.length,
+      progress: 0,
+      mode: 'melody',
+    });
+
+    const adjustedTempo = tempo / audioSettingsRef.current.playbackSpeed;
+    
+    notes.forEach((note, index) => {
+      const timeout = setTimeout(() => {
+        playNote(note);
+        setPlaybackState(prev => ({
+          ...prev,
+          currentNoteIndex: index,
+          progress: (index + 1) / notes.length,
+        }));
+      }, index * adjustedTempo);
+      playbackTimeoutsRef.current.push(timeout);
+    });
+
+    const endTimeout = setTimeout(() => {
+      if (isLooping) {
+        playFullMelody(notes, onComplete);
+      } else {
+        setPlaybackState(DEFAULT_PLAYBACK_STATE);
+        onComplete?.();
+      }
+    }, notes.length * adjustedTempo + 400);
+    playbackTimeoutsRef.current.push(endTimeout);
+  }, [playNote, stopPlayback, isLooping]);
 
   const playSnippet = useCallback((notes: string[], onComplete?: () => void) => {
     stopPlayback();
+    const baseTempo = getProportionalTempo(notes.length);
     lastPlayedNotesRef.current = notes;
-    lastPlayedTempoRef.current = 350;
-    console.log(`[Audio] Playing snippet: ${notes.join(', ')}`);
+    lastPlayedTempoRef.current = baseTempo;
+    console.log(`[Audio] Playing snippet (${notes.length} notes): ${notes.slice(0, 5).join(', ')}...`);
     
     setPlaybackState({
       isPlaying: true,
@@ -663,7 +722,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       mode: 'snippet',
     });
 
-    const tempo = 350 / audioSettingsRef.current.playbackSpeed;
+    const tempo = baseTempo / audioSettingsRef.current.playbackSpeed;
     
     notes.forEach((note, index) => {
       const timeout = setTimeout(() => {
@@ -842,7 +901,8 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
   return { 
     playNote, 
     playNotePreview,
-    playMelody, 
+    playMelody,
+    playFullMelody,
     playSnippet,
     playHintNotes,
     playTeaser,
@@ -865,5 +925,6 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     updateVolume,
     updatePlaybackSpeed,
     fadeToVolume,
+    getProportionalTempo,
   };
 }

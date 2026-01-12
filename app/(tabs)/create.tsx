@@ -46,10 +46,14 @@ import {
   UGCDifficulty,
   MIN_NOTES,
   MAX_NOTES,
+  DEFAULT_NOTE_LENGTH,
+  NOTE_LENGTH_OPTIONS,
+  getDifficultyForLength,
   UserMelody,
   getMelodyShareUrl,
 } from '@/constants/ugc';
-import { validateMelodyNotes } from '@/utils/gameLogic';
+import { validateMelodyNotes, GuessResult } from '@/utils/gameLogic';
+import GuessGrid from '@/components/GuessGrid';
 import { NOTE_SCALE } from '@/utils/melodies';
 import ThemedBackground from '@/components/ThemedBackground';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -81,12 +85,16 @@ function ComposerTab() {
   const [hint, setHint] = useState('');
   const [genre, setGenre] = useState<UGCGenre>('original');
   const [mood, setMood] = useState<UGCMood>('happy');
-  const [difficulty, setDifficulty] = useState<UGCDifficulty>('medium');
+  const [targetLength, setTargetLength] = useState<number>(DEFAULT_NOTE_LENGTH);
+  const [showLengthPicker, setShowLengthPicker] = useState(false);
+  const [showGridPreview, setShowGridPreview] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
   const [showGenrePicker, setShowGenrePicker] = useState(false);
   const [showMoodPicker, setShowMoodPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedMelody, setSavedMelody] = useState<UserMelody | null>(null);
+
+  const currentDifficulty = useMemo(() => getDifficultyForLength(targetLength), [targetLength]);
 
   const scaleAnims = useRef<Record<string, Animated.Value>>({});
   NOTE_SCALE.forEach(note => {
@@ -96,8 +104,13 @@ function ComposerTab() {
   });
 
   const validation = useMemo(() => {
-    return validateMelodyNotes(notes, MIN_NOTES, MAX_NOTES);
-  }, [notes]);
+    return validateMelodyNotes(notes, targetLength, targetLength);
+  }, [notes, targetLength]);
+
+  const previewGuesses = useMemo((): GuessResult[][] => {
+    if (notes.length === 0) return [];
+    return [notes.slice(0, targetLength).map(note => ({ note, feedback: 'empty' as const }))];
+  }, [notes, targetLength]);
 
   const fullValidation = useMemo(() => {
     if (notes.length === 0) return null;
@@ -105,7 +118,7 @@ function ComposerTab() {
   }, [notes, title, hint, validateMelody]);
 
   const handleNotePress = useCallback((note: string) => {
-    if (notes.length >= MAX_NOTES) {
+    if (notes.length >= targetLength) {
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
@@ -124,7 +137,7 @@ function ComposerTab() {
 
     playNote(note);
     setNotes(prev => [...prev, note]);
-  }, [notes.length, playNote]);
+  }, [notes.length, targetLength, playNote]);
 
   const handleRemoveLastNote = useCallback(() => {
     if (notes.length === 0) return;
@@ -156,7 +169,7 @@ function ComposerTab() {
   }, [notes, playbackState.isPlaying, playMelody, stopPlayback]);
 
   const handleSave = useCallback(async () => {
-    if (!validation.isValid || !title.trim() || !hint.trim()) {
+    if (notes.length !== targetLength || !title.trim() || !hint.trim()) {
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
@@ -171,7 +184,7 @@ function ComposerTab() {
         hint,
         genre,
         mood,
-        difficulty,
+        currentDifficulty.id as UGCDifficulty,
         isPublic
       );
 
@@ -194,7 +207,7 @@ function ComposerTab() {
     } finally {
       setIsSaving(false);
     }
-  }, [validation.isValid, title, hint, notes, genre, mood, difficulty, isPublic, createMelody]);
+  }, [targetLength, title, hint, notes, genre, mood, currentDifficulty.id, isPublic, createMelody]);
 
   const handleShare = useCallback(async () => {
     if (!savedMelody) return;
@@ -236,10 +249,78 @@ function ComposerTab() {
   return (
     <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
       <View style={styles.composerSection}>
-        <Text style={styles.sectionTitle}>Compose Your Melody</Text>
-        <Text style={styles.sectionSubtitle}>
-          Tap notes to create ({MIN_NOTES}-{MAX_NOTES} notes)
-        </Text>
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Compose Your Melody</Text>
+            <Text style={styles.sectionSubtitle}>
+              Target: {targetLength} notes • {currentDifficulty.name}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.lengthPickerBtn, { borderColor: currentDifficulty.color }]}
+            onPress={() => {
+              setShowLengthPicker(!showLengthPicker);
+              if (Platform.OS !== 'web') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+            }}
+          >
+            <Text style={[styles.lengthPickerText, { color: currentDifficulty.color }]}>
+              {targetLength} 🎵
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {showLengthPicker && (
+          <View style={styles.lengthPickerContainer}>
+            <Text style={styles.lengthPickerLabel}>Select Note Length (5-30)</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.lengthOptionsScroll}>
+              <View style={styles.lengthOptionsRow}>
+                {NOTE_LENGTH_OPTIONS.map(option => {
+                  const diffInfo = getDifficultyForLength(option.value);
+                  const isSelected = targetLength === option.value;
+                  return (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.lengthOption,
+                        isSelected && { backgroundColor: diffInfo.color + '30', borderColor: diffInfo.color },
+                      ]}
+                      onPress={() => {
+                        setTargetLength(option.value);
+                        if (Platform.OS !== 'web') {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        }
+                      }}
+                    >
+                      <Text style={[styles.lengthOptionValue, isSelected && { color: diffInfo.color }]}>
+                        {option.value}
+                      </Text>
+                      <Text style={[styles.lengthOptionLabel, isSelected && { color: diffInfo.color }]}>
+                        {diffInfo.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+            <View style={styles.customLengthRow}>
+              <Text style={styles.customLengthLabel}>Custom:</Text>
+              <TextInput
+                style={styles.customLengthInput}
+                keyboardType="number-pad"
+                value={String(targetLength)}
+                onChangeText={(text) => {
+                  const num = parseInt(text, 10);
+                  if (!isNaN(num) && num >= MIN_NOTES && num <= MAX_NOTES) {
+                    setTargetLength(num);
+                  }
+                }}
+                maxLength={2}
+              />
+            </View>
+          </View>
+        )}
 
         <View style={styles.notesDisplay}>
           {notes.length === 0 ? (
@@ -261,11 +342,16 @@ function ComposerTab() {
         <View style={styles.noteCountRow}>
           <Text style={[
             styles.noteCount,
-            notes.length >= MIN_NOTES && notes.length <= MAX_NOTES && styles.noteCountValid,
-            notes.length > MAX_NOTES && styles.noteCountError,
+            notes.length === targetLength && styles.noteCountValid,
+            notes.length > targetLength && styles.noteCountError,
           ]}>
-            {notes.length}/{MAX_NOTES} notes
+            {notes.length}/{targetLength} notes
           </Text>
+          {notes.length < targetLength && notes.length > 0 && (
+            <Text style={styles.noteCountHint}>
+              {targetLength - notes.length} more needed
+            </Text>
+          )}
           {validation.warnings.length > 0 && (
             <View style={styles.warningBadge}>
               <AlertCircle size={12} color={Colors.warning} />
@@ -273,6 +359,27 @@ function ComposerTab() {
             </View>
           )}
         </View>
+
+        <TouchableOpacity
+          style={styles.previewGridToggle}
+          onPress={() => setShowGridPreview(!showGridPreview)}
+        >
+          <Eye size={16} color={Colors.accent} />
+          <Text style={styles.previewGridText}>
+            {showGridPreview ? 'Hide' : 'Show'} Grid Preview
+          </Text>
+        </TouchableOpacity>
+
+        {showGridPreview && (
+          <View style={styles.gridPreviewContainer}>
+            <GuessGrid
+              guesses={previewGuesses}
+              currentGuess={notes.length < targetLength ? notes : []}
+              melodyLength={targetLength}
+              maxGuesses={1}
+            />
+          </View>
+        )}
 
         <View style={styles.pianoContainer}>
           <View style={styles.pianoRow}>
@@ -438,18 +545,18 @@ function ComposerTab() {
         )}
 
         <View style={styles.difficultySection}>
-          <Text style={styles.inputLabel}>Difficulty</Text>
+          <Text style={styles.inputLabel}>Difficulty (auto-set by length)</Text>
           <View style={styles.difficultyButtons}>
             {UGC_DIFFICULTY.map(d => (
               <TouchableOpacity
                 key={d.id}
                 style={[
                   styles.difficultyBtn,
-                  difficulty === d.id && { backgroundColor: d.color + '30', borderColor: d.color },
+                  currentDifficulty.id === d.id && { backgroundColor: d.color + '30', borderColor: d.color },
                 ]}
-                onPress={() => setDifficulty(d.id)}
+                disabled={true}
               >
-                <Text style={[styles.difficultyText, difficulty === d.id && { color: d.color }]}>
+                <Text style={[styles.difficultyText, currentDifficulty.id === d.id && { color: d.color }]}>
                   {d.name}
                 </Text>
               </TouchableOpacity>
@@ -497,10 +604,12 @@ function ComposerTab() {
         <TouchableOpacity
           style={[
             styles.saveButton,
-            (!validation.isValid || !title.trim() || !hint.trim()) && styles.saveButtonDisabled,
+            (notes.length !== targetLength || !title.trim() || !hint.trim()) && styles.saveButtonDisabled,
           ]}
           onPress={handleSave}
-          disabled={!validation.isValid || !title.trim() || !hint.trim() || isSaving}
+          disabled={notes.length !== targetLength || !title.trim() || !hint.trim() || isSaving}
+          accessibilityLabel={`Save melody with ${notes.length} notes`}
+          accessibilityRole="button"
         >
           {isSaving ? (
             <Text style={styles.saveButtonText}>Saving...</Text>
@@ -1136,6 +1245,110 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 13,
     color: Colors.text,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  lengthPickerBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: Colors.surfaceLight,
+    borderWidth: 2,
+  },
+  lengthPickerText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+  },
+  lengthPickerContainer: {
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  lengthPickerLabel: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginBottom: 10,
+  },
+  lengthOptionsScroll: {
+    marginBottom: 12,
+  },
+  lengthOptionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  lengthOption: {
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: Colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    minWidth: 60,
+  },
+  lengthOptionValue: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  lengthOptionLabel: {
+    fontSize: 10,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  customLengthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  customLengthLabel: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  customLengthInput: {
+    backgroundColor: Colors.surfaceLight,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.text,
+    width: 60,
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  noteCountHint: {
+    fontSize: 12,
+    color: Colors.accent,
+    fontWeight: '500' as const,
+  },
+  previewGridToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  previewGridText: {
+    fontSize: 13,
+    color: Colors.accent,
+    fontWeight: '600' as const,
+  },
+  gridPreviewContainer: {
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    alignItems: 'center',
   },
   difficultySection: {
     marginBottom: 16,
