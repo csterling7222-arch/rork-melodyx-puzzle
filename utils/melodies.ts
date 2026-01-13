@@ -10,7 +10,11 @@ export interface Melody {
   country?: string;
   flag?: string;
   artist?: string;
+  durations?: number[];
+  extendedDurations?: number[];
 }
+
+export const DEFAULT_NOTE_DURATION = 0.5;
 
 export const THEMES = [
   'upbeat',
@@ -53,7 +57,9 @@ export const MELODIES: Melody[] = [
     category: "Classic",
     genre: "Classic",
     era: "Traditional",
-    mood: "upbeat"
+    mood: "upbeat",
+    durations: [0.25, 0.25, 0.5, 0.5, 0.5, 1.0],
+    extendedDurations: [0.25, 0.25, 0.5, 0.5, 0.5, 1.0, 0.25, 0.25, 0.5, 0.5, 0.5, 1.0]
   },
   { 
     name: "Twinkle Twinkle", 
@@ -63,7 +69,9 @@ export const MELODIES: Melody[] = [
     category: "Nursery",
     genre: "Nursery",
     era: "Traditional",
-    mood: "peaceful"
+    mood: "peaceful",
+    durations: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0],
+    extendedDurations: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0]
   },
   { 
     name: "Mary Had a Little Lamb", 
@@ -103,7 +111,9 @@ export const MELODIES: Melody[] = [
     category: "Nursery",
     genre: "Nursery",
     era: "Traditional",
-    mood: "playful"
+    mood: "playful",
+    durations: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0],
+    extendedDurations: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0]
   },
 
   // Video Games
@@ -115,7 +125,9 @@ export const MELODIES: Melody[] = [
     category: "Video Game",
     genre: "Video Game",
     era: "80s",
-    mood: "playful"
+    mood: "playful",
+    durations: [0.25, 0.25, 0.25, 0.25, 0.5, 1.0],
+    extendedDurations: [0.25, 0.25, 0.25, 0.25, 0.5, 1.0, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
   },
   { 
     name: "Tetris Theme", 
@@ -125,7 +137,9 @@ export const MELODIES: Melody[] = [
     category: "Video Game",
     genre: "Video Game",
     era: "80s",
-    mood: "energetic"
+    mood: "energetic",
+    durations: [0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5],
+    extendedDurations: [0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5]
   },
   { 
     name: "Zelda Theme", 
