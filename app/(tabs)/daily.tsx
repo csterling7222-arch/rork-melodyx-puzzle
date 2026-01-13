@@ -302,6 +302,7 @@ export default function DailyPuzzleScreen() {
             currentGuess={currentGuess}
             melodyLength={melodyLength}
             maxGuesses={6}
+            durations={melody.durations}
           />
         </View>
 

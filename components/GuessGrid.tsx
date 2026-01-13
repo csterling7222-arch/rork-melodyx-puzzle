@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Animated, ScrollView, Dimensions, Platform } fr
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { GuessResult, FeedbackType } from '@/utils/gameLogic';
+import { DEFAULT_NOTE_DURATION } from '@/utils/melodies';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const MAX_VISIBLE_COLUMNS = 8;
@@ -11,11 +12,17 @@ const MAX_CELL_SIZE = 48;
 const CELL_GAP = 6;
 const HORIZONTAL_PADDING = 32;
 
+const MIN_CELL_WIDTH = 50;
+const MAX_CELL_WIDTH = 200;
+const BASE_CELL_WIDTH = 48;
+const DURATION_SCALE_FACTOR = 1.8;
+
 interface GuessGridProps {
   guesses: GuessResult[][];
   currentGuess: string[];
   melodyLength: number;
   maxGuesses: number;
+  durations?: number[];
 }
 
 interface CellProps {
@@ -25,11 +32,23 @@ interface CellProps {
   isCurrentRow: boolean;
   isRevealing: boolean;
   cellSize: number;
+  cellWidth: number;
+  duration: number;
 }
 
-function Cell({ note, feedback, index, isCurrentRow, isRevealing, cellSize }: CellProps) {
+function Cell({ note, feedback, index, isCurrentRow, isRevealing, cellSize, cellWidth, duration }: CellProps) {
   const flipAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const widthAnim = useRef(new Animated.Value(cellWidth)).current;
+
+  useEffect(() => {
+    Animated.spring(widthAnim, {
+      toValue: cellWidth,
+      tension: 120,
+      friction: 14,
+      useNativeDriver: false,
+    }).start();
+  }, [cellWidth, widthAnim]);
 
   useEffect(() => {
     if (isRevealing && feedback !== 'empty') {
@@ -85,22 +104,31 @@ function Cell({ note, feedback, index, isCurrentRow, isRevealing, cellSize }: Ce
     outputRange: [Colors.surface, Colors.surface, getBackgroundColor()],
   });
 
+  const getDurationLabel = () => {
+    if (duration <= 0.25) return '♬';
+    if (duration <= 0.5) return '♪';
+    if (duration <= 1.0) return '♩';
+    return '𝅗𝅥';
+  };
+
   const getAccessibilityLabel = () => {
-    if (!note) return `Empty cell, position ${index + 1}`;
-    if (feedback === 'empty') return `Note ${note}, position ${index + 1}, not submitted`;
-    if (feedback === 'correct') return `Note ${note}, position ${index + 1}, correct position`;
-    if (feedback === 'present') return `Note ${note}, position ${index + 1}, in melody but wrong position`;
-    return `Note ${note}, position ${index + 1}, not in melody`;
+    const durationDesc = duration <= 0.25 ? 'sixteenth' : duration <= 0.5 ? 'eighth' : duration <= 1.0 ? 'quarter' : 'half';
+    if (!note) return `Empty cell, position ${index + 1}, ${durationDesc} note duration`;
+    if (feedback === 'empty') return `Note ${note}, position ${index + 1}, ${durationDesc} note, not submitted`;
+    if (feedback === 'correct') return `Note ${note}, position ${index + 1}, ${durationDesc} note, correct position`;
+    if (feedback === 'present') return `Note ${note}, position ${index + 1}, ${durationDesc} note, in melody but wrong position`;
+    return `Note ${note}, position ${index + 1}, ${durationDesc} note, not in melody`;
   };
 
   const fontSize = cellSize <= 38 ? 13 : cellSize <= 42 ? 14 : 16;
+  const showDurationIndicator = duration !== DEFAULT_NOTE_DURATION;
 
   return (
     <Animated.View
       style={[
         styles.cell,
         {
-          width: cellSize,
+          width: widthAnim,
           height: cellSize + 6,
           backgroundColor: isRevealing ? backgroundColor : getBackgroundColor(),
           borderColor: getBorderColor(),
@@ -115,6 +143,9 @@ function Cell({ note, feedback, index, isCurrentRow, isRevealing, cellSize }: Ce
       accessibilityRole="text"
       accessibilityLabel={getAccessibilityLabel()}
     >
+      {showDurationIndicator && (
+        <Text style={styles.durationIndicator}>{getDurationLabel()}</Text>
+      )}
       <Text style={[
         styles.cellText,
         { fontSize },
@@ -132,9 +163,11 @@ interface GuessRowProps {
   isCurrentRow: boolean;
   isRevealing: boolean;
   cellSize: number;
+  cellWidths: number[];
+  durations: number[];
 }
 
-function GuessRow({ guess, melodyLength, isCurrentRow, isRevealing, cellSize }: GuessRowProps) {
+function GuessRow({ guess, melodyLength, isCurrentRow, isRevealing, cellSize, cellWidths, durations }: GuessRowProps) {
   const cells = [];
   for (let i = 0; i < melodyLength; i++) {
     const result = guess?.[i];
@@ -147,6 +180,8 @@ function GuessRow({ guess, melodyLength, isCurrentRow, isRevealing, cellSize }: 
         isCurrentRow={isCurrentRow}
         isRevealing={isRevealing}
         cellSize={cellSize}
+        cellWidth={cellWidths[i] || cellSize}
+        duration={durations[i] || DEFAULT_NOTE_DURATION}
       />
     );
   }
@@ -168,12 +203,27 @@ export default function GuessGrid({
   currentGuess,
   melodyLength,
   maxGuesses,
+  durations,
 }: GuessGridProps) {
   const prevLengthRef = useRef(melodyLength);
+  const prevDurationsRef = useRef<number[]>(durations || []);
   const scrollViewRef = useRef<ScrollView>(null);
   const gridScaleAnim = useRef(new Animated.Value(1)).current;
 
-  const needsScroll = melodyLength > MAX_VISIBLE_COLUMNS;
+  const normalizedDurations = useMemo(() => {
+    if (!durations || durations.length === 0) {
+      return Array(melodyLength).fill(DEFAULT_NOTE_DURATION);
+    }
+    const result = [...durations];
+    while (result.length < melodyLength) {
+      result.push(DEFAULT_NOTE_DURATION);
+    }
+    return result.slice(0, melodyLength);
+  }, [durations, melodyLength]);
+
+  const hasVariableDurations = useMemo(() => {
+    return normalizedDurations.some(d => d !== DEFAULT_NOTE_DURATION);
+  }, [normalizedDurations]);
 
   const cellSize = useMemo(() => {
     const availableWidth = SCREEN_WIDTH - HORIZONTAL_PADDING;
@@ -183,9 +233,24 @@ export default function GuessGrid({
     return Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, calculatedSize));
   }, [melodyLength]);
 
+  const cellWidths = useMemo(() => {
+    if (!hasVariableDurations) {
+      return Array(melodyLength).fill(cellSize);
+    }
+    
+    return normalizedDurations.map(duration => {
+      const scaledWidth = BASE_CELL_WIDTH * (duration / DEFAULT_NOTE_DURATION) * DURATION_SCALE_FACTOR;
+      const normalizedWidth = Math.max(MIN_CELL_WIDTH, Math.min(MAX_CELL_WIDTH, scaledWidth));
+      return Math.round(normalizedWidth);
+    });
+  }, [normalizedDurations, hasVariableDurations, cellSize, melodyLength]);
+
   const gridWidth = useMemo(() => {
-    return (cellSize * melodyLength) + ((melodyLength - 1) * CELL_GAP);
-  }, [cellSize, melodyLength]);
+    const totalCellWidth = cellWidths.reduce((sum, w) => sum + w, 0);
+    return totalCellWidth + ((melodyLength - 1) * CELL_GAP);
+  }, [cellWidths, melodyLength]);
+
+  const needsScroll = gridWidth > (SCREEN_WIDTH - HORIZONTAL_PADDING);
 
   const triggerResizeHaptic = useCallback(() => {
     if (Platform.OS !== 'web') {
@@ -194,7 +259,9 @@ export default function GuessGrid({
   }, []);
 
   useEffect(() => {
-    if (prevLengthRef.current !== melodyLength) {
+    const durationsChanged = JSON.stringify(prevDurationsRef.current) !== JSON.stringify(normalizedDurations);
+    
+    if (prevLengthRef.current !== melodyLength || durationsChanged) {
       triggerResizeHaptic();
       
       Animated.sequence([
@@ -212,8 +279,9 @@ export default function GuessGrid({
       ]).start();
 
       prevLengthRef.current = melodyLength;
+      prevDurationsRef.current = normalizedDurations;
     }
-  }, [melodyLength, gridScaleAnim, triggerResizeHaptic]);
+  }, [melodyLength, normalizedDurations, gridScaleAnim, triggerResizeHaptic]);
 
   const rows = [];
   
@@ -227,6 +295,8 @@ export default function GuessGrid({
           isCurrentRow={false}
           isRevealing={i === guesses.length - 1}
           cellSize={cellSize}
+          cellWidths={cellWidths}
+          durations={normalizedDurations}
         />
       );
     } else if (i === guesses.length) {
@@ -245,6 +315,8 @@ export default function GuessGrid({
           isCurrentRow={true}
           isRevealing={false}
           cellSize={cellSize}
+          cellWidths={cellWidths}
+          durations={normalizedDurations}
         />
       );
     } else {
@@ -256,6 +328,8 @@ export default function GuessGrid({
           isCurrentRow={false}
           isRevealing={false}
           cellSize={cellSize}
+          cellWidths={cellWidths}
+          durations={normalizedDurations}
         />
       );
     }
@@ -269,6 +343,13 @@ export default function GuessGrid({
     return 'Legendary';
   };
 
+  const getRhythmDescription = () => {
+    if (!hasVariableDurations) return '';
+    const uniqueDurations = [...new Set(normalizedDurations)];
+    if (uniqueDurations.length === 1) return '';
+    return ` with ${uniqueDurations.length} rhythm patterns`;
+  };
+
   const gridContent = (
     <Animated.View 
       style={[
@@ -278,7 +359,7 @@ export default function GuessGrid({
       ]}
       accessible={true}
       accessibilityRole="none"
-      accessibilityLabel={`Guess grid with ${maxGuesses} rows and ${melodyLength} columns, ${getDifficultyLabel()} difficulty, ${guesses.length} guesses made`}
+      accessibilityLabel={`Guess grid with ${maxGuesses} rows and ${melodyLength} columns, ${getDifficultyLabel()} difficulty${getRhythmDescription()}, ${guesses.length} guesses made`}
     >
       {rows}
     </Animated.View>
@@ -289,7 +370,7 @@ export default function GuessGrid({
       <View style={styles.container}>
         <View style={styles.scrollIndicator}>
           <Text style={styles.scrollIndicatorText}>
-            {melodyLength} notes • Swipe to scroll →
+            {melodyLength} notes{hasVariableDurations ? ' • Rhythm mode' : ''} • Swipe to scroll →
           </Text>
         </View>
         <ScrollView
@@ -299,8 +380,6 @@ export default function GuessGrid({
           contentContainerStyle={styles.scrollContent}
           bounces={true}
           decelerationRate="fast"
-          snapToInterval={cellSize + CELL_GAP}
-          snapToAlignment="start"
         >
           {gridContent}
         </ScrollView>
@@ -364,5 +443,13 @@ const styles = StyleSheet.create({
   },
   cellTextRevealed: {
     color: Colors.text,
+  },
+  durationIndicator: {
+    position: 'absolute',
+    top: 2,
+    right: 4,
+    fontSize: 9,
+    color: Colors.textMuted,
+    opacity: 0.7,
   },
 });

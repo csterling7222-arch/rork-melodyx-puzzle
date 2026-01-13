@@ -664,6 +664,7 @@ export default function FeverScreen() {
             currentGuess={currentGuess}
             melodyLength={melodyLength}
             maxGuesses={6}
+            durations={currentMelody?.durations}
           />
         </View>
 
