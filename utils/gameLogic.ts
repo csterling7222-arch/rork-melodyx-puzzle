@@ -70,6 +70,19 @@ export function isWin(feedback: GuessResult[]): boolean {
 export const VALID_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
 export type ValidNote = typeof VALID_NOTES[number];
 
+export const DEFAULT_NOTE_DURATION = 0.5;
+export const DEFAULT_NOTE_COLOR = '#6B7280';
+export const MIN_MELODY_NOTES = 5;
+export const MAX_MELODY_NOTES = 30;
+
+export function getDefaultDurations(noteCount: number): number[] {
+  return Array(noteCount).fill(DEFAULT_NOTE_DURATION);
+}
+
+export function getDefaultColors(noteCount: number): string[] {
+  return Array(noteCount).fill(DEFAULT_NOTE_COLOR);
+}
+
 export interface MelodyValidation {
   isValid: boolean;
   noteCount: number;
@@ -107,8 +120,8 @@ export function getMaxGuessesForLength(length: number): number {
 
 export function validateMelodyNotes(
   notes: string[],
-  minNotes: number = 5,
-  maxNotes: number = 30
+  minNotes: number = MIN_MELODY_NOTES,
+  maxNotes: number = MAX_MELODY_NOTES
 ): MelodyValidation {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -200,4 +213,61 @@ export function calculateMelodyScore(notes: string[]): number {
   }
   
   return lengthScore + varietyScore + patternScore;
+}
+
+export function sanitizeMelodyInput(notes: string[]): string[] {
+  if (!Array.isArray(notes)) return [];
+  return notes
+    .filter(note => typeof note === 'string')
+    .map(note => note.toUpperCase().trim())
+    .filter(note => VALID_NOTES.includes(note as ValidNote));
+}
+
+export function normalizeDurations(durations: number[] | undefined, noteCount: number): number[] {
+  if (!durations || !Array.isArray(durations) || durations.length === 0) {
+    return getDefaultDurations(noteCount);
+  }
+  if (durations.length < noteCount) {
+    return [...durations, ...getDefaultDurations(noteCount - durations.length)];
+  }
+  return durations.slice(0, noteCount).map(d => 
+    typeof d === 'number' && d > 0 ? Math.min(d, 4.0) : DEFAULT_NOTE_DURATION
+  );
+}
+
+export interface NetworkMockConfig {
+  enabled: boolean;
+  latencyMs: number;
+  failureRate: number;
+}
+
+let networkMockConfig: NetworkMockConfig = {
+  enabled: false,
+  latencyMs: 0,
+  failureRate: 0,
+};
+
+export function setNetworkMockConfig(config: Partial<NetworkMockConfig>): void {
+  networkMockConfig = { ...networkMockConfig, ...config };
+  console.log('[GameLogic] Network mock config updated:', networkMockConfig);
+}
+
+export function getNetworkMockConfig(): NetworkMockConfig {
+  return { ...networkMockConfig };
+}
+
+export async function mockNetworkCall<T>(fn: () => Promise<T>): Promise<T> {
+  if (!networkMockConfig.enabled) {
+    return fn();
+  }
+  
+  if (networkMockConfig.latencyMs > 0) {
+    await new Promise(resolve => setTimeout(resolve, networkMockConfig.latencyMs));
+  }
+  
+  if (Math.random() < networkMockConfig.failureRate) {
+    throw new Error('Mock network failure');
+  }
+  
+  return fn();
 }

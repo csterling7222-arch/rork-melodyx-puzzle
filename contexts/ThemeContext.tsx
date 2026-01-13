@@ -17,6 +17,7 @@ interface ThemeSettings {
   scheduledDarkMode: boolean;
   darkModeStartHour: number;
   darkModeEndHour: number;
+  lowEndMode: boolean;
 }
 
 const STORAGE_KEY = 'melodyx_theme_settings';
@@ -32,6 +33,7 @@ const DEFAULT_SETTINGS: ThemeSettings = {
   scheduledDarkMode: false,
   darkModeStartHour: 19,
   darkModeEndHour: 7,
+  lowEndMode: false,
 };
 
 export const [ThemeProvider, useTheme] = createContextHook(() => {
@@ -169,6 +171,18 @@ export const [ThemeProvider, useTheme] = createContextHook(() => {
     saveSettings(newSettings);
   }, [settings, saveSettings]);
 
+  const toggleLowEndMode = useCallback(() => {
+    const newLowEnd = !settings.lowEndMode;
+    const newSettings = { 
+      ...settings, 
+      lowEndMode: newLowEnd,
+      animationsEnabled: newLowEnd ? false : settings.animationsEnabled,
+      reducedMotion: newLowEnd ? true : settings.reducedMotion,
+    };
+    saveSettings(newSettings);
+    console.log('[Theme] Low-end mode:', newLowEnd ? 'enabled' : 'disabled');
+  }, [settings, saveSettings]);
+
   const getThemeForCurrentScreen = useCallback((): BackgroundThemeId => {
     if (settings.customScreenThemes[currentScreen]) {
       return settings.customScreenThemes[currentScreen];
@@ -188,13 +202,14 @@ export const [ThemeProvider, useTheme] = createContextHook(() => {
     isDarkMode: effectiveDarkMode,
     backgroundTheme: settings.backgroundTheme,
     customScreenThemes: settings.customScreenThemes,
-    animationsEnabled: settings.animationsEnabled && !settings.reducedMotion,
+    animationsEnabled: settings.animationsEnabled && !settings.reducedMotion && !settings.lowEndMode,
     highContrast: settings.highContrast,
-    reducedMotion: settings.reducedMotion,
+    reducedMotion: settings.reducedMotion || settings.lowEndMode,
     autoSwitchEnabled: settings.autoSwitchEnabled,
     scheduledDarkMode: settings.scheduledDarkMode,
     darkModeStartHour: settings.darkModeStartHour,
     darkModeEndHour: settings.darkModeEndHour,
+    lowEndMode: settings.lowEndMode,
     systemColorScheme,
     currentScreen,
     isLoading: settingsQuery.isLoading,
@@ -207,6 +222,7 @@ export const [ThemeProvider, useTheme] = createContextHook(() => {
     toggleAnimations,
     toggleHighContrast,
     toggleReducedMotion,
+    toggleLowEndMode,
     getThemeForCurrentScreen,
     resetToDefaults,
     getAvailableThemes,

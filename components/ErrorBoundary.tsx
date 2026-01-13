@@ -6,13 +6,16 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import { AlertTriangle, RefreshCw } from 'lucide-react-native';
+import { AlertTriangle, RefreshCw, Home, Music } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
+import { addBreadcrumb, captureError } from '@/utils/errorTracking';
 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  screenName?: string;
+  showHomeButton?: boolean;
 }
 
 interface State {
@@ -41,6 +44,14 @@ export class ErrorBoundary extends Component<Props, State> {
     
     this.setState({ errorInfo });
     this.props.onError?.(error, errorInfo);
+    
+    addBreadcrumb({
+      category: 'error_boundary',
+      message: `Error in ${this.props.screenName || 'unknown'}: ${error.message}`,
+      level: 'error',
+      data: { componentStack: errorInfo.componentStack },
+    });
+    captureError(error, { tags: { screen: this.props.screenName || 'unknown' } });
   }
 
   handleRetry = () => {
@@ -66,8 +77,15 @@ export class ErrorBoundary extends Component<Props, State> {
             
             <Text style={styles.title}>Oops! Something went wrong</Text>
             <Text style={styles.message}>
-              We encountered an unexpected error. Your progress is saved!
+              Your progress is saved! Try again or head back home.
             </Text>
+            
+            {this.props.screenName && (
+              <View style={styles.screenInfo}>
+                <Music size={14} color={Colors.textMuted} />
+                <Text style={styles.screenName}>in {this.props.screenName}</Text>
+              </View>
+            )}
 
             <View style={styles.buttonRow}>
               <TouchableOpacity
@@ -78,6 +96,18 @@ export class ErrorBoundary extends Component<Props, State> {
                 <RefreshCw size={20} color={Colors.text} />
                 <Text style={styles.retryButtonText}>Try Again</Text>
               </TouchableOpacity>
+              
+              {this.props.showHomeButton && (
+                <TouchableOpacity
+                  style={styles.homeButton}
+                  onPress={() => {
+                    this.handleRetry();
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Home size={20} color={Colors.accent} />
+                </TouchableOpacity>
+              )}
             </View>
 
             {__DEV__ && this.state.error && (
@@ -140,6 +170,25 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
+    alignItems: 'center',
+  },
+  screenInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 24,
+  },
+  screenName: {
+    fontSize: 13,
+    color: Colors.textMuted,
+  },
+  homeButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: Colors.accent + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   retryButton: {
     flexDirection: 'row',

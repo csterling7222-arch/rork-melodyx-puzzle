@@ -14,7 +14,8 @@ import {
   Coins, Sparkles, Edit2, Check, X,
   Leaf, ListMusic, ChevronRight, Palette,
   Sun, Moon, Eye, Zap, LogOut, UserPlus, Mail,
-  PenTool, Music, Heart, TrendingUp, FlaskConical
+  PenTool, Music, Heart, TrendingUp, FlaskConical,
+  Battery
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
@@ -110,6 +111,8 @@ export default function ProfileScreen() {
     toggleAnimations,
     toggleHighContrast,
     highContrast,
+    lowEndMode,
+    toggleLowEndMode,
     getAvailableThemes,
   } = useTheme();
   const { 
@@ -489,6 +492,27 @@ export default function ProfileScreen() {
               onPress={toggleHighContrast}
             >
               <View style={[styles.toggleKnob, highContrast && styles.toggleKnobActive]} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <Battery size={18} color={lowEndMode ? Colors.correct : Colors.accent} />
+              <View>
+                <Text style={styles.toggleLabel}>Low-End Device Mode</Text>
+                <Text style={styles.toggleSubLabel}>Reduces animations & haptics</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={[styles.toggleSwitch, lowEndMode && styles.toggleSwitchActive]}
+              onPress={() => {
+                toggleLowEndMode();
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+              }}
+            >
+              <View style={[styles.toggleKnob, lowEndMode && styles.toggleKnobActive]} />
             </TouchableOpacity>
           </View>
 
@@ -1043,6 +1067,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: Colors.text,
+  },
+  toggleSubLabel: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 2,
   },
   toggleSwitch: {
     width: 48,

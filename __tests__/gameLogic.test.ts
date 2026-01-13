@@ -11,6 +11,17 @@ import {
   generateUGCShareText,
   calculateMelodyScore,
   MelodyDifficulty,
+  DEFAULT_NOTE_DURATION,
+  DEFAULT_NOTE_COLOR,
+  MIN_MELODY_NOTES,
+  MAX_MELODY_NOTES,
+  getDefaultDurations,
+  getDefaultColors,
+  sanitizeMelodyInput,
+  normalizeDurations,
+  setNetworkMockConfig,
+  getNetworkMockConfig,
+  mockNetworkCall,
 } from '../utils/gameLogic';
 import { getDailySeed, seededRandom, getDailyMelody, getDailyPuzzleNumber, MELODIES } from '../utils/melodies';
 
@@ -669,5 +680,245 @@ describe('MELODY_LENGTH_PRESETS', () => {
   it('should cover range from 5 to 30', () => {
     expect(MELODY_LENGTH_PRESETS.easy.min).toBe(5);
     expect(MELODY_LENGTH_PRESETS.legendary.max).toBe(30);
+  });
+});
+
+describe('Default Values', () => {
+  it('should have correct default constants', () => {
+    expect(DEFAULT_NOTE_DURATION).toBe(0.5);
+    expect(DEFAULT_NOTE_COLOR).toBe('#6B7280');
+    expect(MIN_MELODY_NOTES).toBe(5);
+    expect(MAX_MELODY_NOTES).toBe(30);
+  });
+
+  it('should generate default durations array', () => {
+    const durations5 = getDefaultDurations(5);
+    expect(durations5).toHaveLength(5);
+    expect(durations5.every(d => d === 0.5)).toBe(true);
+
+    const durations30 = getDefaultDurations(30);
+    expect(durations30).toHaveLength(30);
+    expect(durations30.every(d => d === 0.5)).toBe(true);
+  });
+
+  it('should generate default colors array', () => {
+    const colors5 = getDefaultColors(5);
+    expect(colors5).toHaveLength(5);
+    expect(colors5.every(c => c === '#6B7280')).toBe(true);
+  });
+});
+
+describe('sanitizeMelodyInput', () => {
+  it('should handle valid notes', () => {
+    const input = ['C', 'D', 'E', 'F', 'G'];
+    const result = sanitizeMelodyInput(input);
+    expect(result).toEqual(['C', 'D', 'E', 'F', 'G']);
+  });
+
+  it('should uppercase lowercase notes', () => {
+    const input = ['c', 'd', 'e'];
+    const result = sanitizeMelodyInput(input);
+    expect(result).toEqual(['C', 'D', 'E']);
+  });
+
+  it('should filter out invalid notes', () => {
+    const input = ['C', 'X', 'D', 'H', 'E'];
+    const result = sanitizeMelodyInput(input);
+    expect(result).toEqual(['C', 'D', 'E']);
+  });
+
+  it('should handle empty array', () => {
+    const result = sanitizeMelodyInput([]);
+    expect(result).toEqual([]);
+  });
+
+  it('should handle non-array input', () => {
+    const result = sanitizeMelodyInput(null as any);
+    expect(result).toEqual([]);
+  });
+
+  it('should trim whitespace', () => {
+    const input = [' C ', ' D ', ' E '];
+    const result = sanitizeMelodyInput(input);
+    expect(result).toEqual(['C', 'D', 'E']);
+  });
+
+  it('should handle sharps correctly', () => {
+    const input = ['c#', 'f#', 'g#'];
+    const result = sanitizeMelodyInput(input);
+    expect(result).toEqual(['C#', 'F#', 'G#']);
+  });
+});
+
+describe('normalizeDurations', () => {
+  it('should return defaults for undefined durations', () => {
+    const result = normalizeDurations(undefined, 5);
+    expect(result).toHaveLength(5);
+    expect(result.every(d => d === 0.5)).toBe(true);
+  });
+
+  it('should return defaults for empty array', () => {
+    const result = normalizeDurations([], 5);
+    expect(result).toHaveLength(5);
+    expect(result.every(d => d === 0.5)).toBe(true);
+  });
+
+  it('should pad short durations with defaults', () => {
+    const result = normalizeDurations([1.0, 0.25], 5);
+    expect(result).toHaveLength(5);
+    expect(result[0]).toBe(1.0);
+    expect(result[1]).toBe(0.25);
+    expect(result[2]).toBe(0.5);
+    expect(result[3]).toBe(0.5);
+    expect(result[4]).toBe(0.5);
+  });
+
+  it('should truncate long durations', () => {
+    const result = normalizeDurations([1.0, 0.5, 0.25, 0.75, 1.0, 0.5, 0.25], 5);
+    expect(result).toHaveLength(5);
+  });
+
+  it('should cap durations at 4.0', () => {
+    const result = normalizeDurations([5.0, 10.0, 0.5], 3);
+    expect(result[0]).toBe(4.0);
+    expect(result[1]).toBe(4.0);
+    expect(result[2]).toBe(0.5);
+  });
+
+  it('should replace invalid durations with defaults', () => {
+    const result = normalizeDurations([0, -1, 0.5], 3);
+    expect(result[0]).toBe(0.5);
+    expect(result[1]).toBe(0.5);
+    expect(result[2]).toBe(0.5);
+  });
+
+  it('should handle non-number values', () => {
+    const result = normalizeDurations(['invalid' as any, null as any, 0.5], 3);
+    expect(result[0]).toBe(0.5);
+    expect(result[1]).toBe(0.5);
+    expect(result[2]).toBe(0.5);
+  });
+});
+
+describe('Network Mock Config', () => {
+  beforeEach(() => {
+    setNetworkMockConfig({ enabled: false, latencyMs: 0, failureRate: 0 });
+  });
+
+  it('should return default config', () => {
+    const config = getNetworkMockConfig();
+    expect(config.enabled).toBe(false);
+    expect(config.latencyMs).toBe(0);
+    expect(config.failureRate).toBe(0);
+  });
+
+  it('should update config partially', () => {
+    setNetworkMockConfig({ enabled: true });
+    const config = getNetworkMockConfig();
+    expect(config.enabled).toBe(true);
+    expect(config.latencyMs).toBe(0);
+  });
+
+  it('should update full config', () => {
+    setNetworkMockConfig({ enabled: true, latencyMs: 100, failureRate: 0.5 });
+    const config = getNetworkMockConfig();
+    expect(config.enabled).toBe(true);
+    expect(config.latencyMs).toBe(100);
+    expect(config.failureRate).toBe(0.5);
+  });
+
+  it('should pass through when disabled', async () => {
+    setNetworkMockConfig({ enabled: false });
+    const result = await mockNetworkCall(() => Promise.resolve('success'));
+    expect(result).toBe('success');
+  });
+
+  it('should add latency when enabled', async () => {
+    setNetworkMockConfig({ enabled: true, latencyMs: 50, failureRate: 0 });
+    const start = Date.now();
+    await mockNetworkCall(() => Promise.resolve('success'));
+    const duration = Date.now() - start;
+    expect(duration).toBeGreaterThanOrEqual(45);
+  });
+
+  it('should fail based on failure rate', async () => {
+    setNetworkMockConfig({ enabled: true, latencyMs: 0, failureRate: 1.0 });
+    await expect(mockNetworkCall(() => Promise.resolve('success'))).rejects.toThrow('Mock network failure');
+  });
+});
+
+describe('Edge Cases', () => {
+  describe('getFeedback edge cases', () => {
+    it('should handle single note melody', () => {
+      const result = getFeedback(['C'], ['C']);
+      expect(result).toHaveLength(1);
+      expect(result[0].feedback).toBe('correct');
+    });
+
+    it('should handle all same notes', () => {
+      const result = getFeedback(['C', 'C', 'C', 'C', 'C'], ['C', 'C', 'C', 'C', 'C']);
+      expect(result.every(r => r.feedback === 'correct')).toBe(true);
+    });
+
+    it('should handle sharps and flats', () => {
+      const result = getFeedback(['C#', 'F#', 'G#'], ['C#', 'F#', 'G#']);
+      expect(result.every(r => r.feedback === 'correct')).toBe(true);
+    });
+  });
+
+  describe('validateMelodyNotes edge cases', () => {
+    it('should handle exactly minimum notes', () => {
+      const notes = Array(MIN_MELODY_NOTES).fill('C');
+      notes[0] = 'D';
+      notes[1] = 'E';
+      const result = validateMelodyNotes(notes);
+      expect(result.isValid).toBe(true);
+      expect(result.noteCount).toBe(MIN_MELODY_NOTES);
+    });
+
+    it('should handle exactly maximum notes', () => {
+      const notes = Array(MAX_MELODY_NOTES).fill(null).map((_, i) => VALID_NOTES[i % 12]);
+      const result = validateMelodyNotes(notes);
+      expect(result.isValid).toBe(true);
+      expect(result.noteCount).toBe(MAX_MELODY_NOTES);
+    });
+
+    it('should fail for one note below minimum', () => {
+      const notes = Array(MIN_MELODY_NOTES - 1).fill('C');
+      const result = validateMelodyNotes(notes);
+      expect(result.isValid).toBe(false);
+    });
+
+    it('should fail for one note above maximum', () => {
+      const notes = Array(MAX_MELODY_NOTES + 1).fill('C');
+      const result = validateMelodyNotes(notes);
+      expect(result.isValid).toBe(false);
+    });
+
+    it('should warn for all same notes', () => {
+      const notes = Array(5).fill('C');
+      const result = validateMelodyNotes(notes);
+      expect(result.isValid).toBe(true);
+      expect(result.warnings.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('calculateMelodyScore edge cases', () => {
+    it('should handle minimum length melody', () => {
+      const score = calculateMelodyScore(['C', 'D', 'E', 'F', 'G']);
+      expect(score).toBeGreaterThan(0);
+    });
+
+    it('should handle maximum length melody', () => {
+      const notes = Array(30).fill(null).map((_, i) => VALID_NOTES[i % 12]);
+      const score = calculateMelodyScore(notes);
+      expect(score).toBeGreaterThan(0);
+    });
+
+    it('should give higher score for more variety', () => {
+      const monotone = ['C', 'C', 'C', 'C', 'C'];
+      const varied = ['C', 'D', 'E', 'F', 'G'];
+      expect(calculateMelodyScore(varied)).toBeGreaterThan(calculateMelodyScore(monotone));
+    });
   });
 });
