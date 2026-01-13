@@ -31,6 +31,9 @@ import {
   TrendingUp,
   Clock,
   Swords,
+  Sliders,
+  Zap,
+  ChevronDown,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
@@ -53,6 +56,17 @@ import {
   getMelodyShareUrl,
 } from '@/constants/ugc';
 import { validateMelodyNotes, GuessResult } from '@/utils/gameLogic';
+import {
+  RHYTHM_PRESETS,
+  TEMPO_OPTIONS,
+  STYLE_OPTIONS,
+  RhythmPreset,
+  TempoVariant,
+  StyleVariant,
+  MelodyVariant,
+  generateMelodyVariants,
+  generateCustomVariant,
+} from '@/utils/aiSongRecreator';
 import GuessGrid from '@/components/GuessGrid';
 import { NOTE_SCALE } from '@/utils/melodies';
 import ThemedBackground from '@/components/ThemedBackground';
@@ -93,6 +107,15 @@ function ComposerTab() {
   const [showMoodPicker, setShowMoodPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedMelody, setSavedMelody] = useState<UserMelody | null>(null);
+
+  const [showRhythmEditor, setShowRhythmEditor] = useState(false);
+  const [rhythmPreset, setRhythmPreset] = useState<RhythmPreset>('straight');
+  const [swingAmount, setSwingAmount] = useState(0);
+  const [tempo, setTempo] = useState<TempoVariant>('medium');
+  const [styleVariant, setStyleVariant] = useState<StyleVariant>('original');
+  const [showVariantPicker, setShowVariantPicker] = useState(false);
+  const [generatedVariants, setGeneratedVariants] = useState<MelodyVariant[]>([]);
+  const [selectedVariant, setSelectedVariant] = useState<MelodyVariant | null>(null);
 
   const currentDifficulty = useMemo(() => getDifficultyForLength(targetLength), [targetLength]);
 
@@ -164,9 +187,48 @@ function ComposerTab() {
     if (playbackState.isPlaying) {
       stopPlayback();
     } else {
-      playMelody(notes, 400);
+      const tempoMs = Math.round((60 / TEMPO_OPTIONS[tempo].bpm) * 1000 * 0.5);
+      const playNotes = selectedVariant ? selectedVariant.notes : notes;
+      playMelody(playNotes, tempoMs);
     }
-  }, [notes, playbackState.isPlaying, playMelody, stopPlayback]);
+  }, [notes, playbackState.isPlaying, playMelody, stopPlayback, tempo, selectedVariant]);
+
+  const handleGenerateVariants = useCallback(() => {
+    if (notes.length < 3) return;
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    const variants = generateMelodyVariants(notes);
+    setGeneratedVariants(variants);
+    setShowVariantPicker(true);
+    console.log('Generated variants:', variants.length);
+  }, [notes]);
+
+  const handleSelectVariant = useCallback((variant: MelodyVariant) => {
+    setSelectedVariant(variant);
+    setRhythmPreset(variant.rhythmPreset);
+    setSwingAmount(variant.swingAmount);
+    setStyleVariant(variant.style);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setShowVariantPicker(false);
+  }, []);
+
+  const handleApplyCustomRhythm = useCallback(() => {
+    if (notes.length < 3) return;
+    const customVariant = generateCustomVariant(
+      notes,
+      rhythmPreset,
+      swingAmount,
+      TEMPO_OPTIONS[tempo].bpm,
+      styleVariant
+    );
+    setSelectedVariant(customVariant);
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  }, [notes, rhythmPreset, swingAmount, tempo, styleVariant]);
 
   const handleSave = useCallback(async () => {
     if (notes.length !== targetLength || !title.trim() || !hint.trim()) {
@@ -456,6 +518,210 @@ function ComposerTab() {
             </Text>
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* Rhythm Editor Section */}
+      <View style={styles.rhythmSection}>
+        <TouchableOpacity
+          style={styles.rhythmToggle}
+          onPress={() => {
+            setShowRhythmEditor(!showRhythmEditor);
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+          }}
+        >
+          <View style={styles.rhythmToggleLeft}>
+            <Sliders size={20} color={Colors.accent} />
+            <View>
+              <Text style={styles.rhythmToggleTitle}>Rhythm Editor</Text>
+              <Text style={styles.rhythmToggleSubtitle}>
+                {RHYTHM_PRESETS[rhythmPreset].name} • {TEMPO_OPTIONS[tempo].name}
+              </Text>
+            </View>
+          </View>
+          <ChevronDown
+            size={20}
+            color={Colors.textMuted}
+            style={{ transform: [{ rotate: showRhythmEditor ? '180deg' : '0deg' }] }}
+          />
+        </TouchableOpacity>
+
+        {showRhythmEditor && (
+          <View style={styles.rhythmEditorContent}>
+            <Text style={styles.rhythmLabel}>Rhythm Preset</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.presetsScroll}>
+              <View style={styles.presetsRow}>
+                {(Object.keys(RHYTHM_PRESETS) as RhythmPreset[]).map((preset) => {
+                  const info = RHYTHM_PRESETS[preset];
+                  const isSelected = rhythmPreset === preset;
+                  return (
+                    <TouchableOpacity
+                      key={preset}
+                      style={[styles.presetChip, isSelected && styles.presetChipActive]}
+                      onPress={() => {
+                        setRhythmPreset(preset);
+                        if (Platform.OS !== 'web') {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        }
+                      }}
+                    >
+                      <Text style={styles.presetIcon}>{info.icon}</Text>
+                      <Text style={[styles.presetName, isSelected && styles.presetNameActive]}>
+                        {info.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+            <View style={styles.sliderSection}>
+              <View style={styles.sliderHeader}>
+                <Text style={styles.rhythmLabel}>Swing Amount</Text>
+                <Text style={styles.sliderValue}>{Math.round(swingAmount * 100)}%</Text>
+              </View>
+              <View style={styles.sliderTrack}>
+                <View style={[styles.sliderFill, { width: `${swingAmount * 100}%` }]} />
+                <View style={styles.sliderTicks}>
+                  {[0, 25, 50, 75, 100].map((tick) => (
+                    <TouchableOpacity
+                      key={tick}
+                      style={styles.sliderTickTouch}
+                      onPress={() => setSwingAmount(tick / 100)}
+                    >
+                      <View style={[styles.sliderTick, swingAmount * 100 >= tick && styles.sliderTickActive]} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            <Text style={styles.rhythmLabel}>Tempo</Text>
+            <View style={styles.tempoRow}>
+              {(Object.keys(TEMPO_OPTIONS) as TempoVariant[]).map((t) => {
+                const info = TEMPO_OPTIONS[t];
+                const isSelected = tempo === t;
+                return (
+                  <TouchableOpacity
+                    key={t}
+                    style={[styles.tempoBtn, isSelected && styles.tempoBtnActive]}
+                    onPress={() => {
+                      setTempo(t);
+                      if (Platform.OS !== 'web') {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }
+                    }}
+                  >
+                    <Text style={styles.tempoIcon}>{info.icon}</Text>
+                    <Text style={[styles.tempoName, isSelected && styles.tempoNameActive]}>
+                      {info.name}
+                    </Text>
+                    <Text style={styles.tempoBpm}>{info.bpm} BPM</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={styles.rhythmLabel}>Style</Text>
+            <View style={styles.styleRow}>
+              {(Object.keys(STYLE_OPTIONS) as StyleVariant[]).map((s) => {
+                const info = STYLE_OPTIONS[s];
+                const isSelected = styleVariant === s;
+                return (
+                  <TouchableOpacity
+                    key={s}
+                    style={[
+                      styles.styleBtn,
+                      isSelected && { backgroundColor: info.color + '30', borderColor: info.color },
+                    ]}
+                    onPress={() => {
+                      setStyleVariant(s);
+                      if (Platform.OS !== 'web') {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }
+                    }}
+                  >
+                    <Text style={styles.styleIcon}>{info.icon}</Text>
+                    <Text style={[styles.styleName, isSelected && { color: info.color }]}>
+                      {info.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <TouchableOpacity
+              style={[styles.applyRhythmBtn, notes.length < 3 && styles.applyRhythmBtnDisabled]}
+              onPress={handleApplyCustomRhythm}
+              disabled={notes.length < 3}
+            >
+              <Check size={18} color={notes.length < 3 ? Colors.textMuted : Colors.background} />
+              <Text style={[styles.applyRhythmText, notes.length < 3 && styles.applyRhythmTextDisabled]}>
+                Apply Rhythm
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
+      {/* AI Variants Section */}
+      <View style={styles.variantsSection}>
+        <TouchableOpacity
+          style={[styles.generateVariantsBtn, notes.length < 3 && styles.generateVariantsBtnDisabled]}
+          onPress={handleGenerateVariants}
+          disabled={notes.length < 3}
+        >
+          <Zap size={18} color={notes.length < 3 ? Colors.textMuted : Colors.fever} />
+          <Text style={[styles.generateVariantsText, notes.length < 3 && styles.generateVariantsTextDisabled]}>
+            Generate AI Variants
+          </Text>
+        </TouchableOpacity>
+
+        {selectedVariant && (
+          <View style={styles.selectedVariantCard}>
+            <Text style={styles.selectedVariantLabel}>Selected Variant</Text>
+            <View style={styles.selectedVariantInfo}>
+              <Text style={styles.selectedVariantName}>{selectedVariant.name}</Text>
+              <Text style={styles.selectedVariantDesc}>{selectedVariant.description}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.clearVariantBtn}
+              onPress={() => setSelectedVariant(null)}
+            >
+              <X size={14} color={Colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {showVariantPicker && generatedVariants.length > 0 && (
+          <View style={styles.variantPickerContainer}>
+            <Text style={styles.variantPickerTitle}>Choose a Variant</Text>
+            {generatedVariants.map((variant) => (
+              <TouchableOpacity
+                key={variant.id}
+                style={[
+                  styles.variantOption,
+                  selectedVariant?.id === variant.id && styles.variantOptionSelected,
+                ]}
+                onPress={() => handleSelectVariant(variant)}
+              >
+                <View style={styles.variantOptionLeft}>
+                  <Text style={styles.variantOptionIcon}>
+                    {STYLE_OPTIONS[variant.style].icon}
+                  </Text>
+                  <View>
+                    <Text style={styles.variantOptionName}>{variant.name}</Text>
+                    <Text style={styles.variantOptionDesc}>{variant.description}</Text>
+                  </View>
+                </View>
+                <View style={styles.variantOptionMeta}>
+                  <Text style={styles.variantOptionTempo}>{variant.tempo} BPM</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
 
       <View style={styles.metadataSection}>
@@ -1739,5 +2005,330 @@ const styles = StyleSheet.create({
   voteCount: {
     fontSize: 13,
     color: Colors.text,
+  },
+  rhythmSection: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  rhythmToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  rhythmToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  rhythmToggleTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.text,
+  },
+  rhythmToggleSubtitle: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  rhythmEditorContent: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  rhythmLabel: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.textSecondary,
+    marginBottom: 10,
+  },
+  presetsScroll: {
+    marginBottom: 16,
+  },
+  presetsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  presetChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: Colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  presetChipActive: {
+    backgroundColor: Colors.accent + '20',
+    borderColor: Colors.accent,
+  },
+  presetIcon: {
+    fontSize: 16,
+  },
+  presetName: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    color: Colors.text,
+  },
+  presetNameActive: {
+    color: Colors.accent,
+    fontWeight: '600' as const,
+  },
+  sliderSection: {
+    marginBottom: 16,
+  },
+  sliderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  sliderValue: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.accent,
+  },
+  sliderTrack: {
+    height: 32,
+    backgroundColor: Colors.surfaceLight,
+    borderRadius: 8,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  sliderFill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: Colors.accent,
+    borderRadius: 8,
+  },
+  sliderTicks: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sliderTickTouch: {
+    flex: 1,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sliderTick: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.textMuted,
+  },
+  sliderTickActive: {
+    backgroundColor: Colors.background,
+  },
+  tempoRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  tempoBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: Colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  tempoBtnActive: {
+    backgroundColor: Colors.accent + '20',
+    borderColor: Colors.accent,
+  },
+  tempoIcon: {
+    fontSize: 18,
+    marginBottom: 4,
+  },
+  tempoName: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: Colors.text,
+  },
+  tempoNameActive: {
+    color: Colors.accent,
+  },
+  tempoBpm: {
+    fontSize: 10,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  styleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  styleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  styleIcon: {
+    fontSize: 14,
+  },
+  styleName: {
+    fontSize: 12,
+    fontWeight: '500' as const,
+    color: Colors.text,
+  },
+  applyRhythmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.accent,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  applyRhythmBtnDisabled: {
+    backgroundColor: Colors.surfaceLight,
+  },
+  applyRhythmText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.background,
+  },
+  applyRhythmTextDisabled: {
+    color: Colors.textMuted,
+  },
+  variantsSection: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  generateVariantsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.fever + '20',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.fever + '40',
+  },
+  generateVariantsBtnDisabled: {
+    backgroundColor: Colors.surfaceLight,
+    borderColor: Colors.border,
+  },
+  generateVariantsText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.fever,
+  },
+  generateVariantsTextDisabled: {
+    color: Colors.textMuted,
+  },
+  selectedVariantCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.accent + '15',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: Colors.accent + '30',
+  },
+  selectedVariantLabel: {
+    fontSize: 10,
+    color: Colors.accent,
+    fontWeight: '600' as const,
+    position: 'absolute',
+    top: -8,
+    left: 12,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 4,
+  },
+  selectedVariantInfo: {
+    flex: 1,
+  },
+  selectedVariantName: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.text,
+  },
+  selectedVariantDesc: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  clearVariantBtn: {
+    padding: 8,
+  },
+  variantPickerContainer: {
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingTop: 16,
+  },
+  variantPickerTitle: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.text,
+    marginBottom: 12,
+  },
+  variantOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceLight,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  variantOptionSelected: {
+    backgroundColor: Colors.accent + '15',
+    borderColor: Colors.accent,
+  },
+  variantOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  variantOptionIcon: {
+    fontSize: 24,
+  },
+  variantOptionName: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.text,
+  },
+  variantOptionDesc: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  variantOptionMeta: {
+    alignItems: 'flex-end',
+  },
+  variantOptionTempo: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    fontWeight: '500' as const,
   },
 });
