@@ -8,7 +8,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Trophy, Flame, Crown, Medal, Award } from 'lucide-react-native';
+import { Trophy, Flame, Crown, Medal, Award, Music, Heart, Pencil } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 
 interface LeaderboardEntry {
@@ -59,7 +59,32 @@ const MOCK_STREAK_LEADERS: LeaderboardEntry[] = [
   { id: '10', username: 'StreakStarter', score: 0, streak: 43, rank: 10 },
 ];
 
-type TabType = 'daily' | 'fever' | 'streaks';
+interface CreatorEntry {
+  id: string;
+  username: string;
+  melodiesCreated: number;
+  totalPlays: number;
+  totalLikes: number;
+  avgRating: number;
+  rank: number;
+  isCurrentUser?: boolean;
+  featuredMelody?: string;
+}
+
+const MOCK_CREATOR_LEADERS: CreatorEntry[] = [
+  { id: '1', username: 'MelodyMaker', melodiesCreated: 42, totalPlays: 15420, totalLikes: 3240, avgRating: 4.8, rank: 1, featuredMelody: 'Summer Breeze' },
+  { id: '2', username: 'TuneSmith', melodiesCreated: 38, totalPlays: 12800, totalLikes: 2890, avgRating: 4.7, rank: 2, featuredMelody: 'Midnight Jazz' },
+  { id: '3', username: 'NoteWizard', melodiesCreated: 35, totalPlays: 11200, totalLikes: 2450, avgRating: 4.6, rank: 3, featuredMelody: 'Ocean Waves' },
+  { id: '4', username: 'SoundArtist', melodiesCreated: 31, totalPlays: 9800, totalLikes: 2100, avgRating: 4.5, rank: 4, featuredMelody: 'City Lights' },
+  { id: '5', username: 'BeatCreator', melodiesCreated: 28, totalPlays: 8400, totalLikes: 1850, avgRating: 4.4, rank: 5, featuredMelody: 'Forest Path' },
+  { id: '6', username: 'HarmonyPro', melodiesCreated: 24, totalPlays: 7200, totalLikes: 1620, avgRating: 4.3, rank: 6, featuredMelody: 'Rainy Day' },
+  { id: '7', username: 'ChordMaster', melodiesCreated: 21, totalPlays: 6100, totalLikes: 1380, avgRating: 4.2, rank: 7, featuredMelody: 'Spring Morning' },
+  { id: '8', username: 'You', melodiesCreated: 5, totalPlays: 420, totalLikes: 85, avgRating: 4.1, rank: 8, isCurrentUser: true, featuredMelody: 'My First Tune' },
+  { id: '9', username: 'RhythmKing', melodiesCreated: 18, totalPlays: 5200, totalLikes: 1150, avgRating: 4.0, rank: 9, featuredMelody: 'Desert Wind' },
+  { id: '10', username: 'MelodyNewbie', melodiesCreated: 15, totalPlays: 4300, totalLikes: 920, avgRating: 3.9, rank: 10, featuredMelody: 'First Steps' },
+];
+
+type TabType = 'daily' | 'fever' | 'streaks' | 'creators';
 
 function getRankIcon(rank: number) {
   if (rank === 1) return <Crown size={20} color="#FFD700" />;
@@ -109,6 +134,51 @@ function LeaderboardRow({ entry, type }: { entry: LeaderboardEntry; type: TabTyp
   );
 }
 
+function CreatorRow({ entry }: { entry: CreatorEntry }) {
+  return (
+    <View style={[
+      styles.row,
+      styles.creatorRow,
+      entry.isCurrentUser && styles.currentUserRow,
+    ]}>
+      <View style={styles.rankContainer}>
+        {getRankIcon(entry.rank) || (
+          <Text style={[styles.rankText, { color: getRankColor(entry.rank) }]}>
+            {entry.rank}
+          </Text>
+        )}
+      </View>
+      <View style={styles.creatorInfo}>
+        <Text style={[styles.username, entry.isCurrentUser && styles.currentUserText]}>
+          {entry.username}
+        </Text>
+        {entry.featuredMelody && (
+          <Text style={styles.featuredMelody} numberOfLines={1}>
+            🎵 {entry.featuredMelody}
+          </Text>
+        )}
+        <View style={styles.creatorStats}>
+          <View style={styles.creatorStat}>
+            <Pencil size={10} color={Colors.textMuted} />
+            <Text style={styles.creatorStatText}>{entry.melodiesCreated}</Text>
+          </View>
+          <View style={styles.creatorStat}>
+            <Heart size={10} color="#EF4444" />
+            <Text style={styles.creatorStatText}>{entry.totalLikes.toLocaleString()}</Text>
+          </View>
+          <View style={styles.creatorStat}>
+            <Music size={10} color={Colors.accent} />
+            <Text style={styles.creatorStatText}>{entry.totalPlays.toLocaleString()}</Text>
+          </View>
+        </View>
+      </View>
+      <View style={styles.ratingBadge}>
+        <Text style={styles.ratingText}>⭐ {entry.avgRating.toFixed(1)}</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabType>('daily');
@@ -127,6 +197,8 @@ export default function LeaderboardScreen() {
         return MOCK_FEVER_LEADERS;
       case 'streaks':
         return MOCK_STREAK_LEADERS;
+      case 'creators':
+        return [];
     }
   };
 
@@ -134,6 +206,7 @@ export default function LeaderboardScreen() {
     { key: 'daily', label: 'Daily', icon: <Trophy size={16} color={activeTab === 'daily' ? Colors.background : Colors.textSecondary} /> },
     { key: 'fever', label: 'Fever', icon: <Flame size={16} color={activeTab === 'fever' ? Colors.background : Colors.textSecondary} /> },
     { key: 'streaks', label: 'Streaks', icon: <Flame size={16} color={activeTab === 'streaks' ? Colors.background : Colors.textSecondary} /> },
+    { key: 'creators', label: 'Creators', icon: <Pencil size={16} color={activeTab === 'creators' ? Colors.background : Colors.textSecondary} /> },
   ];
 
   return (
@@ -170,38 +243,71 @@ export default function LeaderboardScreen() {
           />
         }
       >
-        <View style={styles.topThree}>
-          {getLeaderboardData().slice(0, 3).map((entry, index) => (
-            <View 
-              key={entry.id} 
-              style={[
-                styles.podiumItem,
-                index === 0 && styles.firstPlace,
-                index === 1 && styles.secondPlace,
-                index === 2 && styles.thirdPlace,
-              ]}
-            >
-              <View style={[styles.podiumAvatar, { backgroundColor: getRankColor(entry.rank) + '30' }]}>
-                {getRankIcon(entry.rank)}
+        {activeTab !== 'creators' ? (
+          <View style={styles.topThree}>
+            {getLeaderboardData().slice(0, 3).map((entry, index) => (
+              <View 
+                key={entry.id} 
+                style={[
+                  styles.podiumItem,
+                  index === 0 && styles.firstPlace,
+                  index === 1 && styles.secondPlace,
+                  index === 2 && styles.thirdPlace,
+                ]}
+              >
+                <View style={[styles.podiumAvatar, { backgroundColor: getRankColor(entry.rank) + '30' }]}>
+                  {getRankIcon(entry.rank)}
+                </View>
+                <Text style={styles.podiumName} numberOfLines={1}>{entry.username}</Text>
+                <Text style={styles.podiumScore}>
+                  {activeTab === 'fever' 
+                    ? entry.score.toLocaleString()
+                    : activeTab === 'streaks' 
+                      ? `${entry.streak} days`
+                      : `${entry.score} guesses`
+                  }
+                </Text>
               </View>
-              <Text style={styles.podiumName} numberOfLines={1}>{entry.username}</Text>
-              <Text style={styles.podiumScore}>
-                {activeTab === 'fever' 
-                  ? entry.score.toLocaleString()
-                  : activeTab === 'streaks' 
-                    ? `${entry.streak} days`
-                    : `${entry.score} guesses`
-                }
-              </Text>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.topThree}>
+            {MOCK_CREATOR_LEADERS.slice(0, 3).map((entry, index) => (
+              <View 
+                key={entry.id} 
+                style={[
+                  styles.podiumItem,
+                  index === 0 && styles.firstPlace,
+                  index === 1 && styles.secondPlace,
+                  index === 2 && styles.thirdPlace,
+                ]}
+              >
+                <View style={[styles.podiumAvatar, { backgroundColor: getRankColor(entry.rank) + '30' }]}>
+                  {getRankIcon(entry.rank)}
+                </View>
+                <Text style={styles.podiumName} numberOfLines={1}>{entry.username}</Text>
+                <View style={styles.creatorPodiumStats}>
+                  <Text style={styles.podiumScore}>{entry.melodiesCreated} melodies</Text>
+                  <Text style={styles.podiumSubScore}>❤️ {entry.totalLikes.toLocaleString()}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
 
-        <View style={styles.listContainer}>
-          {getLeaderboardData().slice(3).map(entry => (
-            <LeaderboardRow key={entry.id} entry={entry} type={activeTab} />
-          ))}
-        </View>
+        {activeTab !== 'creators' ? (
+          <View style={styles.listContainer}>
+            {getLeaderboardData().slice(3).map(entry => (
+              <LeaderboardRow key={entry.id} entry={entry} type={activeTab} />
+            ))}
+          </View>
+        ) : (
+          <View style={styles.listContainer}>
+            {MOCK_CREATOR_LEADERS.slice(3).map(entry => (
+              <CreatorRow key={entry.id} entry={entry} />
+            ))}
+          </View>
+        )}
 
         <View style={styles.disclaimer}>
           <Text style={styles.disclaimerText}>
@@ -375,5 +481,50 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textMuted,
     textAlign: 'center',
+  },
+  creatorRow: {
+    paddingVertical: 16,
+  },
+  creatorInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  featuredMelody: {
+    fontSize: 12,
+    color: Colors.accent,
+    marginTop: 2,
+  },
+  creatorStats: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 6,
+  },
+  creatorStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  creatorStatText: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+  },
+  ratingBadge: {
+    backgroundColor: Colors.accent + '20',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  ratingText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.accent,
+  },
+  creatorPodiumStats: {
+    alignItems: 'center',
+  },
+  podiumSubScore: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 2,
   },
 });

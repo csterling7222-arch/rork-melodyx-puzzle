@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,37 @@ import { Colors } from '@/constants/colors';
 import { useEvents } from '@/contexts/EventsContext';
 import { ThemeEvent } from '@/constants/events';
 
+function useCountdown(targetDate: Date, isActive: boolean) {
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    if (!isActive) return;
+
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime();
+      const target = targetDate.getTime();
+      const difference = target - now;
+
+      if (difference > 0) {
+        setTimeLeft({
+          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+          minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
+          seconds: Math.floor((difference % (1000 * 60)) / 1000),
+        });
+      } else {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      }
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+    return () => clearInterval(timer);
+  }, [targetDate, isActive]);
+
+  return timeLeft;
+}
+
 function EventCard({ 
   event, 
   isActive,
@@ -32,9 +63,20 @@ function EventCard({
   const now = new Date();
   const isUpcoming = startDate > now;
   const isCompleted = progress && progress.completed === progress.total;
+  const countdown = useCountdown(isUpcoming ? startDate : endDate, true);
   
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const formatCountdown = () => {
+    if (countdown.days > 0) {
+      return `${countdown.days}d ${countdown.hours}h`;
+    }
+    if (countdown.hours > 0) {
+      return `${countdown.hours}h ${countdown.minutes}m`;
+    }
+    return `${countdown.minutes}m ${countdown.seconds}s`;
   };
 
   return (
@@ -59,12 +101,40 @@ function EventCard({
         {isUpcoming && (
           <View style={styles.upcomingBadge}>
             <Clock size={12} color={Colors.textMuted} />
-            <Text style={styles.upcomingText}>Soon</Text>
+            <Text style={styles.upcomingText}>In {formatCountdown()}</Text>
           </View>
         )}
       </View>
 
       <Text style={styles.eventDesc}>{event.description}</Text>
+
+      {isActive && !isCompleted && (
+        <View style={styles.countdownContainer}>
+          <Clock size={14} color={Colors.accent} />
+          <Text style={styles.countdownLabel}>Ends in:</Text>
+          <View style={styles.countdownTimer}>
+            <View style={styles.countdownUnit}>
+              <Text style={styles.countdownValue}>{countdown.days}</Text>
+              <Text style={styles.countdownUnitLabel}>D</Text>
+            </View>
+            <Text style={styles.countdownSeparator}>:</Text>
+            <View style={styles.countdownUnit}>
+              <Text style={styles.countdownValue}>{countdown.hours.toString().padStart(2, '0')}</Text>
+              <Text style={styles.countdownUnitLabel}>H</Text>
+            </View>
+            <Text style={styles.countdownSeparator}>:</Text>
+            <View style={styles.countdownUnit}>
+              <Text style={styles.countdownValue}>{countdown.minutes.toString().padStart(2, '0')}</Text>
+              <Text style={styles.countdownUnitLabel}>M</Text>
+            </View>
+            <Text style={styles.countdownSeparator}>:</Text>
+            <View style={styles.countdownUnit}>
+              <Text style={styles.countdownValue}>{countdown.seconds.toString().padStart(2, '0')}</Text>
+              <Text style={styles.countdownUnitLabel}>S</Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       {progress && (
         <View style={styles.progressSection}>
@@ -373,6 +443,49 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     lineHeight: 20,
     marginBottom: 16,
+  },
+  countdownContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceLight,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  countdownLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '500' as const,
+  },
+  countdownTimer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto',
+    gap: 4,
+  },
+  countdownUnit: {
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 36,
+  },
+  countdownValue: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  countdownUnitLabel: {
+    fontSize: 9,
+    color: Colors.textMuted,
+    fontWeight: '600' as const,
+  },
+  countdownSeparator: {
+    fontSize: 14,
+    color: Colors.textMuted,
+    fontWeight: '600' as const,
   },
   progressSection: {
     marginBottom: 16,
