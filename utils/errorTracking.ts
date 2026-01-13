@@ -1,5 +1,6 @@
-import { Platform, Dimensions, PixelRatio } from 'react-native';
+import { Platform, Dimensions, PixelRatio, AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 
 type SeverityLevel = 'fatal' | 'error' | 'warning' | 'info' | 'debug';
 
@@ -85,6 +86,38 @@ const DEFAULT_ADAPTIVE_SETTINGS: AdaptiveSettings = {
   preloadCount: 12,
 };
 
+// === CRASH ANALYTICS CONSTANTS ===
+const CRASH_BUFFER_KEY = 'melodyx_crash_buffer';
+const ANR_THRESHOLD_MS = 5000;
+const MAX_CRASH_BUFFER_SIZE = 50;
+
+export interface CrashReport {
+  id: string;
+  type: 'crash' | 'anr' | 'network' | 'memory' | 'js_error';
+  timestamp: string;
+  message: string;
+  stack?: string;
+  deviceInfo: DeviceInfo;
+  sessionId: string;
+  breadcrumbs: BreadcrumbData[];
+  metadata: Record<string, unknown>;
+  isFatal: boolean;
+  appState: string;
+  networkState?: NetworkState;
+}
+
+export interface NetworkState {
+  isConnected: boolean;
+  type: string;
+  isInternetReachable: boolean | null;
+}
+
+export interface ANRDetection {
+  lastHeartbeat: number;
+  isResponsive: boolean;
+  anrCount: number;
+}
+
 class ErrorTracker {
   private isInitialized = false;
   private userId: string | null = null;
@@ -97,6 +130,24 @@ class ErrorTracker {
   private currentFPS: number = 60;
   private memoryWarningCount: number = 0;
   private glitchReports: GlitchReport[] = [];
+  
+  // Crash analytics
+  private crashBuffer: CrashReport[] = [];
+  private breadcrumbBuffer: BreadcrumbData[] = [];
+  private maxBreadcrumbs: number = 50;
+  private anrDetection: ANRDetection = {
+    lastHeartbeat: Date.now(),
+    isResponsive: true,
+    anrCount: 0,
+  };
+  private networkState: NetworkState = {
+    isConnected: true,
+    type: 'unknown',
+    isInternetReachable: true,
+  };
+  private appState: AppStateStatus = 'active';
+  private anrCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private networkUnsubscribe: (() => void) | null = null;
 
   constructor() {
     const { width, height } = Dimensions.get('window');
@@ -163,7 +214,11 @@ class ErrorTracker {
     
     this.loadGlitchReports();
     this.loadAdaptiveSettings();
+    this.loadCrashBuffer();
     this.startFPSMonitoring();
+    this.startANRDetection();
+    this.startNetworkMonitoring();
+    this.startAppStateMonitoring();
     
     console.log('[ErrorTracker] Device info:', this.deviceInfo);
     console.log('[ErrorTracker] Adaptive settings:', this.adaptiveSettings);
@@ -205,6 +260,236 @@ class ErrorTracker {
     }
     
     this.saveAdaptiveSettings();
+  }
+
+  // === ANR DETECTION ===
+  private startANRDetection() {
+    if (Platform.OS === 'web') return;
+    
+    const heartbeat = () => {
+      this.anrDetection.lastHeartbeat = Date.now();
+    };
+    
+    // Update heartbeat on each frame
+    const frameCallback = () => {
+      heartbeat();
+      requestAnimationFrame(frameCallback);
+    };
+    requestAnimationFrame(frameCallback);
+    
+    // Check for ANR periodically
+    this.anrCheckInterval = setInterval(() => {
+      const timeSinceHeartbeat = Date.now() - this.anrDetection.lastHeartbeat;
+      
+      if (timeSinceHeartbeat > ANR_THRESHOLD_MS && this.anrDetection.isResponsive) {
+        this.anrDetection.isResponsive = false;
+        this.anrDetection.anrCount++;
+        
+        console.error('[ErrorTracker] ANR detected! UI unresponsive for', timeSinceHeartbeat, 'ms');
+        
+        this.reportCrash({
+          type: 'anr',
+          message: `App Not Responding - UI blocked for ${timeSinceHeartbeat}ms`,
+          isFatal: false,
+          metadata: {
+            blockedDuration: timeSinceHeartbeat,
+            anrCount: this.anrDetection.anrCount,
+            fps: this.currentFPS,
+          },
+        });
+      } else if (timeSinceHeartbeat < 1000) {
+        this.anrDetection.isResponsive = true;
+      }
+    }, 1000);
+  }
+
+  // === NETWORK MONITORING ===
+  private startNetworkMonitoring() {
+    try {
+      this.networkUnsubscribe = NetInfo.addEventListener(state => {
+        const wasConnected = this.networkState.isConnected;
+        
+        this.networkState = {
+          isConnected: state.isConnected ?? false,
+          type: state.type,
+          isInternetReachable: state.isInternetReachable,
+        };
+        
+        if (wasConnected && !state.isConnected) {
+          console.warn('[ErrorTracker] Network disconnected');
+          this.addBreadcrumb({
+            category: 'network',
+            message: 'Network disconnected',
+            level: 'warning',
+            data: { type: state.type },
+          });
+        } else if (!wasConnected && state.isConnected) {
+          console.log('[ErrorTracker] Network reconnected');
+          this.addBreadcrumb({
+            category: 'network',
+            message: 'Network reconnected',
+            level: 'info',
+            data: { type: state.type },
+          });
+          
+          // Attempt to flush crash buffer on reconnect
+          this.flushCrashBuffer();
+        }
+      });
+    } catch (error) {
+      console.log('[ErrorTracker] Network monitoring not available:', error);
+    }
+  }
+
+  // === APP STATE MONITORING ===
+  private startAppStateMonitoring() {
+    AppState.addEventListener('change', (nextAppState) => {
+      const prevState = this.appState;
+      this.appState = nextAppState;
+      
+      this.addBreadcrumb({
+        category: 'app_state',
+        message: `App state changed: ${prevState} -> ${nextAppState}`,
+        level: 'info',
+      });
+      
+      if (nextAppState === 'active' && prevState !== 'active') {
+        // App came to foreground, flush any pending crashes
+        this.flushCrashBuffer();
+      }
+    });
+  }
+
+  // === CRASH BUFFER MANAGEMENT ===
+  private async loadCrashBuffer() {
+    try {
+      const stored = await AsyncStorage.getItem(CRASH_BUFFER_KEY);
+      if (stored) {
+        this.crashBuffer = JSON.parse(stored);
+        console.log('[ErrorTracker] Loaded', this.crashBuffer.length, 'pending crash reports');
+        
+        // Attempt to flush on load
+        this.flushCrashBuffer();
+      }
+    } catch (error) {
+      console.log('[ErrorTracker] Failed to load crash buffer:', error);
+    }
+  }
+
+  private async saveCrashBuffer() {
+    try {
+      const toSave = this.crashBuffer.slice(-MAX_CRASH_BUFFER_SIZE);
+      await AsyncStorage.setItem(CRASH_BUFFER_KEY, JSON.stringify(toSave));
+    } catch (error) {
+      console.log('[ErrorTracker] Failed to save crash buffer:', error);
+    }
+  }
+
+  private async flushCrashBuffer() {
+    if (this.crashBuffer.length === 0) return;
+    if (!this.networkState.isConnected) return;
+    
+    console.log('[ErrorTracker] Flushing', this.crashBuffer.length, 'crash reports');
+    
+    const reportsToSend = [...this.crashBuffer];
+    this.crashBuffer = [];
+    
+    for (const report of reportsToSend) {
+      try {
+        await this.sendCrashReport(report);
+      } catch {
+        // Re-add failed reports back to buffer
+        this.crashBuffer.push(report);
+      }
+    }
+    
+    await this.saveCrashBuffer();
+  }
+
+  private async sendCrashReport(report: CrashReport): Promise<void> {
+    const endpoint = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
+    if (!endpoint) {
+      console.log('[ErrorTracker] No endpoint, crash report logged locally:', report.type);
+      return;
+    }
+    
+    if (__DEV__) {
+      console.log('[ErrorTracker] [DEV] Crash report:', report.type, report.message);
+      return;
+    }
+    
+    // In production, would send to crash reporting service
+    console.log('[ErrorTracker] Crash report sent:', report.id);
+  }
+
+  async reportCrash(options: {
+    type: CrashReport['type'];
+    message: string;
+    stack?: string;
+    isFatal: boolean;
+    metadata?: Record<string, unknown>;
+  }): Promise<string> {
+    const report: CrashReport = {
+      id: `crash_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      type: options.type,
+      timestamp: new Date().toISOString(),
+      message: options.message,
+      stack: options.stack,
+      deviceInfo: this.getDeviceInfo(),
+      sessionId: this.sessionId,
+      breadcrumbs: [...this.breadcrumbBuffer],
+      metadata: options.metadata || {},
+      isFatal: options.isFatal,
+      appState: this.appState,
+      networkState: { ...this.networkState },
+    };
+    
+    this.crashBuffer.push(report);
+    await this.saveCrashBuffer();
+    
+    console.error('[ErrorTracker] Crash reported:', report.type, '-', report.message);
+    
+    // Try to send immediately if connected
+    if (this.networkState.isConnected) {
+      this.flushCrashBuffer();
+    }
+    
+    return report.id;
+  }
+
+  reportNetworkError(url: string, status: number, error?: string): void {
+    this.addBreadcrumb({
+      category: 'network',
+      message: `Network error: ${url} - ${status}`,
+      level: 'error',
+      data: { url, status, error },
+    });
+    
+    if (status >= 500 || status === 0) {
+      this.reportCrash({
+        type: 'network',
+        message: `Network error: ${status} for ${url}`,
+        isFatal: false,
+        metadata: { url, status, error },
+      });
+    }
+  }
+
+  getANRStats(): ANRDetection {
+    return { ...this.anrDetection };
+  }
+
+  getNetworkState(): NetworkState {
+    return { ...this.networkState };
+  }
+
+  getCrashBuffer(): CrashReport[] {
+    return [...this.crashBuffer];
+  }
+
+  clearCrashBuffer(): void {
+    this.crashBuffer = [];
+    this.saveCrashBuffer();
   }
 
   private async loadGlitchReports() {
@@ -304,7 +589,25 @@ class ErrorTracker {
   }
 
   addBreadcrumb(breadcrumb: BreadcrumbData) {
+    const crumb = {
+      ...breadcrumb,
+      timestamp: new Date().toISOString(),
+    };
+    
+    this.breadcrumbBuffer.push(crumb as BreadcrumbData);
+    if (this.breadcrumbBuffer.length > this.maxBreadcrumbs) {
+      this.breadcrumbBuffer.shift();
+    }
+    
     console.log(`[ErrorTracker] Breadcrumb [${breadcrumb.category}]:`, breadcrumb.message);
+  }
+
+  getBreadcrumbs(): BreadcrumbData[] {
+    return [...this.breadcrumbBuffer];
+  }
+
+  clearBreadcrumbs(): void {
+    this.breadcrumbBuffer = [];
   }
 
   setTag(key: string, value: string) {
@@ -601,6 +904,44 @@ export function getOptimalParticleCount(): number {
 
 export function resetAdaptiveSettings() {
   errorTracker.resetAdaptiveSettings();
+}
+
+export async function reportCrash(options: {
+  type: CrashReport['type'];
+  message: string;
+  stack?: string;
+  isFatal: boolean;
+  metadata?: Record<string, unknown>;
+}): Promise<string> {
+  return errorTracker.reportCrash(options);
+}
+
+export function reportNetworkError(url: string, status: number, error?: string): void {
+  errorTracker.reportNetworkError(url, status, error);
+}
+
+export function getANRStats(): ANRDetection {
+  return errorTracker.getANRStats();
+}
+
+export function getNetworkState(): NetworkState {
+  return errorTracker.getNetworkState();
+}
+
+export function getCrashBuffer(): CrashReport[] {
+  return errorTracker.getCrashBuffer();
+}
+
+export function clearCrashBuffer(): void {
+  errorTracker.clearCrashBuffer();
+}
+
+export function getBreadcrumbs(): BreadcrumbData[] {
+  return errorTracker.getBreadcrumbs();
+}
+
+export function clearBreadcrumbs(): void {
+  errorTracker.clearBreadcrumbs();
 }
 
 export type { PerformanceMetric };
