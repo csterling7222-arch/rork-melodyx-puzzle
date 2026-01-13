@@ -14,7 +14,7 @@ import {
   Coins, Sparkles, Edit2, Check, X,
   Leaf, ListMusic, ChevronRight, Palette,
   Sun, Moon, Eye, Zap, LogOut, UserPlus, Mail,
-  PenTool, Music, Heart, TrendingUp
+  PenTool, Music, Heart, TrendingUp, FlaskConical
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
@@ -200,7 +200,13 @@ export default function ProfileScreen() {
     <ThemedBackground theme={theme} isDark={isDarkMode} animated={animationsEnabled}>
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>Profile</Text>
+            <View style={styles.betaBadge}>
+              <FlaskConical size={12} color="#F97316" />
+              <Text style={styles.betaText}>BETA</Text>
+            </View>
+          </View>
         </View>
 
       <ScrollView 
@@ -597,6 +603,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 20,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  betaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F97316' + '20',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F97316' + '40',
+  },
+  betaText: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+    color: '#F97316',
+    letterSpacing: 0.5,
   },
   title: {
     fontSize: 28,
