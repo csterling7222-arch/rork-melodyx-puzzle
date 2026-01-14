@@ -149,7 +149,7 @@ export default function ProfileScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
       await signOut();
-      router.replace('/auth');
+      router.replace('/auth' as any);
     } catch (error) {
       console.log('Sign out error:', error);
     }
@@ -159,7 +159,7 @@ export default function ProfileScreen() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    router.push('/auth');
+    router.push('/auth' as any);
   }, [router]);
 
   const handleClaimReward = useCallback(() => {

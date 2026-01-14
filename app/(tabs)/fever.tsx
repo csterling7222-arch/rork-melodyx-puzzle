@@ -668,7 +668,7 @@ export default function FeverScreen() {
 
             <TouchableOpacity 
               style={styles.createChallengeButton} 
-              onPress={() => router.push('/(tabs)/create')}
+              onPress={() => router.push('/(tabs)/create' as any)}
             >
               <PenTool size={18} color="#EC4899" />
               <Text style={styles.createChallengeText}>Create & Challenge Friends</Text>
