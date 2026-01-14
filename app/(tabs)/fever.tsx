@@ -473,7 +473,7 @@ export default function FeverScreen() {
     changeGenreFilter,
     totalMelodiesAvailable,
   } = useFever();
-  const { addCoins, addHints, useHint: consumeHint, inventory } = useUser();
+  const { addCoins, addHints, useHint: consumeHint, inventory, isLoading: isUserLoading } = useUser();
   const rewardsClaimedRef = useRef(false);
 
   const [showMelodyHint, setShowMelodyHint] = useState(false);
@@ -584,12 +584,22 @@ export default function FeverScreen() {
   }, [currentMelody, guesses, revealedNotes]);
 
   const handleUseHint = useCallback(() => {
+    console.log('[Fever] Hint button pressed');
+    
+    if (isUserLoading) {
+      console.log('[Fever] User state still loading, cannot use hint');
+      return;
+    }
+    
     if (!currentMelody || gameOver) {
       console.log('[Fever] Cannot use hint: no melody or game over');
       return;
     }
     
-    if (inventory.hints <= 0) {
+    const currentHints = inventory.hints;
+    console.log('[Fever] Current hints in inventory:', currentHints);
+    
+    if (currentHints <= 0) {
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
@@ -598,6 +608,7 @@ export default function FeverScreen() {
     }
 
     const availableIndices = getAvailableHintIndices();
+    console.log('[Fever] Available hint indices:', availableIndices);
     
     if (availableIndices.length === 0) {
       if (Platform.OS !== 'web') {
@@ -607,22 +618,33 @@ export default function FeverScreen() {
       return;
     }
 
+    // Consume the hint first
     const success = consumeHint();
+    console.log('[Fever] consumeHint() returned:', success);
+    
     if (success) {
       const randomIdx = availableIndices[Math.floor(Math.random() * availableIndices.length)];
-      setRevealedNotes(prev => [...prev, randomIdx]);
-      
       const revealedNote = currentMelody.notes[randomIdx];
+      
+      setRevealedNotes(prev => {
+        const updated = [...prev, randomIdx];
+        console.log('[Fever] Updated revealed notes:', updated);
+        return updated;
+      });
+      
       playNote(revealedNote);
       
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-      console.log('[Fever] Hint used! Position', randomIdx + 1, '=', revealedNote, '| Hints remaining:', inventory.hints - 1);
+      console.log('[Fever] Hint used! Position', randomIdx + 1, '=', revealedNote, '| Hints remaining:', currentHints - 1);
     } else {
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
       console.log('[Fever] Failed to consume hint from inventory');
     }
-  }, [currentMelody, gameOver, inventory.hints, getAvailableHintIndices, consumeHint, playNote]);
+  }, [currentMelody, gameOver, inventory.hints, getAvailableHintIndices, consumeHint, playNote, isUserLoading]);
 
   const handleGoHome = useCallback(() => {
     if (Platform.OS !== 'web') {
@@ -816,16 +838,21 @@ export default function FeverScreen() {
               )}
               {(() => {
                 const availableHints = getAvailableHintIndices().length;
-                const canUseHintNow = inventory.hints > 0 && availableHints > 0 && !gameOver;
+                const canUseHintNow = !isUserLoading && inventory.hints > 0 && availableHints > 0 && !gameOver;
                 return (
                   <TouchableOpacity 
                     style={[
                       styles.hintButton,
                       !canUseHintNow && styles.hintButtonDisabled
                     ]}
-                    onPress={handleUseHint}
-                    disabled={!canUseHintNow}
-                    activeOpacity={0.7}
+                    onPress={() => {
+                      console.log('[Fever] Hint TouchableOpacity pressed, canUseHintNow:', canUseHintNow);
+                      if (canUseHintNow) {
+                        handleUseHint();
+                      }
+                    }}
+                    activeOpacity={0.6}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
                     <Lightbulb size={16} color={canUseHintNow ? "#FFD700" : Colors.textMuted} />
                     <Text style={[
