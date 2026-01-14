@@ -1460,17 +1460,17 @@ export default function ShopScreen() {
           {selectedTab === 'cosmetics' && (
             <View>
               <Text style={styles.sectionTitle}>✨ Cosmetics</Text>
-              <Text style={styles.sectionSubtitle}>Badges, frames, titles & more</Text>
+              <Text style={styles.sectionSubtitle}>Frames, stickers, titles & effects</Text>
               
               <View style={styles.cosmeticsGrid}>
-                {COSMETIC_ITEMS.map(item => (
+                {COSMETIC_ITEMS.filter(item => item.type !== 'badge').map(item => (
                   <CosmeticCard
                     key={item.id}
                     item={item}
                     isOwned={inventory.ownedCosmetics?.includes(item.id) || false}
                     onBuy={() => handleBuyCosmetic(item)}
-                  />
-                ))}
+                  />)
+                )}
               </View>
             </View>
           )}
