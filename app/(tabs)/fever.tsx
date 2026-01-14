@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Flame, Zap, Trophy, Play, RotateCcw, Home, Volume2, Music, Filter, Sparkles, Globe, Gamepad2, Film, Music2, PenTool } from 'lucide-react-native';
+import { Flame, Zap, Trophy, Play, RotateCcw, Home, Volume2, Music, Filter, Sparkles, Globe, Gamepad2, Film, Music2, PenTool, Lightbulb } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useFever, FeverGenreFilter } from '@/contexts/FeverContext';
@@ -413,11 +413,12 @@ export default function FeverScreen() {
     changeGenreFilter,
     totalMelodiesAvailable,
   } = useFever();
-  const { addCoins, addHints } = useUser();
+  const { addCoins, addHints, useHint: consumeHint, inventory } = useUser();
   const rewardsClaimedRef = useRef(false);
 
   const [showMelodyHint, setShowMelodyHint] = useState(false);
   const [showBuildingMelody, setShowBuildingMelody] = useState(false);
+  const [revealedNotes, setRevealedNotes] = useState<number[]>([]);
   const prevGuessLength = useRef(currentGuess.length);
   const correctFeedbackAnim = useRef(new Animated.Value(0)).current;
 
@@ -440,13 +441,17 @@ export default function FeverScreen() {
       const lastNote = currentGuess[currentGuess.length - 1];
       playNote(lastNote);
       console.log(`Fever: Playing note ${lastNote} (${currentGuess.length}/${melodyLength})`);
+    }
+    
+    if (currentGuess.length === 0 && revealedNotes.length > 0) {
+      setRevealedNotes([]);
       
       if (isFeverActive && Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       }
     }
     prevGuessLength.current = currentGuess.length;
-  }, [currentGuess, playNote, isFeverActive, melodyLength]);
+  }, [currentGuess, playNote, isFeverActive, melodyLength, revealedNotes.length]);
 
   useEffect(() => {
     if (chain > 0 && guesses.length > 0) {
@@ -474,7 +479,39 @@ export default function FeverScreen() {
     rewardsClaimedRef.current = false;
     startGame();
     setShowMelodyHint(false);
+    setRevealedNotes([]);
   }, [startGame]);
+
+  const handleUseHint = useCallback(() => {
+    if (!currentMelody || gameOver) return;
+    
+    if (inventory.hints <= 0) {
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      return;
+    }
+
+    const unrevealedIndices = currentMelody.notes
+      .map((_, idx) => idx)
+      .filter(idx => !revealedNotes.includes(idx));
+    
+    if (unrevealedIndices.length === 0) return;
+
+    const success = consumeHint();
+    if (success) {
+      const randomIdx = unrevealedIndices[Math.floor(Math.random() * unrevealedIndices.length)];
+      setRevealedNotes(prev => [...prev, randomIdx]);
+      
+      const revealedNote = currentMelody.notes[randomIdx];
+      playNote(revealedNote);
+      
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      console.log('[Fever] Hint used! Revealed note at position', randomIdx + 1, ':', revealedNote);
+    }
+  }, [currentMelody, gameOver, inventory.hints, revealedNotes, consumeHint, playNote]);
 
   const handleGoHome = useCallback(() => {
     if (Platform.OS !== 'web') {
@@ -666,6 +703,22 @@ export default function FeverScreen() {
                   </Text>
                 </TouchableOpacity>
               )}
+              <TouchableOpacity 
+                style={[
+                  styles.hintButton,
+                  inventory.hints <= 0 && styles.hintButtonDisabled
+                ]}
+                onPress={handleUseHint}
+                disabled={inventory.hints <= 0 || revealedNotes.length >= melodyLength}
+              >
+                <Lightbulb size={16} color={inventory.hints > 0 ? "#FFD700" : Colors.textMuted} />
+                <Text style={[
+                  styles.hintButtonText,
+                  inventory.hints <= 0 && styles.hintButtonTextDisabled
+                ]}>
+                  {inventory.hints} 💡
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -673,6 +726,19 @@ export default function FeverScreen() {
         {showMelodyHint && (
           <View style={styles.hintPlayed}>
             <Text style={styles.hintPlayedText}>🎧 First 3 notes played!</Text>
+          </View>
+        )}
+
+        {revealedNotes.length > 0 && currentMelody && (
+          <View style={styles.revealedNotesContainer}>
+            <Text style={styles.revealedNotesLabel}>💡 Revealed:</Text>
+            {revealedNotes.sort((a, b) => a - b).map(idx => (
+              <View key={idx} style={styles.revealedNoteChip}>
+                <Text style={styles.revealedNoteText}>
+                  #{idx + 1}: {currentMelody.notes[idx]}
+                </Text>
+              </View>
+            ))}
           </View>
         )}
 
@@ -1003,6 +1069,56 @@ const styles = StyleSheet.create({
   },
   buildingMelodyText: {
     color: '#FF6B35',
+  },
+  hintButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFD700' + '20',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FFD700' + '40',
+  },
+  hintButtonDisabled: {
+    backgroundColor: Colors.surfaceLight,
+    borderColor: 'transparent',
+  },
+  hintButtonText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: '#FFD700',
+  },
+  hintButtonTextDisabled: {
+    color: Colors.textMuted,
+  },
+  revealedNotesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    flexWrap: 'wrap',
+  },
+  revealedNotesLabel: {
+    fontSize: 12,
+    color: '#FFD700',
+    fontWeight: '600' as const,
+  },
+  revealedNoteChip: {
+    backgroundColor: '#FFD700' + '25',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFD700',
+  },
+  revealedNoteText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: '#FFD700',
   },
   successFlash: {
     ...StyleSheet.absoluteFillObject,
