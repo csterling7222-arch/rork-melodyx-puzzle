@@ -112,7 +112,6 @@ export default function DailyPuzzleScreen() {
     removeNote,
     submitGuess,
     activateHint,
-    canUseHint,
     showHint,
     setShowHint,
     aiSelection,
@@ -141,6 +140,7 @@ export default function DailyPuzzleScreen() {
   const [hasPlayedMelody, setHasPlayedMelody] = useState(false);
   const [hasRealAudioSnippet, setHasRealAudioSnippet] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [revealedNotes, setRevealedNotes] = useState<number[]>([]);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const hasNavigatedRef = useRef(false);
 
@@ -257,21 +257,67 @@ export default function DailyPuzzleScreen() {
     }
   }, [canUseAudioHint, audioHintUsed, activateAudioHint, playHintNotes, melody.notes, inventory.hints, consumeHint]);
 
-  const handleTextHint = useCallback(() => {
-    if (showHint) return;
+  const getAvailableHintIndices = useCallback(() => {
+    const correctlyGuessedIndices = new Set<number>();
+    const knownCorrectNotes = new Set<string>();
     
-    if (canUseHint && inventory.hints > 0) {
-      const consumed = consumeHint();
-      if (consumed) {
-        activateHint();
-        setShowHint(true);
-        if (Platform.OS !== 'web') {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    guesses.forEach(guessRow => {
+      guessRow.forEach((result, idx) => {
+        if (result.feedback === 'correct') {
+          correctlyGuessedIndices.add(idx);
+          knownCorrectNotes.add(result.note);
         }
-        console.log('[Daily] Text hint used, remaining:', inventory.hints - 1);
+      });
+    });
+
+    const availableIndices = melody.notes
+      .map((_, idx) => idx)
+      .filter(idx => !revealedNotes.includes(idx) && !correctlyGuessedIndices.has(idx));
+    
+    const preferredIndices = availableIndices.filter(
+      idx => !knownCorrectNotes.has(melody.notes[idx])
+    );
+    
+    return preferredIndices.length > 0 ? preferredIndices : availableIndices;
+  }, [guesses, melody.notes, revealedNotes]);
+
+  const handleTextHint = useCallback(() => {
+    if (gameStatus !== 'playing') return;
+    
+    if (inventory.hints <= 0) {
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
+      return;
     }
-  }, [canUseHint, showHint, inventory.hints, consumeHint, activateHint, setShowHint]);
+
+    const availableIndices = getAvailableHintIndices();
+    
+    if (availableIndices.length === 0) {
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      }
+      console.log('[Daily] All notes already revealed or correctly guessed');
+      return;
+    }
+
+    const consumed = consumeHint();
+    if (consumed) {
+      const randomIdx = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+      const revealedNote = melody.notes[randomIdx];
+      
+      setRevealedNotes(prev => [...prev, randomIdx]);
+      playNote(revealedNote);
+      
+      activateHint();
+      setShowHint(true);
+      
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      console.log('[Daily] Note hint used! Position', randomIdx + 1, '=', revealedNote, '| Hints remaining:', inventory.hints - 1);
+    }
+  }, [gameStatus, inventory.hints, getAvailableHintIndices, consumeHint, melody.notes, playNote, activateHint, setShowHint]);
 
   const themeEmoji = aiSelection ? getThemeEmoji(aiSelection.theme) : '🎵';
   const countryFlag = melody.flag || '';
@@ -336,6 +382,21 @@ export default function DailyPuzzleScreen() {
             durations={melody.durations}
           />
         </View>
+
+        {revealedNotes.length > 0 && (
+          <View style={styles.revealedNotesContainer}>
+            <Text style={styles.revealedNotesLabel}>💡 Revealed Notes:</Text>
+            <View style={styles.revealedNotesRow}>
+              {revealedNotes.sort((a, b) => a - b).map(idx => (
+                <View key={idx} style={styles.revealedNoteChip}>
+                  <Text style={styles.revealedNoteText}>
+                    #{idx + 1}: {melody.notes[idx]}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         {showHint && (
           <View style={styles.hintContainer}>
@@ -418,20 +479,22 @@ export default function DailyPuzzleScreen() {
             </TouchableOpacity>
           )}
 
-          {canUseHint && !showHint && (
+          {gameStatus === 'playing' && (
             <TouchableOpacity 
               style={[
                 styles.hintButton,
-                inventory.hints === 0 && styles.hintButtonDisabled
+                styles.noteHintButton,
+                (inventory.hints === 0 || getAvailableHintIndices().length === 0) && styles.hintButtonDisabled
               ]} 
               onPress={handleTextHint}
-              disabled={inventory.hints === 0}
+              disabled={inventory.hints === 0 || getAvailableHintIndices().length === 0}
             >
-              <Lightbulb size={18} color={inventory.hints === 0 ? Colors.textMuted : Colors.present} />
+              <Lightbulb size={18} color={(inventory.hints === 0 || getAvailableHintIndices().length === 0) ? Colors.textMuted : '#FFD700'} />
               <Text style={[
                 styles.hintButtonText,
-                inventory.hints === 0 && styles.hintButtonTextDisabled
-              ]}>Text Hint</Text>
+                styles.noteHintButtonText,
+                (inventory.hints === 0 || getAvailableHintIndices().length === 0) && styles.hintButtonTextDisabled
+              ]}>Reveal Note</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -653,5 +716,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700' as const,
     color: Colors.present,
+  },
+  revealedNotesContainer: {
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFD700' + '15',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#FFD700' + '40',
+  },
+  revealedNotesLabel: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: '#FFD700',
+  },
+  revealedNotesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  revealedNoteChip: {
+    backgroundColor: '#FFD700' + '25',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FFD700',
+  },
+  revealedNoteText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#FFD700',
+  },
+  noteHintButton: {
+    borderColor: '#FFD700',
+  },
+  noteHintButtonText: {
+    color: '#FFD700',
   },
 });
