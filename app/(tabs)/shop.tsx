@@ -25,7 +25,7 @@ import {
 } from '@/constants/shop';
 
 
-type ShopTab = 'featured' | 'themes' | 'skins' | 'cosmetics' | 'powerups' | 'learning' | 'instruments' | 'coins' | 'premium';
+type ShopTab = 'featured' | 'themes' | 'skins' | 'profile' | 'powerups' | 'learning' | 'instruments' | 'coins' | 'premium';
 
 const RARITY_COLORS: Record<string, string> = {
   common: '#9CA3AF',
@@ -1312,7 +1312,7 @@ export default function ShopScreen() {
     { key: 'featured', label: 'Featured', icon: <Star size={16} /> },
     { key: 'themes', label: 'Themes', icon: <Paintbrush size={16} /> },
     { key: 'skins', label: 'Skins', icon: <Palette size={16} /> },
-    { key: 'cosmetics', label: 'Cosmetics', icon: <Award size={16} /> },
+    { key: 'profile', label: 'Profile', icon: <Award size={16} /> },
     { key: 'powerups', label: 'Power-ups', icon: <Shield size={16} /> },
     { key: 'learning', label: 'Learning', icon: <BookOpen size={16} /> },
     { key: 'instruments', label: 'Instruments', icon: <Guitar size={16} /> },
@@ -1457,13 +1457,38 @@ export default function ShopScreen() {
             </View>
           )}
 
-          {selectedTab === 'cosmetics' && (
+          {selectedTab === 'profile' && (
             <View>
-              <Text style={styles.sectionTitle}>✨ Cosmetics</Text>
-              <Text style={styles.sectionSubtitle}>Frames, stickers, titles & effects</Text>
+              <Text style={styles.sectionTitle}>✨ Profile Customization</Text>
+              <Text style={styles.sectionSubtitle}>Personalize your profile</Text>
               
+              <Text style={styles.subSectionTitle}>Profile Frames</Text>
               <View style={styles.cosmeticsGrid}>
-                {COSMETIC_ITEMS.filter(item => item.type !== 'badge').map(item => (
+                {COSMETIC_ITEMS.filter(item => item.type === 'profile_frame').map(item => (
+                  <CosmeticCard
+                    key={item.id}
+                    item={item}
+                    isOwned={inventory.ownedCosmetics?.includes(item.id) || false}
+                    onBuy={() => handleBuyCosmetic(item)}
+                  />)
+                )}
+              </View>
+
+              <Text style={styles.subSectionTitle}>Titles</Text>
+              <View style={styles.cosmeticsGrid}>
+                {COSMETIC_ITEMS.filter(item => item.type === 'title').map(item => (
+                  <CosmeticCard
+                    key={item.id}
+                    item={item}
+                    isOwned={inventory.ownedCosmetics?.includes(item.id) || false}
+                    onBuy={() => handleBuyCosmetic(item)}
+                  />)
+                )}
+              </View>
+
+              <Text style={styles.subSectionTitle}>Avatar Effects</Text>
+              <View style={styles.cosmeticsGrid}>
+                {COSMETIC_ITEMS.filter(item => item.type === 'avatar_effect').map(item => (
                   <CosmeticCard
                     key={item.id}
                     item={item}
@@ -1796,6 +1821,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     marginBottom: 16,
+  },
+  subSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.text,
+    marginTop: 16,
+    marginBottom: 12,
   },
   cosmeticsGrid: {
     flexDirection: 'row',
