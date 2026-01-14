@@ -17,7 +17,6 @@ import {
   Music,
   Flame,
   Trophy,
-  Map,
   Leaf,
   Share2,
   Play,
@@ -862,13 +861,7 @@ export default function HomeScreen() {
                 color="#FFD700"
                 onPress={() => navigateTo('/(tabs)/tournaments')}
               />
-              <ModeCard
-                icon={<Map size={22} color={Colors.accent} />}
-                title="Melody Quest"
-                subtitle="Story adventure campaign"
-                color={Colors.accent}
-                onPress={() => navigateTo('/(tabs)/campaign')}
-              />
+
               <ModeCard
                 icon={<Leaf size={22} color="#10B981" />}
                 title="Zen Mode"
