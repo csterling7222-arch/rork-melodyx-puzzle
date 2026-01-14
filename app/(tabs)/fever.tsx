@@ -495,18 +495,32 @@ export default function FeverScreen() {
   const getAvailableHintIndices = useCallback(() => {
     if (!currentMelody) return [];
     
+    // Track positions where user already got 'correct' feedback
     const correctlyGuessedIndices = new Set<number>();
+    // Track which notes the user has already seen (correctly guessed at any position)
+    const knownCorrectNotes = new Set<string>();
+    
     guesses.forEach(guessRow => {
       guessRow.forEach((result, idx) => {
         if (result.feedback === 'correct') {
           correctlyGuessedIndices.add(idx);
+          knownCorrectNotes.add(result.note);
         }
       });
     });
 
-    return currentMelody.notes
+    // Get all available indices (not revealed, not already correct)
+    const availableIndices = currentMelody.notes
       .map((_, idx) => idx)
       .filter(idx => !revealedNotes.includes(idx) && !correctlyGuessedIndices.has(idx));
+    
+    // Prefer indices with notes the user hasn't correctly guessed yet
+    const preferredIndices = availableIndices.filter(
+      idx => !knownCorrectNotes.has(currentMelody.notes[idx])
+    );
+    
+    // Return preferred indices if available, otherwise all available
+    return preferredIndices.length > 0 ? preferredIndices : availableIndices;
   }, [currentMelody, guesses, revealedNotes]);
 
   const handleUseHint = useCallback(() => {
@@ -519,23 +533,23 @@ export default function FeverScreen() {
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
-      console.log('[Fever] No hints available');
+      console.log('[Fever] No hints available in inventory');
       return;
     }
 
-    const unrevealedIndices = getAvailableHintIndices();
+    const availableIndices = getAvailableHintIndices();
     
-    if (unrevealedIndices.length === 0) {
+    if (availableIndices.length === 0) {
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
-      console.log('[Fever] No unrevealed notes left to hint');
+      console.log('[Fever] All notes already revealed or correctly guessed');
       return;
     }
 
     const success = consumeHint();
     if (success) {
-      const randomIdx = unrevealedIndices[Math.floor(Math.random() * unrevealedIndices.length)];
+      const randomIdx = availableIndices[Math.floor(Math.random() * availableIndices.length)];
       setRevealedNotes(prev => [...prev, randomIdx]);
       
       const revealedNote = currentMelody.notes[randomIdx];
@@ -544,7 +558,9 @@ export default function FeverScreen() {
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-      console.log('[Fever] Hint used! Revealed note at position', randomIdx + 1, ':', revealedNote, '| Remaining hints:', inventory.hints - 1);
+      console.log('[Fever] Hint used! Position', randomIdx + 1, '=', revealedNote, '| Hints remaining:', inventory.hints - 1);
+    } else {
+      console.log('[Fever] Failed to consume hint from inventory');
     }
   }, [currentMelody, gameOver, inventory.hints, getAvailableHintIndices, consumeHint, playNote]);
 
