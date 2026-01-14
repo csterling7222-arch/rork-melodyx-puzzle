@@ -512,16 +512,8 @@ export default function FeverScreen() {
       playNote(lastNote);
       console.log(`Fever: Playing note ${lastNote} (${currentGuess.length}/${melodyLength})`);
     }
-    
-    if (currentGuess.length === 0 && revealedNotes.length > 0) {
-      setRevealedNotes([]);
-      
-      if (isFeverActive && Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      }
-    }
     prevGuessLength.current = currentGuess.length;
-  }, [currentGuess, playNote, isFeverActive, melodyLength, revealedNotes.length]);
+  }, [currentGuess, playNote, melodyLength]);
 
   useEffect(() => {
     if (chain > 0 && guesses.length > 0) {
