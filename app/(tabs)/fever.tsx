@@ -492,11 +492,29 @@ export default function FeverScreen() {
       return;
     }
 
+    // Collect positions that were already correctly guessed
+    const correctlyGuessedIndices = new Set<number>();
+    guesses.forEach(guessRow => {
+      guessRow.forEach((result, idx) => {
+        if (result.feedback === 'correct') {
+          correctlyGuessedIndices.add(idx);
+        }
+      });
+    });
+
+    // Filter out both already revealed notes AND correctly guessed positions
     const unrevealedIndices = currentMelody.notes
       .map((_, idx) => idx)
-      .filter(idx => !revealedNotes.includes(idx));
+      .filter(idx => !revealedNotes.includes(idx) && !correctlyGuessedIndices.has(idx));
     
-    if (unrevealedIndices.length === 0) return;
+    if (unrevealedIndices.length === 0) {
+      // All notes are either revealed or correctly guessed
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      }
+      console.log('[Fever] No unrevealed notes left to hint');
+      return;
+    }
 
     const success = consumeHint();
     if (success) {
@@ -511,7 +529,7 @@ export default function FeverScreen() {
       }
       console.log('[Fever] Hint used! Revealed note at position', randomIdx + 1, ':', revealedNote);
     }
-  }, [currentMelody, gameOver, inventory.hints, revealedNotes, consumeHint, playNote]);
+  }, [currentMelody, gameOver, inventory.hints, revealedNotes, guesses, consumeHint, playNote]);
 
   const handleGoHome = useCallback(() => {
     if (Platform.OS !== 'web') {
