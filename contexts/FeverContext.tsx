@@ -164,6 +164,8 @@ export const [FeverProvider, useFever] = createContextHook(() => {
   const [feverDuration, setFeverDuration] = useState(0);
   const [showRewardPopup, setShowRewardPopup] = useState(false);
   const [lastReward, setLastReward] = useState<{ coins: number; hints: number; type: string } | null>(null);
+  const [solvedMelody, setSolvedMelody] = useState<Melody | null>(null);
+  const [showSolvedPopup, setShowSolvedPopup] = useState(false);
   const [genreFilter, setGenreFilter] = useState<FeverGenreFilter>('all');
   const [playHistory, setPlayHistory] = useState<string[]>([]);
   const [powerUps, setPowerUps] = useState({ timeFreeze: 0, doublePoints: 0, skipSong: 0 });
@@ -248,6 +250,8 @@ export const [FeverProvider, useFever] = createContextHook(() => {
     setFeverDuration(0);
     setShowRewardPopup(false);
     setLastReward(null);
+    setSolvedMelody(null);
+    setShowSolvedPopup(false);
     setIsPaused(false);
     feverStartTimeRef.current = null;
     console.log('[Fever] Game started with melody:', melody.name, 'filter:', filter);
@@ -306,6 +310,10 @@ export const [FeverProvider, useFever] = createContextHook(() => {
       setCoinsEarned(prev => prev + earnedCoins);
       setHintsEarned(prev => prev + earnedHints);
       
+      // Show solved popup with song name
+      setSolvedMelody(currentMelody);
+      setShowSolvedPopup(true);
+      
       if (earnedHints > 0 || isFeverActive) {
         setLastReward({ 
           coins: earnedCoins, 
@@ -329,7 +337,10 @@ export const [FeverProvider, useFever] = createContextHook(() => {
       }
       
       console.log(`[Fever] Solved! +${earnedPoints} pts, +${earnedCoins} coins, chain: ${newChain}`);
-      setTimeout(() => nextMelody(), 1000);
+      setTimeout(() => {
+        setShowSolvedPopup(false);
+        nextMelody();
+      }, 1800);
     } else if (newGuesses.length >= 6) {
       setChain(0);
       setMultiplier(1);
@@ -434,6 +445,8 @@ export const [FeverProvider, useFever] = createContextHook(() => {
     hintsEarned,
     showRewardPopup,
     lastReward,
+    solvedMelody,
+    showSolvedPopup,
     startGame,
     addNote,
     removeNote,

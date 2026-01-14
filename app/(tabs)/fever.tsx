@@ -160,6 +160,64 @@ function ScoreDisplay({ score, chain, multiplier }: { score: number; chain: numb
   );
 }
 
+function SolvedPopup({ melody, visible }: { melody: { name: string; artist?: string } | null; visible: boolean }) {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible && melody) {
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 120,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(scaleAnim, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible, melody, scaleAnim, opacityAnim]);
+
+  if (!melody) return null;
+
+  return (
+    <Animated.View
+      style={[
+        styles.solvedPopup,
+        {
+          opacity: opacityAnim,
+          transform: [{ scale: scaleAnim }],
+        },
+      ]}
+      pointerEvents="none"
+    >
+      <Text style={styles.solvedPopupIcon}>🎉</Text>
+      <Text style={styles.solvedPopupTitle}>Correct!</Text>
+      <Text style={styles.solvedPopupSong}>{melody.name}</Text>
+      {melody.artist && (
+        <Text style={styles.solvedPopupArtist}>by {melody.artist}</Text>
+      )}
+    </Animated.View>
+  );
+}
+
 function RewardPopup({ reward, visible }: { reward: { coins: number; hints: number; type: string } | null; visible: boolean }) {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -405,6 +463,8 @@ export default function FeverScreen() {
     hintsEarned,
     showRewardPopup,
     lastReward,
+    solvedMelody,
+    showSolvedPopup,
     startGame,
     addNote,
     removeNote,
@@ -826,6 +886,7 @@ export default function FeverScreen() {
           />
         </View>
 
+        <SolvedPopup melody={solvedMelody} visible={showSolvedPopup} />
         <RewardPopup reward={lastReward} visible={showRewardPopup} />
 
         {gameOver && (
@@ -1316,6 +1377,47 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700' as const,
     color: '#FFD700',
+  },
+  solvedPopup: {
+    position: 'absolute',
+    top: '30%',
+    alignSelf: 'center',
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 32,
+    paddingVertical: 24,
+    borderRadius: 24,
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: Colors.correct,
+    shadowColor: Colors.correct,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 15,
+    zIndex: 250,
+    minWidth: 220,
+  },
+  solvedPopupIcon: {
+    fontSize: 40,
+    marginBottom: 8,
+  },
+  solvedPopupTitle: {
+    fontSize: 22,
+    fontWeight: '800' as const,
+    color: Colors.correct,
+    marginBottom: 8,
+  },
+  solvedPopupSong: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    textAlign: 'center' as const,
+  },
+  solvedPopupArtist: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginTop: 4,
+    fontStyle: 'italic' as const,
   },
   earningsContainer: {
     backgroundColor: Colors.correct + '15',
