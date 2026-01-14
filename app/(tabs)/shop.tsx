@@ -1140,11 +1140,13 @@ export default function ShopScreen() {
       }
       
       if (rewardType === 'coins' && rewardAmount) {
+        console.log('[Shop] Adding coins:', rewardAmount);
         addCoins(rewardAmount);
         Alert.alert('🎉 Demo Purchase!', `You received ${rewardAmount} coins!`);
       } else if (rewardType === 'hints' && rewardAmount) {
+        console.log('[Shop] Adding hints:', rewardAmount);
         addHints(rewardAmount);
-        Alert.alert('💡 Demo Hints Added!', `You received ${rewardAmount} hints!`);
+        Alert.alert('💡 Hints Added!', `You received ${rewardAmount} hints! Your hints have been credited.`);
       } else if (packageId.includes('monthly') || packageId.includes('annual') || packageId.includes('yearly')) {
         enableDemoPremium();
         Alert.alert('👑 Demo Premium Activated!', 'Premium features enabled for testing.');
@@ -1572,23 +1574,39 @@ export default function ShopScreen() {
               <View style={styles.hintCards}>
                 <TouchableOpacity 
                   style={styles.hintCard}
-                  onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.HINTS_SMALL, 'hints', 5)}
-                  disabled={isPurchasing}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    console.log('[Shop] Hint purchase tapped: 5 hints');
+                    handleIAPPurchase(PACKAGE_IDENTIFIERS.HINTS_SMALL, 'hints', 5);
+                  }}
+                  disabled={purchasingPackage === PACKAGE_IDENTIFIERS.HINTS_SMALL}
                 >
-                  <Text style={styles.hintIcon}>💡</Text>
+                  {purchasingPackage === PACKAGE_IDENTIFIERS.HINTS_SMALL ? (
+                    <ActivityIndicator size="small" color={Colors.accent} style={{ marginBottom: 8 }} />
+                  ) : (
+                    <Text style={styles.hintIcon}>💡</Text>
+                  )}
                   <Text style={styles.hintAmount}>5 Hints</Text>
                   <Text style={styles.hintPrice}>{getPackagePrice(PACKAGE_IDENTIFIERS.HINTS_SMALL)}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity 
                   style={[styles.hintCard, styles.hintCardBest]}
-                  onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.HINTS_LARGE, 'hints', 50)}
-                  disabled={isPurchasing}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    console.log('[Shop] Hint purchase tapped: 50 hints');
+                    handleIAPPurchase(PACKAGE_IDENTIFIERS.HINTS_LARGE, 'hints', 50);
+                  }}
+                  disabled={purchasingPackage === PACKAGE_IDENTIFIERS.HINTS_LARGE}
                 >
                   <View style={styles.hintCardBadge}>
                     <Text style={styles.hintCardBadgeText}>BEST VALUE</Text>
                   </View>
-                  <Text style={styles.hintIcon}>🌟</Text>
+                  {purchasingPackage === PACKAGE_IDENTIFIERS.HINTS_LARGE ? (
+                    <ActivityIndicator size="small" color={Colors.accent} style={{ marginBottom: 8 }} />
+                  ) : (
+                    <Text style={styles.hintIcon}>🌟</Text>
+                  )}
                   <Text style={styles.hintAmount}>50 Hints</Text>
                   <Text style={styles.hintPrice}>{getPackagePrice(PACKAGE_IDENTIFIERS.HINTS_LARGE)}</Text>
                 </TouchableOpacity>
