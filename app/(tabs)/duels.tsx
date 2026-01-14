@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
+  Animated,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
@@ -52,6 +54,71 @@ function ModeCard({
   );
 }
 
+function formatRelativeDate(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
+
+function SearchingPulse() {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.2,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(opacityAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacityAnim, {
+            toValue: 0.5,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    ).start();
+  }, [pulseAnim, opacityAnim]);
+
+  return (
+    <Animated.View 
+      style={[
+        styles.searchingPulse, 
+        { 
+          transform: [{ scale: pulseAnim }],
+          opacity: opacityAnim,
+        }
+      ]}
+    >
+      <Users size={32} color={Colors.accent} />
+    </Animated.View>
+  );
+}
+
 function DuelHistoryItem({ 
   opponent, 
   won, 
@@ -65,27 +132,52 @@ function DuelHistoryItem({
   theirGuesses: number;
   date: string;
 }) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePress = useCallback(() => {
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.98,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [scaleAnim]);
+
   return (
-    <View style={[styles.historyItem, won ? styles.historyWon : styles.historyLost]}>
-      <View style={styles.historyLeft}>
-        <View style={[styles.resultBadge, { backgroundColor: won ? Colors.correct + '20' : Colors.absent + '20' }]}>
-          {won ? (
-            <Trophy size={14} color={Colors.correct} />
-          ) : (
-            <Text style={styles.lostIcon}>✗</Text>
-          )}
+    <TouchableOpacity onPress={handlePress} activeOpacity={0.8}>
+      <Animated.View 
+        style={[
+          styles.historyItem, 
+          won ? styles.historyWon : styles.historyLost,
+          { transform: [{ scale: scaleAnim }] }
+        ]}
+      >
+        <View style={styles.historyLeft}>
+          <View style={[styles.resultBadge, { backgroundColor: won ? Colors.correct + '20' : Colors.absent + '20' }]}>
+            {won ? (
+              <Trophy size={14} color={Colors.correct} />
+            ) : (
+              <Text style={styles.lostIcon}>✗</Text>
+            )}
+          </View>
+          <View>
+            <Text style={styles.opponentName}>{opponent}</Text>
+            <Text style={styles.historyDate}>{formatRelativeDate(date)}</Text>
+          </View>
         </View>
-        <View>
-          <Text style={styles.opponentName}>{opponent}</Text>
-          <Text style={styles.historyDate}>{date}</Text>
+        <View style={styles.historyScore}>
+          <Text style={[styles.scoreText, won && styles.scoreWon]}>{yourGuesses}</Text>
+          <Text style={styles.scoreDivider}>vs</Text>
+          <Text style={[styles.scoreText, !won && styles.scoreWon]}>{theirGuesses}</Text>
         </View>
-      </View>
-      <View style={styles.historyScore}>
-        <Text style={[styles.scoreText, won && styles.scoreWon]}>{yourGuesses}</Text>
-        <Text style={styles.scoreDivider}>vs</Text>
-        <Text style={[styles.scoreText, !won && styles.scoreWon]}>{theirGuesses}</Text>
-      </View>
-    </View>
+      </Animated.View>
+    </TouchableOpacity>
   );
 }
 
@@ -100,6 +192,50 @@ export default function DuelsScreen() {
   } = useDuels();
   
   const [isSearching, setIsSearching] = useState(false);
+  const playButtonAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (currentDuel && currentDuel.status === 'active') {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(playButtonAnim, {
+            toValue: 1.1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(playButtonAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      playButtonAnim.setValue(1);
+    }
+  }, [currentDuel, playButtonAnim]);
+
+  const handlePlayDuel = useCallback(() => {
+    if (!currentDuel) return;
+    
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    
+    Alert.alert(
+      'Ready to Play!',
+      `You're about to play "${currentDuel.melody.name}" against ${currentDuel.player2?.username || 'your opponent'}.\n\nMay the best ear win!`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Start Duel', 
+          onPress: () => {
+            console.log('[Duels] Starting duel:', currentDuel.id);
+          }
+        },
+      ]
+    );
+  }, [currentDuel]);
 
   const handleStartDuel = useCallback((mode: DuelMode) => {
     if (Platform.OS !== 'web') {
@@ -153,10 +289,9 @@ export default function DuelsScreen() {
           
           {isSearching ? (
             <View style={styles.searchingCard}>
-              <View style={styles.searchingPulse}>
-                <Users size={32} color={Colors.accent} />
-              </View>
+              <SearchingPulse />
               <Text style={styles.searchingText}>Finding opponent...</Text>
+              <Text style={styles.searchingSubtext}>Matching by skill level...</Text>
             </View>
           ) : (
             <View style={styles.modesContainer}>
@@ -189,7 +324,11 @@ export default function DuelsScreen() {
         {currentDuel && currentDuel.status === 'active' && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Active Duel</Text>
-            <TouchableOpacity style={styles.activeDuelCard}>
+            <TouchableOpacity 
+              style={styles.activeDuelCard}
+              onPress={handlePlayDuel}
+              activeOpacity={0.85}
+            >
               <View style={styles.activeDuelInfo}>
                 <Swords size={24} color={Colors.accent} />
                 <View style={styles.activeDuelText}>
@@ -199,11 +338,17 @@ export default function DuelsScreen() {
                   <Text style={styles.activeDuelMelody}>
                     {currentDuel.melody.name}
                   </Text>
+                  <Text style={styles.activeDuelHint}>Tap to play!</Text>
                 </View>
               </View>
-              <View style={styles.playButton}>
+              <Animated.View 
+                style={[
+                  styles.playButton,
+                  { transform: [{ scale: playButtonAnim }] }
+                ]}
+              >
                 <Play size={20} color={Colors.background} fill={Colors.background} />
-              </View>
+              </Animated.View>
             </TouchableOpacity>
           </View>
         )}
@@ -232,7 +377,7 @@ export default function DuelsScreen() {
                     won={won}
                     yourGuesses={you.guesses}
                     theirGuesses={opponent.guesses}
-                    date={new Date(duel.completedAt!).toLocaleDateString()}
+                    date={duel.completedAt || new Date().toISOString()}
                   />
                 );
               })}
@@ -369,6 +514,11 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: Colors.text,
   },
+  searchingSubtext: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginTop: 6,
+  },
   activeDuelCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -395,6 +545,12 @@ const styles = StyleSheet.create({
   activeDuelMelody: {
     fontSize: 13,
     color: Colors.textSecondary,
+  },
+  activeDuelHint: {
+    fontSize: 11,
+    color: Colors.accent,
+    fontWeight: '600' as const,
+    marginTop: 4,
   },
   playButton: {
     width: 44,
