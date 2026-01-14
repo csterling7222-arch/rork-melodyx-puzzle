@@ -14,6 +14,7 @@ import { Lightbulb, Headphones, Sparkles, Flame, Trophy, Clock, RotateCcw, Play,
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useGame } from '@/contexts/GameContext';
+import { useUser } from '@/contexts/UserContext';
 import { useEco } from '@/contexts/EcoContext';
 import { useScreenTheme } from '@/contexts/ThemeContext';
 import { useInstrument } from '@/contexts/InstrumentContext';
@@ -124,6 +125,7 @@ export default function DailyPuzzleScreen() {
     showModal,
   } = useGame();
   const { addEcoPoints } = useEco();
+  const { inventory, useHint: consumeHint } = useUser();
 
   const { currentInstrument } = useInstrument();
   const { 
@@ -230,17 +232,46 @@ export default function DailyPuzzleScreen() {
   }, [addNote, handleNotePreview]);
 
   const handleAudioHint = useCallback(() => {
-    if (canUseAudioHint || audioHintUsed) {
-      const activated = activateAudioHint();
-      if (activated || audioHintUsed) {
-        playHintNotes(melody.notes, 3);
-        setAudioHintPlayed(true);
-        if (Platform.OS !== 'web') {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (audioHintUsed) {
+      playHintNotes(melody.notes, 3);
+      setAudioHintPlayed(true);
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+      return;
+    }
+    
+    if (canUseAudioHint && inventory.hints > 0) {
+      const consumed = consumeHint();
+      if (consumed) {
+        const activated = activateAudioHint();
+        if (activated) {
+          playHintNotes(melody.notes, 3);
+          setAudioHintPlayed(true);
+          if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }
+          console.log('[Daily] Audio hint used, remaining:', inventory.hints - 1);
         }
       }
     }
-  }, [canUseAudioHint, audioHintUsed, activateAudioHint, playHintNotes, melody.notes]);
+  }, [canUseAudioHint, audioHintUsed, activateAudioHint, playHintNotes, melody.notes, inventory.hints, consumeHint]);
+
+  const handleTextHint = useCallback(() => {
+    if (showHint) return;
+    
+    if (canUseHint && inventory.hints > 0) {
+      const consumed = consumeHint();
+      if (consumed) {
+        activateHint();
+        setShowHint(true);
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+        console.log('[Daily] Text hint used, remaining:', inventory.hints - 1);
+      }
+    }
+  }, [canUseHint, showHint, inventory.hints, consumeHint, activateHint, setShowHint]);
 
   const themeEmoji = aiSelection ? getThemeEmoji(aiSelection.theme) : '🎵';
   const countryFlag = melody.flag || '';
@@ -359,14 +390,29 @@ export default function DailyPuzzleScreen() {
 
       <View style={styles.bottomSection}>
         <View style={styles.hintButtonsRow}>
+          {gameStatus === 'playing' && (
+            <View style={styles.hintCountBadge}>
+              <Lightbulb size={14} color={Colors.present} />
+              <Text style={styles.hintCountText}>{inventory.hints}</Text>
+            </View>
+          )}
+
           {(canUseAudioHint || (audioHintUsed && !audioHintPlayed)) && gameStatus === 'playing' && (
             <TouchableOpacity 
-              style={[styles.hintButton, styles.audioHintButton]} 
+              style={[
+                styles.hintButton, 
+                styles.audioHintButton,
+                !audioHintUsed && inventory.hints === 0 && styles.hintButtonDisabled
+              ]} 
               onPress={handleAudioHint}
-              disabled={playbackState.isPlaying}
+              disabled={playbackState.isPlaying || (!audioHintUsed && inventory.hints === 0)}
             >
-              <Headphones size={18} color={Colors.accent} />
-              <Text style={[styles.hintButtonText, styles.audioHintButtonText]}>
+              <Headphones size={18} color={!audioHintUsed && inventory.hints === 0 ? Colors.textMuted : Colors.accent} />
+              <Text style={[
+                styles.hintButtonText, 
+                styles.audioHintButtonText,
+                !audioHintUsed && inventory.hints === 0 && styles.hintButtonTextDisabled
+              ]}>
                 {audioHintUsed ? 'Replay' : 'Audio Hint'}
               </Text>
             </TouchableOpacity>
@@ -374,14 +420,18 @@ export default function DailyPuzzleScreen() {
 
           {canUseHint && !showHint && (
             <TouchableOpacity 
-              style={styles.hintButton} 
-              onPress={() => {
-                activateHint();
-                setShowHint(true);
-              }}
+              style={[
+                styles.hintButton,
+                inventory.hints === 0 && styles.hintButtonDisabled
+              ]} 
+              onPress={handleTextHint}
+              disabled={inventory.hints === 0}
             >
-              <Lightbulb size={18} color={Colors.present} />
-              <Text style={styles.hintButtonText}>Text Hint</Text>
+              <Lightbulb size={18} color={inventory.hints === 0 ? Colors.textMuted : Colors.present} />
+              <Text style={[
+                styles.hintButtonText,
+                inventory.hints === 0 && styles.hintButtonTextDisabled
+              ]}>Text Hint</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -582,5 +632,26 @@ const styles = StyleSheet.create({
   },
   audioHintButtonText: {
     color: Colors.accent,
+  },
+  hintButtonDisabled: {
+    borderColor: Colors.textMuted,
+    opacity: 0.6,
+  },
+  hintButtonTextDisabled: {
+    color: Colors.textMuted,
+  },
+  hintCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.present + '20',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  hintCountText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.present,
   },
 });

@@ -14,6 +14,7 @@ import { Flame, Zap, Trophy, Play, RotateCcw, Home, Volume2, Music, Filter, Spar
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useFever, FeverGenreFilter } from '@/contexts/FeverContext';
+import { useUser } from '@/contexts/UserContext';
 import { useScreenTheme } from '@/contexts/ThemeContext';
 import { useInstrument } from '@/contexts/InstrumentContext';
 import ThemedBackground from '@/components/ThemedBackground';
@@ -412,11 +413,27 @@ export default function FeverScreen() {
     changeGenreFilter,
     totalMelodiesAvailable,
   } = useFever();
+  const { addCoins, addHints } = useUser();
+  const rewardsClaimedRef = useRef(false);
 
   const [showMelodyHint, setShowMelodyHint] = useState(false);
   const [showBuildingMelody, setShowBuildingMelody] = useState(false);
   const prevGuessLength = useRef(currentGuess.length);
   const correctFeedbackAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (gameOver && !rewardsClaimedRef.current && (coinsEarned > 0 || hintsEarned > 0)) {
+      rewardsClaimedRef.current = true;
+      if (coinsEarned > 0) {
+        addCoins(coinsEarned);
+        console.log('[Fever] Added coins to inventory:', coinsEarned);
+      }
+      if (hintsEarned > 0) {
+        addHints(hintsEarned);
+        console.log('[Fever] Added hints to inventory:', hintsEarned);
+      }
+    }
+  }, [gameOver, coinsEarned, hintsEarned, addCoins, addHints]);
 
   useEffect(() => {
     if (currentGuess.length > prevGuessLength.current && currentGuess.length > 0) {
@@ -454,6 +471,7 @@ export default function FeverScreen() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
+    rewardsClaimedRef.current = false;
     startGame();
     setShowMelodyHint(false);
   }, [startGame]);
