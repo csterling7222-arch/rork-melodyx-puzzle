@@ -1474,9 +1474,9 @@ export default function ShopScreen() {
                 )}
               </View>
 
-              <Text style={styles.subSectionTitle}>Titles</Text>
+              <Text style={styles.subSectionTitle}>Stickers</Text>
               <View style={styles.cosmeticsGrid}>
-                {COSMETIC_ITEMS.filter(item => item.type === 'title').map(item => (
+                {COSMETIC_ITEMS.filter(item => item.type === 'sticker').map(item => (
                   <CosmeticCard
                     key={item.id}
                     item={item}
@@ -1486,9 +1486,9 @@ export default function ShopScreen() {
                 )}
               </View>
 
-              <Text style={styles.subSectionTitle}>Avatar Effects</Text>
+              <Text style={styles.subSectionTitle}>Watermarks</Text>
               <View style={styles.cosmeticsGrid}>
-                {COSMETIC_ITEMS.filter(item => item.type === 'avatar_effect').map(item => (
+                {COSMETIC_ITEMS.filter(item => item.type === 'watermark').map(item => (
                   <CosmeticCard
                     key={item.id}
                     item={item}
