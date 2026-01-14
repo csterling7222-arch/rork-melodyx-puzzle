@@ -65,12 +65,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => <PenTool size={size} color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="campaign"
-        options={{
-          href: null,
-        }}
-      />
+
       <Tabs.Screen
         name="profile"
         options={{
