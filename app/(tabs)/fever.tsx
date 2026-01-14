@@ -420,6 +420,7 @@ export default function FeverScreen() {
   const [showBuildingMelody, setShowBuildingMelody] = useState(false);
   const [revealedNotes, setRevealedNotes] = useState<number[]>([]);
   const prevGuessLength = useRef(currentGuess.length);
+  const prevMelodyRef = useRef(currentMelody?.name);
   const correctFeedbackAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -435,6 +436,15 @@ export default function FeverScreen() {
       }
     }
   }, [gameOver, coinsEarned, hintsEarned, addCoins, addHints]);
+
+  useEffect(() => {
+    if (currentMelody && currentMelody.name !== prevMelodyRef.current) {
+      setRevealedNotes([]);
+      setShowMelodyHint(false);
+      prevMelodyRef.current = currentMelody.name;
+      console.log('[Fever] New melody, resetting revealed notes');
+    }
+  }, [currentMelody]);
 
   useEffect(() => {
     if (currentGuess.length > prevGuessLength.current && currentGuess.length > 0) {
@@ -482,17 +492,9 @@ export default function FeverScreen() {
     setRevealedNotes([]);
   }, [startGame]);
 
-  const handleUseHint = useCallback(() => {
-    if (!currentMelody || gameOver) return;
+  const getAvailableHintIndices = useCallback(() => {
+    if (!currentMelody) return [];
     
-    if (inventory.hints <= 0) {
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
-      return;
-    }
-
-    // Collect positions that were already correctly guessed
     const correctlyGuessedIndices = new Set<number>();
     guesses.forEach(guessRow => {
       guessRow.forEach((result, idx) => {
@@ -502,13 +504,28 @@ export default function FeverScreen() {
       });
     });
 
-    // Filter out both already revealed notes AND correctly guessed positions
-    const unrevealedIndices = currentMelody.notes
+    return currentMelody.notes
       .map((_, idx) => idx)
       .filter(idx => !revealedNotes.includes(idx) && !correctlyGuessedIndices.has(idx));
+  }, [currentMelody, guesses, revealedNotes]);
+
+  const handleUseHint = useCallback(() => {
+    if (!currentMelody || gameOver) {
+      console.log('[Fever] Cannot use hint: no melody or game over');
+      return;
+    }
+    
+    if (inventory.hints <= 0) {
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      console.log('[Fever] No hints available');
+      return;
+    }
+
+    const unrevealedIndices = getAvailableHintIndices();
     
     if (unrevealedIndices.length === 0) {
-      // All notes are either revealed or correctly guessed
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
@@ -527,9 +544,9 @@ export default function FeverScreen() {
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-      console.log('[Fever] Hint used! Revealed note at position', randomIdx + 1, ':', revealedNote);
+      console.log('[Fever] Hint used! Revealed note at position', randomIdx + 1, ':', revealedNote, '| Remaining hints:', inventory.hints - 1);
     }
-  }, [currentMelody, gameOver, inventory.hints, revealedNotes, guesses, consumeHint, playNote]);
+  }, [currentMelody, gameOver, inventory.hints, getAvailableHintIndices, consumeHint, playNote]);
 
   const handleGoHome = useCallback(() => {
     if (Platform.OS !== 'web') {
@@ -721,22 +738,29 @@ export default function FeverScreen() {
                   </Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity 
-                style={[
-                  styles.hintButton,
-                  inventory.hints <= 0 && styles.hintButtonDisabled
-                ]}
-                onPress={handleUseHint}
-                disabled={inventory.hints <= 0 || revealedNotes.length >= melodyLength}
-              >
-                <Lightbulb size={16} color={inventory.hints > 0 ? "#FFD700" : Colors.textMuted} />
-                <Text style={[
-                  styles.hintButtonText,
-                  inventory.hints <= 0 && styles.hintButtonTextDisabled
-                ]}>
-                  {inventory.hints} 💡
-                </Text>
-              </TouchableOpacity>
+              {(() => {
+                const availableHints = getAvailableHintIndices().length;
+                const canUseHintNow = inventory.hints > 0 && availableHints > 0 && !gameOver;
+                return (
+                  <TouchableOpacity 
+                    style={[
+                      styles.hintButton,
+                      !canUseHintNow && styles.hintButtonDisabled
+                    ]}
+                    onPress={handleUseHint}
+                    disabled={!canUseHintNow}
+                    activeOpacity={0.7}
+                  >
+                    <Lightbulb size={16} color={canUseHintNow ? "#FFD700" : Colors.textMuted} />
+                    <Text style={[
+                      styles.hintButtonText,
+                      !canUseHintNow && styles.hintButtonTextDisabled
+                    ]}>
+                      {inventory.hints} 💡
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })()}
             </View>
           </View>
         )}
