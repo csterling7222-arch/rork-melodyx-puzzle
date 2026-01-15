@@ -877,18 +877,7 @@ export const POWER_UPS: PowerUp[] = [
     price: 250,
     currency: 'coins',
   },
-  {
-    id: 'slow_motion',
-    name: 'Slow Motion',
-    icon: '🐢',
-    description: 'Slow down melody playback',
-    effect: 'slow_motion',
-    stackable: true,
-    maxStack: 30,
-    rarity: 'epic',
-    price: 300,
-    currency: 'coins',
-  },
+
   {
     id: 'double_xp',
     name: 'Double XP',
@@ -1362,7 +1351,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   },
 ];
 
-export type PowerUpType = 'skip_note' | 'reveal_note' | 'extra_guess' | 'audio_hint' | 'slow_motion' | 'double_xp' | 'fever_boost' | 'time_freeze' | 'shield' | 'streak_saver';
+export type PowerUpType = 'skip_note' | 'reveal_note' | 'extra_guess' | 'audio_hint' | 'double_xp' | 'fever_boost' | 'time_freeze' | 'shield' | 'streak_saver';
 
 export interface DailyRewardItem {
   day: number;
@@ -1390,7 +1379,6 @@ export const POWER_UP_INFO: Record<PowerUpType, { name: string; icon: string; de
   reveal_note: { name: 'Reveal Note', icon: '👁️', description: 'Reveal one correct note position' },
   extra_guess: { name: 'Extra Guess', icon: '➕', description: 'Get one additional guess attempt' },
   audio_hint: { name: 'Audio Hint', icon: '🎧', description: 'Hear the first 3 notes' },
-  slow_motion: { name: 'Slow Motion', icon: '🐢', description: 'Slow down melody playback' },
   double_xp: { name: 'Double XP', icon: '⚡', description: 'Earn double coins for 24 hours' },
   fever_boost: { name: 'Fever Boost', icon: '🔥', description: 'Start Fever with 2x multiplier' },
   time_freeze: { name: 'Time Freeze', icon: '⏱️', description: 'Pause the timer for 30 seconds' },
