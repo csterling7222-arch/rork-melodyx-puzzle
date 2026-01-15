@@ -2811,6 +2811,160 @@ export const MELODIES: Melody[] = [
     mood: "upbeat",
     artist: "Daft Punk ft. Pharrell"
   },
+  {
+    name: "Do I Wanna Know?",
+    notes: ["G", "G", "G", "F#", "E", "D", "E"],
+    extendedNotes: ["G", "G", "G", "F#", "E", "D", "E", "G", "G", "G", "F#", "E"],
+    hint: "Crawling back to you",
+    category: "Rock",
+    genre: "Rock",
+    era: "2010s",
+    mood: "mysterious",
+    artist: "Arctic Monkeys"
+  },
+  {
+    name: "R U Mine?",
+    notes: ["E", "E", "G", "A", "G", "E", "D"],
+    extendedNotes: ["E", "E", "G", "A", "G", "E", "D", "E", "E", "G", "A", "B"],
+    hint: "I go crazy 'cause here isn't where I wanna be",
+    category: "Rock",
+    genre: "Rock",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Arctic Monkeys"
+  },
+  {
+    name: "505",
+    notes: ["D", "E", "F#", "A", "G", "F#", "E"],
+    extendedNotes: ["D", "E", "F#", "A", "G", "F#", "E", "D", "E", "F#", "G", "A"],
+    hint: "I'm going back to 505",
+    category: "Rock",
+    genre: "Rock",
+    era: "2000s",
+    mood: "dramatic",
+    artist: "Arctic Monkeys"
+  },
+  {
+    name: "I Bet You Look Good on the Dancefloor",
+    notes: ["E", "E", "G", "G", "A", "A", "B"],
+    extendedNotes: ["E", "E", "G", "G", "A", "A", "B", "A", "G", "E", "D", "E"],
+    hint: "Stop making the eyes at me, I'll stop making the eyes at you",
+    category: "Rock",
+    genre: "Rock",
+    era: "2000s",
+    mood: "energetic",
+    artist: "Arctic Monkeys"
+  },
+  {
+    name: "Why'd You Only Call Me When You're High?",
+    notes: ["F#", "F#", "E", "D", "E", "F#", "A"],
+    extendedNotes: ["F#", "F#", "E", "D", "E", "F#", "A", "G", "F#", "E", "D", "E"],
+    hint: "The mirror's image tells me it's home time",
+    category: "Rock",
+    genre: "Rock",
+    era: "2010s",
+    mood: "mysterious",
+    artist: "Arctic Monkeys"
+  },
+  {
+    name: "Sweater Weather",
+    notes: ["E", "G", "A", "B", "A", "G", "E"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"],
+    hint: "'Cause it's too cold for you here",
+    category: "Rock",
+    genre: "Rock",
+    era: "2010s",
+    mood: "nostalgic",
+    artist: "The Neighbourhood"
+  },
+  {
+    name: "Afraid",
+    notes: ["A", "B", "C#", "E", "D", "C#", "B"],
+    extendedNotes: ["A", "B", "C#", "E", "D", "C#", "B", "A", "G#", "A", "B", "C#"],
+    hint: "When I wake up I'm afraid somebody else might take my place",
+    category: "Rock",
+    genre: "Rock",
+    era: "2010s",
+    mood: "dramatic",
+    artist: "The Neighbourhood"
+  },
+  {
+    name: "Daddy Issues",
+    notes: ["C#", "E", "F#", "E", "C#", "B", "A"],
+    extendedNotes: ["C#", "E", "F#", "E", "C#", "B", "A", "B", "C#", "E", "F#", "E"],
+    hint: "Go ahead and cry little girl",
+    category: "Rock",
+    genre: "Rock",
+    era: "2010s",
+    mood: "dramatic",
+    artist: "The Neighbourhood"
+  },
+  {
+    name: "Reflections",
+    notes: ["F#", "A", "B", "A", "F#", "E", "D"],
+    extendedNotes: ["F#", "A", "B", "A", "F#", "E", "D", "E", "F#", "A", "B", "C#"],
+    hint: "I spend my time just thinking, thinking, thinking",
+    category: "Rock",
+    genre: "Rock",
+    era: "2010s",
+    mood: "peaceful",
+    artist: "The Neighbourhood"
+  },
+  {
+    name: "Don't Stop Believin'",
+    notes: ["E", "F#", "G#", "A", "B", "A", "G#"],
+    extendedNotes: ["E", "F#", "G#", "A", "B", "A", "G#", "F#", "E", "F#", "G#", "A"],
+    hint: "Just a small town girl",
+    category: "Rock",
+    genre: "Rock",
+    era: "80s",
+    mood: "epic",
+    artist: "Journey"
+  },
+  {
+    name: "Separate Ways (Worlds Apart)",
+    notes: ["E", "E", "G", "A", "B", "A", "G"],
+    extendedNotes: ["E", "E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A"],
+    hint: "Here we stand, worlds apart",
+    category: "Rock",
+    genre: "Rock",
+    era: "80s",
+    mood: "dramatic",
+    artist: "Journey"
+  },
+  {
+    name: "Open Arms",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "G", "A", "B"],
+    hint: "So now I come to you with open arms",
+    category: "Rock",
+    genre: "Rock",
+    era: "80s",
+    mood: "peaceful",
+    artist: "Journey"
+  },
+  {
+    name: "Faithfully",
+    notes: ["D", "E", "F#", "G", "A", "G", "F#"],
+    extendedNotes: ["D", "E", "F#", "G", "A", "G", "F#", "E", "D", "E", "F#", "G"],
+    hint: "Highway run into the midnight sun",
+    category: "Rock",
+    genre: "Rock",
+    era: "80s",
+    mood: "nostalgic",
+    artist: "Journey"
+  },
+  {
+    name: "Any Way You Want It",
+    notes: ["A", "A", "B", "C#", "D", "C#", "B"],
+    extendedNotes: ["A", "A", "B", "C#", "D", "C#", "B", "A", "G#", "A", "B", "C#"],
+    hint: "Any way you want it, that's the way you need it",
+    category: "Rock",
+    genre: "Rock",
+    era: "80s",
+    mood: "energetic",
+    artist: "Journey"
+  },
 ];
 
 export const INTERNATIONAL_MELODIES = MELODIES.filter(m => m.country && m.flag);
