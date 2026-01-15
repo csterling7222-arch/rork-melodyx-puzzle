@@ -1623,6 +1623,608 @@ export const MELODIES: Melody[] = [
     era: "2020s",
     mood: "playful"
   },
+
+  // === 50 NEW POPULAR SONGS ===
+  
+  // Bruno Mars
+  {
+    name: "Just The Way You Are",
+    notes: ["F", "A", "C", "D", "C", "A", "F"],
+    extendedNotes: ["F", "A", "C", "D", "C", "A", "F", "E", "F", "G", "A", "C"],
+    hint: "When I see your face, there's not a thing I would change",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "peaceful",
+    artist: "Bruno Mars"
+  },
+  {
+    name: "Grenade",
+    notes: ["D", "E", "F", "A", "G", "F", "E"],
+    extendedNotes: ["D", "E", "F", "A", "G", "F", "E", "D", "C", "D", "E", "F"],
+    hint: "I'd catch a grenade for ya",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "dramatic",
+    artist: "Bruno Mars"
+  },
+  {
+    name: "Locked Out Of Heaven",
+    notes: ["D", "D", "F", "A", "G", "F", "D"],
+    extendedNotes: ["D", "D", "F", "A", "G", "F", "D", "C", "D", "F", "G", "A"],
+    hint: "Cause your sex takes me to paradise",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Bruno Mars"
+  },
+  {
+    name: "24K Magic",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "G", "A", "B"],
+    hint: "Put your pinky rings up to the moon",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Bruno Mars"
+  },
+
+  // Rihanna
+  {
+    name: "Umbrella",
+    notes: ["E", "F#", "G#", "B", "A", "G#", "F#"],
+    extendedNotes: ["E", "F#", "G#", "B", "A", "G#", "F#", "E", "D#", "E", "F#", "G#"],
+    hint: "Under my umbrella, ella, ella",
+    category: "Pop",
+    genre: "Pop",
+    era: "2000s",
+    mood: "upbeat",
+    artist: "Rihanna"
+  },
+  {
+    name: "Diamonds",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "E", "D", "E"],
+    hint: "Shine bright like a diamond",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "epic",
+    artist: "Rihanna"
+  },
+  {
+    name: "We Found Love",
+    notes: ["C", "D", "E", "G", "F", "E", "D"],
+    extendedNotes: ["C", "D", "E", "G", "F", "E", "D", "C", "B", "C", "D", "E"],
+    hint: "In a hopeless place",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Rihanna"
+  },
+  {
+    name: "Disturbia",
+    notes: ["E", "E", "F#", "G#", "F#", "E", "D#"],
+    extendedNotes: ["E", "E", "F#", "G#", "F#", "E", "D#", "C#", "D#", "E", "F#", "G#"],
+    hint: "Bum bum be-dum bum bum be-dum bum",
+    category: "Pop",
+    genre: "Pop",
+    era: "2000s",
+    mood: "mysterious",
+    artist: "Rihanna"
+  },
+
+  // Lady Gaga
+  {
+    name: "Poker Face",
+    notes: ["G#", "A#", "C", "D#", "C", "A#", "G#"],
+    extendedNotes: ["G#", "A#", "C", "D#", "C", "A#", "G#", "F", "G#", "A#", "C", "D#"],
+    hint: "Can't read my poker face",
+    category: "Pop",
+    genre: "Pop",
+    era: "2000s",
+    mood: "energetic",
+    artist: "Lady Gaga"
+  },
+  {
+    name: "Bad Romance",
+    notes: ["A", "C", "D", "E", "D", "C", "A"],
+    extendedNotes: ["A", "C", "D", "E", "D", "C", "A", "G", "A", "B", "C", "D"],
+    hint: "Ra ra ah ah ah, roma roma ma",
+    category: "Pop",
+    genre: "Pop",
+    era: "2000s",
+    mood: "dramatic",
+    artist: "Lady Gaga"
+  },
+  {
+    name: "Born This Way",
+    notes: ["E", "G", "A", "B", "A", "G", "E"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"],
+    hint: "Baby, I was born this way",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Lady Gaga"
+  },
+  {
+    name: "Shallow",
+    notes: ["G", "A", "B", "D", "B", "A", "G"],
+    extendedNotes: ["G", "A", "B", "D", "B", "A", "G", "F#", "E", "D", "E", "G"],
+    hint: "I'm off the deep end, watch as I dive in",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "epic",
+    artist: "Lady Gaga & Bradley Cooper"
+  },
+
+  // Katy Perry
+  {
+    name: "Firework",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "G", "A", "B"],
+    hint: "Baby you're a firework",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Katy Perry"
+  },
+  {
+    name: "Roar",
+    notes: ["C", "D", "E", "G", "E", "D", "C"],
+    extendedNotes: ["C", "D", "E", "G", "E", "D", "C", "B", "C", "D", "E", "F"],
+    hint: "I got the eye of the tiger",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Katy Perry"
+  },
+  {
+    name: "Teenage Dream",
+    notes: ["E", "F#", "G#", "B", "A", "G#", "F#"],
+    extendedNotes: ["E", "F#", "G#", "B", "A", "G#", "F#", "E", "D#", "E", "F#", "G#"],
+    hint: "Let's go all the way tonight",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Katy Perry"
+  },
+  {
+    name: "Dark Horse",
+    notes: ["A", "B", "C", "E", "D", "C", "B"],
+    extendedNotes: ["A", "B", "C", "E", "D", "C", "B", "A", "G", "A", "B", "C"],
+    hint: "So you wanna play with magic?",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "mysterious",
+    artist: "Katy Perry"
+  },
+
+  // Adele
+  {
+    name: "Rolling In The Deep",
+    notes: ["E", "E", "G", "E", "D", "C", "D"],
+    extendedNotes: ["E", "E", "G", "E", "D", "C", "D", "E", "G", "A", "G", "E"],
+    hint: "We could have had it all",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "dramatic",
+    artist: "Adele"
+  },
+  {
+    name: "Someone Like You",
+    notes: ["A", "C#", "E", "A", "G#", "F#", "E"],
+    extendedNotes: ["A", "C#", "E", "A", "G#", "F#", "E", "D", "C#", "B", "A", "B"],
+    hint: "Never mind, I'll find someone like you",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "nostalgic",
+    artist: "Adele"
+  },
+  {
+    name: "Hello",
+    notes: ["E", "D", "C", "D", "E", "G", "E"],
+    extendedNotes: ["E", "D", "C", "D", "E", "G", "E", "D", "C", "A", "G", "A"],
+    hint: "Hello from the other side",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "dramatic",
+    artist: "Adele"
+  },
+  {
+    name: "Set Fire To The Rain",
+    notes: ["A", "B", "C", "E", "D", "C", "B"],
+    extendedNotes: ["A", "B", "C", "E", "D", "C", "B", "A", "G", "A", "B", "C"],
+    hint: "I set fire to the rain",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "dramatic",
+    artist: "Adele"
+  },
+
+  // Beyoncé
+  {
+    name: "Single Ladies",
+    notes: ["E", "G", "A", "B", "A", "G", "E"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"],
+    hint: "If you liked it then you shoulda put a ring on it",
+    category: "Pop",
+    genre: "Pop",
+    era: "2000s",
+    mood: "upbeat",
+    artist: "Beyoncé"
+  },
+  {
+    name: "Crazy In Love",
+    notes: ["D", "F", "G", "A", "G", "F", "D"],
+    extendedNotes: ["D", "F", "G", "A", "G", "F", "D", "C", "D", "F", "G", "A"],
+    hint: "Uh oh, uh oh, uh oh, oh no no",
+    category: "Pop",
+    genre: "Pop",
+    era: "2000s",
+    mood: "energetic",
+    artist: "Beyoncé"
+  },
+  {
+    name: "Halo",
+    notes: ["A", "B", "C#", "E", "D", "C#", "B"],
+    extendedNotes: ["A", "B", "C#", "E", "D", "C#", "B", "A", "G#", "A", "B", "C#"],
+    hint: "Baby I can see your halo",
+    category: "Pop",
+    genre: "Pop",
+    era: "2000s",
+    mood: "peaceful",
+    artist: "Beyoncé"
+  },
+  {
+    name: "Formation",
+    notes: ["D", "F", "G", "A#", "A", "G", "F"],
+    extendedNotes: ["D", "F", "G", "A#", "A", "G", "F", "D", "C", "D", "F", "G"],
+    hint: "Okay ladies now let's get in formation",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Beyoncé"
+  },
+
+  // Justin Timberlake
+  {
+    name: "Cant Stop The Feeling",
+    notes: ["C", "E", "G", "A", "G", "E", "C"],
+    extendedNotes: ["C", "E", "G", "A", "G", "E", "C", "D", "E", "F", "G", "A"],
+    hint: "I got this feeling inside my bones",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Justin Timberlake"
+  },
+  {
+    name: "Mirrors",
+    notes: ["E", "F#", "G#", "B", "A", "G#", "F#"],
+    extendedNotes: ["E", "F#", "G#", "B", "A", "G#", "F#", "E", "D#", "E", "F#", "G#"],
+    hint: "You are the love of my life",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "nostalgic",
+    artist: "Justin Timberlake"
+  },
+  {
+    name: "SexyBack",
+    notes: ["F#", "G#", "A", "B", "A", "G#", "F#"],
+    extendedNotes: ["F#", "G#", "A", "B", "A", "G#", "F#", "E", "F#", "G#", "A", "B"],
+    hint: "I'm bringing sexy back",
+    category: "Pop",
+    genre: "Pop",
+    era: "2000s",
+    mood: "energetic",
+    artist: "Justin Timberlake"
+  },
+
+  // Maroon 5
+  {
+    name: "Sugar",
+    notes: ["E", "G", "A", "B", "A", "G", "E"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "F#", "G", "A"],
+    hint: "Sugar, yes please",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Maroon 5"
+  },
+  {
+    name: "Moves Like Jagger",
+    notes: ["B", "C#", "D", "F#", "E", "D", "C#"],
+    extendedNotes: ["B", "C#", "D", "F#", "E", "D", "C#", "B", "A", "B", "C#", "D"],
+    hint: "I got the moves like Jagger",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Maroon 5"
+  },
+  {
+    name: "Payphone",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "G", "A", "B"],
+    hint: "I'm at a payphone trying to call home",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "nostalgic",
+    artist: "Maroon 5"
+  },
+  {
+    name: "Girls Like You",
+    notes: ["C", "D", "E", "G", "F", "E", "D"],
+    extendedNotes: ["C", "D", "E", "G", "F", "E", "D", "C", "B", "C", "D", "E"],
+    hint: "I need a girl like you",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Maroon 5"
+  },
+
+  // Post Malone
+  {
+    name: "Sunflower",
+    notes: ["E", "G", "A", "B", "A", "G", "E"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"],
+    hint: "Ayy, ayy, ayy, ayy - Spider-Verse",
+    category: "Hip-Hop",
+    genre: "Hip-Hop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Post Malone & Swae Lee"
+  },
+  {
+    name: "Circles",
+    notes: ["A", "B", "C#", "E", "D", "C#", "B"],
+    extendedNotes: ["A", "B", "C#", "E", "D", "C#", "B", "A", "G#", "A", "B", "C#"],
+    hint: "We couldn't turn around til we were upside down",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "nostalgic",
+    artist: "Post Malone"
+  },
+  {
+    name: "Rockstar",
+    notes: ["D", "F", "G", "A", "G", "F", "D"],
+    extendedNotes: ["D", "F", "G", "A", "G", "F", "D", "C", "D", "F", "G", "A"],
+    hint: "I been feelin' like a rockstar",
+    category: "Hip-Hop",
+    genre: "Hip-Hop",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Post Malone"
+  },
+
+  // The Chainsmokers
+  {
+    name: "Closer",
+    notes: ["D", "E", "F#", "A", "G", "F#", "E"],
+    extendedNotes: ["D", "E", "F#", "A", "G", "F#", "E", "D", "C#", "D", "E", "F#"],
+    hint: "So baby pull me closer",
+    category: "EDM",
+    genre: "EDM",
+    era: "2010s",
+    mood: "nostalgic",
+    artist: "The Chainsmokers & Halsey"
+  },
+  {
+    name: "Dont Let Me Down",
+    notes: ["E", "F#", "G", "B", "A", "G", "F#"],
+    extendedNotes: ["E", "F#", "G", "B", "A", "G", "F#", "E", "D", "E", "F#", "G"],
+    hint: "I need ya, I need ya, I need you right now",
+    category: "EDM",
+    genre: "EDM",
+    era: "2010s",
+    mood: "energetic",
+    artist: "The Chainsmokers ft. Daya"
+  },
+  {
+    name: "Something Just Like This",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "G", "A", "B"],
+    hint: "I want something just like this",
+    category: "EDM",
+    genre: "EDM",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "The Chainsmokers & Coldplay"
+  },
+
+  // Imagine Dragons
+  {
+    name: "Radioactive",
+    notes: ["B", "C#", "D", "F#", "E", "D", "C#"],
+    extendedNotes: ["B", "C#", "D", "F#", "E", "D", "C#", "B", "A", "B", "C#", "D"],
+    hint: "I'm waking up, I feel it in my bones",
+    category: "Rock",
+    genre: "Rock",
+    era: "2010s",
+    mood: "epic",
+    artist: "Imagine Dragons"
+  },
+  {
+    name: "Believer",
+    notes: ["D", "E", "F", "A", "G", "F", "E"],
+    extendedNotes: ["D", "E", "F", "A", "G", "F", "E", "D", "C", "D", "E", "F"],
+    hint: "Pain! You made me a believer",
+    category: "Rock",
+    genre: "Rock",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Imagine Dragons"
+  },
+  {
+    name: "Thunder",
+    notes: ["E", "G", "A", "B", "A", "G", "E"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"],
+    hint: "Thunder, feel the thunder",
+    category: "Rock",
+    genre: "Rock",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Imagine Dragons"
+  },
+  {
+    name: "Demons",
+    notes: ["C", "D", "E", "G", "F", "E", "D"],
+    extendedNotes: ["C", "D", "E", "G", "F", "E", "D", "C", "B", "C", "D", "E"],
+    hint: "When you feel my heat, look into my eyes",
+    category: "Rock",
+    genre: "Rock",
+    era: "2010s",
+    mood: "dramatic",
+    artist: "Imagine Dragons"
+  },
+
+  // OneRepublic
+  {
+    name: "Counting Stars",
+    notes: ["E", "G", "A", "B", "A", "G", "E"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"],
+    hint: "Lately I been losing sleep",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "OneRepublic"
+  },
+  {
+    name: "Apologize",
+    notes: ["E", "D", "C", "E", "D", "C", "B"],
+    extendedNotes: ["E", "D", "C", "E", "D", "C", "B", "A", "B", "C", "D", "E"],
+    hint: "It's too late to apologize",
+    category: "Pop",
+    genre: "Pop",
+    era: "2000s",
+    mood: "nostalgic",
+    artist: "OneRepublic"
+  },
+
+  // Sean Paul & Others
+  {
+    name: "Get Busy",
+    notes: ["G", "A#", "C", "D", "C", "A#", "G"],
+    extendedNotes: ["G", "A#", "C", "D", "C", "A#", "G", "F", "G", "A#", "C", "D"],
+    hint: "Shake that thing, miss Kana Kana",
+    category: "Pop",
+    genre: "Pop",
+    era: "2000s",
+    mood: "energetic",
+    artist: "Sean Paul"
+  },
+  {
+    name: "Temperature",
+    notes: ["D", "F", "G", "A", "G", "F", "D"],
+    extendedNotes: ["D", "F", "G", "A", "G", "F", "D", "C", "D", "F", "G", "A"],
+    hint: "The gal dem schilling, wa wa wa",
+    category: "Pop",
+    genre: "Pop",
+    era: "2000s",
+    mood: "energetic",
+    artist: "Sean Paul"
+  },
+  {
+    name: "Timber",
+    notes: ["A", "B", "C#", "E", "D", "C#", "B"],
+    extendedNotes: ["A", "B", "C#", "E", "D", "C#", "B", "A", "G#", "A", "B", "C#"],
+    hint: "It's going down, I'm yelling timber",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Pitbull ft. Ke$ha"
+  },
+
+  // More 2020s Hits
+  {
+    name: "Dont Start Now",
+    notes: ["F", "G", "A", "C", "A", "G", "F"],
+    extendedNotes: ["F", "G", "A", "C", "A", "G", "F", "E", "F", "G", "A", "B"],
+    hint: "Don't show up, don't come out",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "energetic",
+    artist: "Dua Lipa"
+  },
+  {
+    name: "Physical",
+    notes: ["D", "F", "G", "A", "G", "F", "D"],
+    extendedNotes: ["D", "F", "G", "A", "G", "F", "D", "C", "D", "F", "G", "A"],
+    hint: "Let's get physical",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "energetic",
+    artist: "Dua Lipa"
+  },
+  {
+    name: "Break My Soul",
+    notes: ["E", "G", "A", "B", "A", "G", "E"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"],
+    hint: "You won't break my soul",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "energetic",
+    artist: "Beyoncé"
+  },
+  {
+    name: "About Damn Time",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "G", "A", "B"],
+    hint: "It's about damn time",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "upbeat",
+    artist: "Lizzo"
+  },
+  {
+    name: "Running Up That Hill",
+    notes: ["A", "B", "C", "E", "D", "C", "B"],
+    extendedNotes: ["A", "B", "C", "E", "D", "C", "B", "A", "G", "A", "B", "C"],
+    hint: "If I only could make a deal with God - Stranger Things",
+    category: "Pop",
+    genre: "Pop",
+    era: "80s",
+    mood: "dramatic",
+    artist: "Kate Bush"
+  },
+  {
+    name: "Easy On Me",
+    notes: ["F", "G", "A", "C", "B", "A", "G"],
+    extendedNotes: ["F", "G", "A", "C", "B", "A", "G", "F", "E", "F", "G", "A"],
+    hint: "Go easy on me baby",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "nostalgic",
+    artist: "Adele"
+  },
 ];
 
 export const INTERNATIONAL_MELODIES = MELODIES.filter(m => m.country && m.flag);
