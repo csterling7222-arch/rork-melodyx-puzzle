@@ -95,6 +95,9 @@ let audioContextInstance: AudioContext | null = null;
 let audioInitialized = false;
 let webAudioUnlocked = false;
 
+const webSampleCache = new Map<string, Map<string, AudioBuffer>>();
+const webSampleLoadingPromises = new Map<string, Promise<AudioBuffer | null>>();
+
 const soundCache = new Map<string, Map<string, Audio.Sound>>();
 const preloadQueue = new Set<string>();
 let isPreloading = false;
@@ -211,6 +214,70 @@ function getWebAudioContext(): AudioContext | null {
     console.log('[Audio] Failed to create Web AudioContext:', error);
     return null;
   }
+}
+
+function getWebSampleCache(instrumentId: string): Map<string, AudioBuffer> {
+  if (!webSampleCache.has(instrumentId)) {
+    webSampleCache.set(instrumentId, new Map());
+  }
+  return webSampleCache.get(instrumentId)!;
+}
+
+async function loadWebSample(note: string, instrumentId: string): Promise<AudioBuffer | null> {
+  const ctx = getWebAudioContext();
+  if (!ctx) return null;
+  
+  const cache = getWebSampleCache(instrumentId);
+  if (cache.has(note)) {
+    return cache.get(note) || null;
+  }
+  
+  const cacheKey = `${instrumentId}_${note}_web`;
+  if (webSampleLoadingPromises.has(cacheKey)) {
+    return webSampleLoadingPromises.get(cacheKey) || null;
+  }
+  
+  const loadPromise = (async (): Promise<AudioBuffer | null> => {
+    try {
+      const instrument = getInstrumentById(instrumentId);
+      const fileName = NOTE_TO_FILE[note] || 'C4';
+      const url = `https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/${instrument.soundfontName}-mp3/${fileName}.mp3`;
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      
+      cache.set(note, audioBuffer);
+      console.log(`[Audio] Web: Loaded sample for ${instrumentId} ${note}`);
+      return audioBuffer;
+    } catch (error) {
+      console.log(`[Audio] Web: Failed to load sample for ${note}:`, error);
+      return null;
+    } finally {
+      webSampleLoadingPromises.delete(cacheKey);
+    }
+  })();
+  
+  webSampleLoadingPromises.set(cacheKey, loadPromise);
+  return loadPromise;
+}
+
+async function preloadWebSamples(instrumentId: string): Promise<void> {
+  const notes = Object.keys(NOTE_FREQUENCIES);
+  console.log(`[Audio] Web: Preloading samples for ${instrumentId}...`);
+  
+  const batchSize = 3;
+  for (let i = 0; i < notes.length; i += batchSize) {
+    const batch = notes.slice(i, i + batchSize);
+    await Promise.all(batch.map(note => loadWebSample(note, instrumentId)));
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  
+  console.log(`[Audio] Web: Preload complete for ${instrumentId}`);
 }
 
 export function unlockWebAudio(): void {
@@ -393,6 +460,8 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       initNativeAudio().then(() => {
         preloadAllSounds(instId);
       });
+    } else {
+      preloadWebSamples(instId);
     }
     
     console.log(`Audio hook using instrument: ${instId}`);
@@ -405,7 +474,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     };
   }, []);
 
-  const playNoteWeb = useCallback((note: string, duration: number = 0.35) => {
+  const playNoteWeb = useCallback(async (note: string, duration: number = 0.35) => {
     try {
       const ctx = getWebAudioContext();
       if (!ctx) {
@@ -414,9 +483,8 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       }
 
       if (ctx.state === 'suspended') {
-        ctx.resume().then(() => {
-          webAudioUnlocked = true;
-        }).catch(e => console.log('[Audio] Resume error:', e));
+        await ctx.resume();
+        webAudioUnlocked = true;
       }
 
       const frequency = NOTE_FREQUENCIES[note];
@@ -426,51 +494,61 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       }
 
       const instrument = currentInstrumentRef.current;
-      const { volume: vol, fadeIn, fadeOut } = audioSettingsRef.current;
+      const { volume: vol } = audioSettingsRef.current;
       
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      const filterNode = ctx.createBiquadFilter();
-
-      filterNode.type = 'lowpass';
-      filterNode.frequency.setValueAtTime(instrument.id === 'synth' ? 4000 : 2000, ctx.currentTime);
-
-      oscillator.connect(filterNode);
-      filterNode.connect(gainNode);
-      gainNode.connect(ctx.destination);
-
-      oscillator.type = instrument.waveType;
+      const cache = getWebSampleCache(instrument.id);
+      let audioBuffer = cache.get(note);
       
-      let adjustedFreq = frequency;
-      if (instrument.id === 'bass') {
-        adjustedFreq = frequency / 2;
+      if (!audioBuffer) {
+        audioBuffer = await loadWebSample(note, instrument.id) || undefined;
       }
-      oscillator.frequency.setValueAtTime(adjustedFreq, ctx.currentTime);
-
-      const { attackTime, sustainLevel, releaseTime } = instrument;
-      const maxGain = 0.5 * vol;
-      const sustainGain = Math.max(0.01, sustainLevel * 0.5 * vol);
       
-      gainNode.gain.setValueAtTime(0, ctx.currentTime);
-      
-      if (fadeIn) {
-        gainNode.gain.linearRampToValueAtTime(maxGain, ctx.currentTime + attackTime + 0.1);
+      if (audioBuffer) {
+        const source = ctx.createBufferSource();
+        const gainNode = ctx.createGain();
+        
+        source.buffer = audioBuffer;
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        gainNode.gain.setValueAtTime(vol, ctx.currentTime);
+        
+        source.start(0);
+        console.log(`[Audio] Web: Playing sample ${note} on ${instrument.name} (vol: ${vol})`);
       } else {
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        const filterNode = ctx.createBiquadFilter();
+
+        filterNode.type = 'lowpass';
+        filterNode.frequency.setValueAtTime(instrument.id === 'synth' ? 4000 : 2000, ctx.currentTime);
+
+        oscillator.connect(filterNode);
+        filterNode.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        oscillator.type = instrument.waveType;
+        
+        let adjustedFreq = frequency;
+        if (instrument.id === 'bass') {
+          adjustedFreq = frequency / 2;
+        }
+        oscillator.frequency.setValueAtTime(adjustedFreq, ctx.currentTime);
+
+        const { attackTime, sustainLevel, releaseTime } = instrument;
+        const maxGain = 0.5 * vol;
+        const sustainGain = Math.max(0.01, sustainLevel * 0.5 * vol);
+        
+        gainNode.gain.setValueAtTime(0, ctx.currentTime);
         gainNode.gain.linearRampToValueAtTime(maxGain, ctx.currentTime + attackTime);
-      }
-      
-      gainNode.gain.exponentialRampToValueAtTime(sustainGain, ctx.currentTime + duration * 0.7);
-      
-      if (fadeOut) {
-        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration + releaseTime + 0.1);
-      } else {
+        gainNode.gain.exponentialRampToValueAtTime(sustainGain, ctx.currentTime + duration * 0.7);
         gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration + releaseTime);
+
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + duration + releaseTime + 0.15);
+
+        console.log(`[Audio] Web: Playing oscillator ${note} on ${instrument.name} (vol: ${vol})`);
       }
-
-      oscillator.start(ctx.currentTime);
-      oscillator.stop(ctx.currentTime + duration + releaseTime + 0.15);
-
-      console.log(`[Audio] Web: Playing ${note} on ${instrument.name} (vol: ${vol})`);
     } catch (error) {
       console.log('[Audio] Web audio error:', error);
     }
