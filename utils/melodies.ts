@@ -2225,6 +2225,592 @@ export const MELODIES: Melody[] = [
     mood: "nostalgic",
     artist: "Adele"
   },
+
+  // === 50 MORE POPULAR SONGS ===
+
+  // Ariana Grande
+  {
+    name: "Thank U Next",
+    notes: ["C", "D", "E", "G", "E", "D", "C"],
+    extendedNotes: ["C", "D", "E", "G", "E", "D", "C", "B", "C", "D", "E", "F"],
+    hint: "One taught me love, one taught me patience",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Ariana Grande"
+  },
+  {
+    name: "7 Rings",
+    notes: ["D", "F", "G", "A", "G", "F", "D"],
+    extendedNotes: ["D", "F", "G", "A", "G", "F", "D", "C", "D", "F", "G", "A"],
+    hint: "I see it, I like it, I want it, I got it",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Ariana Grande"
+  },
+  {
+    name: "Into You",
+    notes: ["A", "B", "C#", "E", "D", "C#", "B"],
+    extendedNotes: ["A", "B", "C#", "E", "D", "C#", "B", "A", "G#", "A", "B", "C#"],
+    hint: "A little bit dangerous, but baby that's how I want it",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Ariana Grande"
+  },
+  {
+    name: "No Tears Left To Cry",
+    notes: ["E", "F#", "G#", "B", "A", "G#", "F#"],
+    extendedNotes: ["E", "F#", "G#", "B", "A", "G#", "F#", "E", "D#", "E", "F#", "G#"],
+    hint: "Right now I'm in a state of mind",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Ariana Grande"
+  },
+  {
+    name: "Problem",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "G", "A", "B"],
+    hint: "I got one less problem without ya",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Ariana Grande"
+  },
+
+  // Ed Sheeran
+  {
+    name: "Perfect",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "E", "D", "E"],
+    hint: "I found a love for me",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "peaceful",
+    artist: "Ed Sheeran"
+  },
+  {
+    name: "Thinking Out Loud",
+    notes: ["D", "E", "F#", "A", "G", "F#", "E"],
+    extendedNotes: ["D", "E", "F#", "A", "G", "F#", "E", "D", "C#", "D", "E", "F#"],
+    hint: "Will your mouth still remember the taste of my love",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "peaceful",
+    artist: "Ed Sheeran"
+  },
+  {
+    name: "Castle On The Hill",
+    notes: ["E", "G", "A", "B", "A", "G", "E"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"],
+    hint: "Over the castle on the hill",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "nostalgic",
+    artist: "Ed Sheeran"
+  },
+  {
+    name: "Photograph",
+    notes: ["E", "F#", "G#", "B", "A", "G#", "F#"],
+    extendedNotes: ["E", "F#", "G#", "B", "A", "G#", "F#", "E", "D#", "C#", "B", "C#"],
+    hint: "Loving can hurt sometimes",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "nostalgic",
+    artist: "Ed Sheeran"
+  },
+
+  // More Taylor Swift
+  {
+    name: "Blank Space",
+    notes: ["F", "G", "A", "C", "B", "A", "G"],
+    extendedNotes: ["F", "G", "A", "C", "B", "A", "G", "F", "E", "F", "G", "A"],
+    hint: "Got a long list of ex-lovers",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "playful",
+    artist: "Taylor Swift"
+  },
+  {
+    name: "Love Story",
+    notes: ["D", "E", "F#", "A", "G", "F#", "E"],
+    extendedNotes: ["D", "E", "F#", "A", "G", "F#", "E", "D", "C#", "D", "E", "F#"],
+    hint: "Romeo take me somewhere we can be alone",
+    category: "Pop",
+    genre: "Pop",
+    era: "2000s",
+    mood: "nostalgic",
+    artist: "Taylor Swift"
+  },
+  {
+    name: "You Belong With Me",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "G", "A", "B"],
+    hint: "If you could see that I'm the one who understands you",
+    category: "Pop",
+    genre: "Pop",
+    era: "2000s",
+    mood: "upbeat",
+    artist: "Taylor Swift"
+  },
+  {
+    name: "Cardigan",
+    notes: ["A", "B", "C", "E", "D", "C", "B"],
+    extendedNotes: ["A", "B", "C", "E", "D", "C", "B", "A", "G", "A", "B", "C"],
+    hint: "Vintage tee, brand new phone",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "nostalgic",
+    artist: "Taylor Swift"
+  },
+  {
+    name: "All Too Well",
+    notes: ["C", "D", "E", "G", "F", "E", "D"],
+    extendedNotes: ["C", "D", "E", "G", "F", "E", "D", "C", "B", "C", "D", "E"],
+    hint: "I walked through the door with you",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "nostalgic",
+    artist: "Taylor Swift"
+  },
+
+  // The Weeknd
+  {
+    name: "Starboy",
+    notes: ["F#", "G#", "A", "C#", "B", "A", "G#"],
+    extendedNotes: ["F#", "G#", "A", "C#", "B", "A", "G#", "F#", "E", "F#", "G#", "A"],
+    hint: "I'm a starboy",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "energetic",
+    artist: "The Weeknd"
+  },
+  {
+    name: "The Hills",
+    notes: ["E", "F#", "G", "B", "A", "G", "F#"],
+    extendedNotes: ["E", "F#", "G", "B", "A", "G", "F#", "E", "D", "E", "F#", "G"],
+    hint: "I only call you when it's half past five",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "mysterious",
+    artist: "The Weeknd"
+  },
+  {
+    name: "Cant Feel My Face",
+    notes: ["A", "B", "C#", "E", "D", "C#", "B"],
+    extendedNotes: ["A", "B", "C#", "E", "D", "C#", "B", "A", "G#", "A", "B", "C#"],
+    hint: "And I know she'll be the death of me",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "The Weeknd"
+  },
+
+  // Doja Cat
+  {
+    name: "Kiss Me More",
+    notes: ["E", "G", "A", "B", "A", "G", "E"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"],
+    hint: "Can you kiss me more?",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "upbeat",
+    artist: "Doja Cat ft. SZA"
+  },
+  {
+    name: "Woman",
+    notes: ["D", "F", "G", "A", "G", "F", "D"],
+    extendedNotes: ["D", "F", "G", "A", "G", "F", "D", "C", "D", "F", "G", "A"],
+    hint: "I can be your woman",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "energetic",
+    artist: "Doja Cat"
+  },
+
+  // SZA
+  {
+    name: "Kill Bill",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "G", "A", "B"],
+    hint: "I might kill my ex",
+    category: "R&B",
+    genre: "R&B",
+    era: "2020s",
+    mood: "dramatic",
+    artist: "SZA"
+  },
+  {
+    name: "Good Days",
+    notes: ["E", "F#", "G#", "B", "A", "G#", "F#"],
+    extendedNotes: ["E", "F#", "G#", "B", "A", "G#", "F#", "E", "D#", "E", "F#", "G#"],
+    hint: "Good days on my mind",
+    category: "R&B",
+    genre: "R&B",
+    era: "2020s",
+    mood: "peaceful",
+    artist: "SZA"
+  },
+
+  // Cardi B
+  {
+    name: "Bodak Yellow",
+    notes: ["A", "C", "D", "E", "D", "C", "A"],
+    extendedNotes: ["A", "C", "D", "E", "D", "C", "A", "G", "A", "C", "D", "E"],
+    hint: "These expensive, these is red bottoms",
+    category: "Hip-Hop",
+    genre: "Hip-Hop",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Cardi B"
+  },
+  {
+    name: "WAP",
+    notes: ["F", "G", "A#", "C", "A#", "G", "F"],
+    extendedNotes: ["F", "G", "A#", "C", "A#", "G", "F", "D#", "F", "G", "A#", "C"],
+    hint: "Certified freaky",
+    category: "Hip-Hop",
+    genre: "Hip-Hop",
+    era: "2020s",
+    mood: "energetic",
+    artist: "Cardi B ft. Megan Thee Stallion"
+  },
+
+  // Megan Thee Stallion
+  {
+    name: "Savage",
+    notes: ["D", "F", "G", "A", "G", "F", "D"],
+    extendedNotes: ["D", "F", "G", "A", "G", "F", "D", "C", "D", "F", "G", "A"],
+    hint: "I'm a savage, classy, bougie, ratchet",
+    category: "Hip-Hop",
+    genre: "Hip-Hop",
+    era: "2020s",
+    mood: "energetic",
+    artist: "Megan Thee Stallion"
+  },
+
+  // Jack Harlow
+  {
+    name: "First Class",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "G", "A", "B"],
+    hint: "I been a G, throw up the L",
+    category: "Hip-Hop",
+    genre: "Hip-Hop",
+    era: "2020s",
+    mood: "upbeat",
+    artist: "Jack Harlow"
+  },
+
+  // Lil Nas X
+  {
+    name: "MONTERO",
+    notes: ["F#", "G#", "A", "C#", "B", "A", "G#"],
+    extendedNotes: ["F#", "G#", "A", "C#", "B", "A", "G#", "F#", "E", "F#", "G#", "A"],
+    hint: "Call me by your name",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "energetic",
+    artist: "Lil Nas X"
+  },
+  {
+    name: "Industry Baby",
+    notes: ["E", "G", "A", "B", "A", "G", "E"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"],
+    hint: "Baby back, couple racks",
+    category: "Hip-Hop",
+    genre: "Hip-Hop",
+    era: "2020s",
+    mood: "energetic",
+    artist: "Lil Nas X ft. Jack Harlow"
+  },
+
+  // Sam Smith
+  {
+    name: "Stay With Me",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "G", "A", "B"],
+    hint: "Oh won't you stay with me",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "nostalgic",
+    artist: "Sam Smith"
+  },
+  {
+    name: "Unholy",
+    notes: ["D", "F", "G", "A#", "A", "G", "F"],
+    extendedNotes: ["D", "F", "G", "A#", "A", "G", "F", "D", "C", "D", "F", "G"],
+    hint: "Mummy don't know daddy's getting hot",
+    category: "Pop",
+    genre: "Pop",
+    era: "2020s",
+    mood: "mysterious",
+    artist: "Sam Smith & Kim Petras"
+  },
+
+  // Lewis Capaldi
+  {
+    name: "Someone You Loved",
+    notes: ["C", "D", "E", "G", "F", "E", "D"],
+    extendedNotes: ["C", "D", "E", "G", "F", "E", "D", "C", "B", "C", "D", "E"],
+    hint: "Now the day bleeds into nightfall",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "nostalgic",
+    artist: "Lewis Capaldi"
+  },
+
+  // Shawn Mendes
+  {
+    name: "Senorita",
+    notes: ["A", "B", "C", "E", "D", "C", "B"],
+    extendedNotes: ["A", "B", "C", "E", "D", "C", "B", "A", "G", "A", "B", "C"],
+    hint: "I love it when you call me señorita",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Shawn Mendes & Camila Cabello"
+  },
+  {
+    name: "Stitches",
+    notes: ["E", "F#", "G#", "B", "A", "G#", "F#"],
+    extendedNotes: ["E", "F#", "G#", "B", "A", "G#", "F#", "E", "D#", "E", "F#", "G#"],
+    hint: "I thought that I'd been hurt before",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "dramatic",
+    artist: "Shawn Mendes"
+  },
+  {
+    name: "Theres Nothing Holding Me Back",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "G", "A", "B"],
+    hint: "She says that she's never afraid",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "energetic",
+    artist: "Shawn Mendes"
+  },
+
+  // Camila Cabello
+  {
+    name: "Havana",
+    notes: ["E", "G", "A", "B", "A", "G", "E"],
+    extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"],
+    hint: "Havana ooh na na",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Camila Cabello"
+  },
+
+  // More Classic Rock
+  {
+    name: "We Will Rock You",
+    notes: ["E", "E", "A", "E", "E", "A", "G"],
+    extendedNotes: ["E", "E", "A", "E", "E", "A", "G", "E", "D", "E", "G", "A"],
+    hint: "Buddy you're a boy make a big noise",
+    category: "Rock",
+    genre: "Rock",
+    era: "70s",
+    mood: "energetic",
+    artist: "Queen"
+  },
+  {
+    name: "We Are The Champions",
+    notes: ["F", "G", "A", "C", "A", "G", "F"],
+    extendedNotes: ["F", "G", "A", "C", "A", "G", "F", "E", "D", "E", "F", "G"],
+    hint: "I've paid my dues, time after time",
+    category: "Rock",
+    genre: "Rock",
+    era: "70s",
+    mood: "epic",
+    artist: "Queen"
+  },
+  {
+    name: "Dont Stop Believin",
+    notes: ["E", "G#", "A", "B", "A", "G#", "E"],
+    extendedNotes: ["E", "G#", "A", "B", "A", "G#", "E", "D#", "E", "F#", "G#", "A"],
+    hint: "Just a small town girl",
+    category: "Rock",
+    genre: "Rock",
+    era: "80s",
+    mood: "upbeat",
+    artist: "Journey"
+  },
+  {
+    name: "Sweet Home Alabama",
+    notes: ["D", "E", "F#", "A", "G", "F#", "E"],
+    extendedNotes: ["D", "E", "F#", "A", "G", "F#", "E", "D", "C#", "D", "E", "F#"],
+    hint: "Big wheels keep on turnin'",
+    category: "Rock",
+    genre: "Rock",
+    era: "70s",
+    mood: "upbeat",
+    artist: "Lynyrd Skynyrd"
+  },
+  {
+    name: "Highway To Hell",
+    notes: ["A", "C", "D", "E", "D", "C", "A"],
+    extendedNotes: ["A", "C", "D", "E", "D", "C", "A", "G", "A", "C", "D", "E"],
+    hint: "I'm on the highway to hell",
+    category: "Rock",
+    genre: "Rock",
+    era: "70s",
+    mood: "energetic",
+    artist: "AC/DC"
+  },
+
+  // More Movie/TV
+  {
+    name: "My Heart Will Go On",
+    notes: ["E", "F#", "G#", "A", "G#", "F#", "E"],
+    extendedNotes: ["E", "F#", "G#", "A", "G#", "F#", "E", "D#", "C#", "D#", "E", "F#"],
+    hint: "Near, far, wherever you are - Titanic",
+    category: "Movie",
+    genre: "Movie",
+    era: "90s",
+    mood: "dramatic",
+    artist: "Celine Dion"
+  },
+  {
+    name: "Skyfall",
+    notes: ["C", "D", "E", "G", "F", "E", "D"],
+    extendedNotes: ["C", "D", "E", "G", "F", "E", "D", "C", "B", "C", "D", "E"],
+    hint: "Let the sky fall - James Bond",
+    category: "Movie",
+    genre: "Movie",
+    era: "2010s",
+    mood: "dramatic",
+    artist: "Adele"
+  },
+  {
+    name: "I Will Survive",
+    notes: ["A", "B", "C", "E", "D", "C", "B"],
+    extendedNotes: ["A", "B", "C", "E", "D", "C", "B", "A", "G", "A", "B", "C"],
+    hint: "At first I was afraid, I was petrified",
+    category: "Pop",
+    genre: "Pop",
+    era: "70s",
+    mood: "upbeat",
+    artist: "Gloria Gaynor"
+  },
+  {
+    name: "Dont Stop Me Now",
+    notes: ["F", "G", "A", "C", "B", "A", "G"],
+    extendedNotes: ["F", "G", "A", "C", "B", "A", "G", "F", "E", "F", "G", "A"],
+    hint: "Tonight I'm gonna have myself a real good time",
+    category: "Rock",
+    genre: "Rock",
+    era: "70s",
+    mood: "upbeat",
+    artist: "Queen"
+  },
+  {
+    name: "Thriller",
+    notes: ["C#", "D#", "E", "F#", "E", "D#", "C#"],
+    extendedNotes: ["C#", "D#", "E", "F#", "E", "D#", "C#", "B", "C#", "D#", "E", "F#"],
+    hint: "It's close to midnight",
+    category: "Pop",
+    genre: "Pop",
+    era: "80s",
+    mood: "mysterious",
+    artist: "Michael Jackson"
+  },
+  {
+    name: "Beat It",
+    notes: ["E", "F#", "G", "A", "G", "F#", "E"],
+    extendedNotes: ["E", "F#", "G", "A", "G", "F#", "E", "D", "E", "F#", "G", "A"],
+    hint: "Just beat it, beat it",
+    category: "Pop",
+    genre: "Pop",
+    era: "80s",
+    mood: "energetic",
+    artist: "Michael Jackson"
+  },
+  {
+    name: "Smooth Criminal",
+    notes: ["A", "B", "C", "E", "D", "C", "B"],
+    extendedNotes: ["A", "B", "C", "E", "D", "C", "B", "A", "G", "A", "B", "C"],
+    hint: "Annie are you okay?",
+    category: "Pop",
+    genre: "Pop",
+    era: "80s",
+    mood: "mysterious",
+    artist: "Michael Jackson"
+  },
+
+  // More Recent Hits
+  {
+    name: "Attention",
+    notes: ["E", "F#", "G#", "B", "A", "G#", "F#"],
+    extendedNotes: ["E", "F#", "G#", "B", "A", "G#", "F#", "E", "D#", "E", "F#", "G#"],
+    hint: "You just want attention",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Charlie Puth"
+  },
+  {
+    name: "See You Again",
+    notes: ["G", "A", "B", "D", "C", "B", "A"],
+    extendedNotes: ["G", "A", "B", "D", "C", "B", "A", "G", "F#", "G", "A", "B"],
+    hint: "It's been a long day without you my friend - Fast & Furious",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "nostalgic",
+    artist: "Wiz Khalifa ft. Charlie Puth"
+  },
+  {
+    name: "Happy",
+    notes: ["F", "A", "C", "D", "C", "A", "F"],
+    extendedNotes: ["F", "A", "C", "D", "C", "A", "F", "E", "F", "G", "A", "C"],
+    hint: "Because I'm happy - Despicable Me",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Pharrell Williams"
+  },
+  {
+    name: "Get Lucky",
+    notes: ["B", "C#", "D#", "F#", "E", "D#", "C#"],
+    extendedNotes: ["B", "C#", "D#", "F#", "E", "D#", "C#", "B", "A#", "B", "C#", "D#"],
+    hint: "We're up all night to get lucky",
+    category: "Pop",
+    genre: "Pop",
+    era: "2010s",
+    mood: "upbeat",
+    artist: "Daft Punk ft. Pharrell"
+  },
 ];
 
 export const INTERNATIONAL_MELODIES = MELODIES.filter(m => m.country && m.flag);
