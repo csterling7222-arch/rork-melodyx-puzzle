@@ -12,20 +12,20 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
   Coins, Palette, Crown, Check, RotateCcw, Sparkles, Star, Gift, Clock,
-  Paintbrush, Award, Shield, BookOpen, Guitar
+  Paintbrush, Shield, BookOpen, Guitar
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useUser } from '@/contexts/UserContext';
 import { usePurchases, PACKAGE_IDENTIFIERS } from '@/contexts/PurchasesContext';
 import { 
-  KEYBOARD_SKINS, KeyboardSkin, COLOR_THEMES, ColorTheme, COSMETIC_ITEMS, CosmeticItem,
+  KEYBOARD_SKINS, KeyboardSkin, COLOR_THEMES, ColorTheme,
   POWER_UPS, PowerUp, LEARNING_PACKS, LearningPack, INSTRUMENT_ADDONS, InstrumentAddon,
   SHOP_BUNDLES, ShopBundle, getFeaturedBundles
 } from '@/constants/shop';
 
 
-type ShopTab = 'featured' | 'themes' | 'skins' | 'profile' | 'powerups' | 'learning' | 'instruments' | 'coins' | 'premium';
+type ShopTab = 'featured' | 'themes' | 'skins' | 'powerups' | 'learning' | 'instruments' | 'coins' | 'premium';
 
 const RARITY_COLORS: Record<string, string> = {
   common: '#9CA3AF',
@@ -419,115 +419,6 @@ const themeStyles = StyleSheet.create({
   },
   equippedText: {
     fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.correct,
-  },
-});
-
-function CosmeticCard({ item, isOwned, onBuy }: {
-  item: CosmeticItem;
-  isOwned: boolean;
-  onBuy: () => void;
-}) {
-  return (
-    <View style={cosmeticStyles.card}>
-      <Text style={cosmeticStyles.icon}>{item.icon}</Text>
-      <Text style={cosmeticStyles.name}>{item.name}</Text>
-      <Text style={cosmeticStyles.type}>{item.type.replace('_', ' ')}</Text>
-      <View style={[cosmeticStyles.rarityBadge, { backgroundColor: RARITY_COLORS[item.rarity] + '20' }]}>
-        <Text style={[cosmeticStyles.rarityText, { color: RARITY_COLORS[item.rarity] }]}>
-          {item.rarity.toUpperCase()}
-        </Text>
-      </View>
-      {!isOwned ? (
-        <TouchableOpacity style={cosmeticStyles.buyButton} onPress={onBuy}>
-          {item.currency === 'coins' ? (
-            <Coins size={12} color="#FFD700" />
-          ) : (
-            <Text style={cosmeticStyles.dollarSign}>$</Text>
-          )}
-          <Text style={cosmeticStyles.buyButtonText}>
-            {item.currency === 'coins' ? item.price : item.price.toFixed(2)}
-          </Text>
-        </TouchableOpacity>
-      ) : (
-        <View style={cosmeticStyles.ownedBadge}>
-          <Check size={12} color={Colors.correct} />
-          <Text style={cosmeticStyles.ownedText}>Owned</Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
-const cosmeticStyles = StyleSheet.create({
-  card: {
-    width: '48%',
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    padding: 14,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  icon: {
-    fontSize: 36,
-    marginBottom: 8,
-  },
-  name: {
-    fontSize: 13,
-    fontWeight: '700' as const,
-    color: Colors.text,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  type: {
-    fontSize: 10,
-    color: Colors.textSecondary,
-    textTransform: 'capitalize',
-    marginBottom: 8,
-  },
-  rarityBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginBottom: 10,
-  },
-  rarityText: {
-    fontSize: 9,
-    fontWeight: '700' as const,
-  },
-  buyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: Colors.surfaceLight,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    width: '100%',
-  },
-  dollarSign: {
-    fontSize: 12,
-    fontWeight: '700' as const,
-    color: Colors.correct,
-  },
-  buyButtonText: {
-    fontSize: 13,
-    fontWeight: '700' as const,
-    color: '#FFD700',
-  },
-  ownedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: Colors.correct + '20',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  ownedText: {
-    fontSize: 12,
     fontWeight: '600' as const,
     color: Colors.correct,
   },
@@ -1031,7 +922,7 @@ export default function ShopScreen() {
   const insets = useSafeAreaInsets();
   const { 
     inventory, spendCoins, purchaseSkin, equipSkin, addHints, addCoins,
-    purchaseTheme, equipTheme, purchaseCosmetic, purchasePowerUp, purchaseLearningPack,
+    purchaseTheme, equipTheme, purchasePowerUp, purchaseLearningPack,
     purchaseInstrumentAddon, purchaseBundle
   } = useUser();
   const { 
@@ -1197,37 +1088,6 @@ export default function ShopScreen() {
     }
   }, [getPackageByIdentifier, purchasePackage, addCoins, addHints, isConfigured, enableDemoPremium, purchaseBundle, purchaseLearningPack]);
 
-  const handleBuyCosmetic = useCallback((cosmetic: CosmeticItem) => {
-    if (cosmetic.currency === 'coins') {
-      if (inventory.coins < cosmetic.price) {
-        Alert.alert('Not Enough Coins', 'You need more coins to purchase this item.');
-        return;
-      }
-
-      Alert.alert(
-        'Confirm Purchase',
-        `Buy ${cosmetic.name} for ${cosmetic.price} coins?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Buy',
-            onPress: () => {
-              const success = spendCoins(cosmetic.price);
-              if (success) {
-                purchaseCosmetic(cosmetic.id);
-                if (Platform.OS !== 'web') {
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                }
-              }
-            },
-          },
-        ]
-      );
-    } else {
-      handleIAPPurchase(`cosmetic_${cosmetic.id}`);
-    }
-  }, [inventory.coins, spendCoins, purchaseCosmetic, handleIAPPurchase]);
-
   const handleBuyPowerUp = useCallback((powerUp: PowerUp) => {
     if (inventory.coins < powerUp.price) {
       Alert.alert('Not Enough Coins', 'You need more coins to purchase this power-up.');
@@ -1312,7 +1172,6 @@ export default function ShopScreen() {
     { key: 'featured', label: 'Featured', icon: <Star size={16} /> },
     { key: 'themes', label: 'Themes', icon: <Paintbrush size={16} /> },
     { key: 'skins', label: 'Skins', icon: <Palette size={16} /> },
-    { key: 'profile', label: 'Profile', icon: <Award size={16} /> },
     { key: 'powerups', label: 'Power-ups', icon: <Shield size={16} /> },
     { key: 'learning', label: 'Learning', icon: <BookOpen size={16} /> },
     { key: 'instruments', label: 'Instruments', icon: <Guitar size={16} /> },
@@ -1454,49 +1313,6 @@ export default function ShopScreen() {
                   onEquip={() => handleEquipSkin(skin.id)}
                 />
               ))}
-            </View>
-          )}
-
-          {selectedTab === 'profile' && (
-            <View>
-              <Text style={styles.sectionTitle}>✨ Profile Customization</Text>
-              <Text style={styles.sectionSubtitle}>Personalize your profile</Text>
-              
-              <Text style={styles.subSectionTitle}>Profile Frames</Text>
-              <View style={styles.cosmeticsGrid}>
-                {COSMETIC_ITEMS.filter(item => item.type === 'profile_frame').map(item => (
-                  <CosmeticCard
-                    key={item.id}
-                    item={item}
-                    isOwned={inventory.ownedCosmetics?.includes(item.id) || false}
-                    onBuy={() => handleBuyCosmetic(item)}
-                  />)
-                )}
-              </View>
-
-              <Text style={styles.subSectionTitle}>Stickers</Text>
-              <View style={styles.cosmeticsGrid}>
-                {COSMETIC_ITEMS.filter(item => item.type === 'sticker').map(item => (
-                  <CosmeticCard
-                    key={item.id}
-                    item={item}
-                    isOwned={inventory.ownedCosmetics?.includes(item.id) || false}
-                    onBuy={() => handleBuyCosmetic(item)}
-                  />)
-                )}
-              </View>
-
-              <Text style={styles.subSectionTitle}>Watermarks</Text>
-              <View style={styles.cosmeticsGrid}>
-                {COSMETIC_ITEMS.filter(item => item.type === 'watermark').map(item => (
-                  <CosmeticCard
-                    key={item.id}
-                    item={item}
-                    isOwned={inventory.ownedCosmetics?.includes(item.id) || false}
-                    onBuy={() => handleBuyCosmetic(item)}
-                  />)
-                )}
-              </View>
             </View>
           )}
 
