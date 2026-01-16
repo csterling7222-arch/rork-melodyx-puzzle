@@ -11,7 +11,7 @@ import {
   Share,
   Platform,
 } from 'react-native';
-import { X, Share2, Trophy, Music, Play, Square, Sparkles, Clock, Flame, Leaf, Map, ChevronRight, Home, Timer, Copy, Twitter, Volume2, RotateCcw, Crown, Repeat } from 'lucide-react-native';
+import { X, Share2, Trophy, Music, Play, Square, Sparkles, Clock, Flame, Leaf, Map, ChevronRight, Home, Timer, Copy, Volume2, RotateCcw, Crown, Repeat } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Confetti from '@/components/Confetti';
@@ -1026,8 +1026,8 @@ export default function GameModal() {
                 style={[styles.shareOptionButton, styles.twitterButton]} 
                 onPress={handleShareToTwitter}
               >
-                <Twitter size={18} color="#1DA1F2" />
-                <Text style={[styles.shareOptionText, { color: '#1DA1F2' }]}>X/Twitter</Text>
+                <Text style={{ fontSize: 18, fontWeight: '900' as const, color: '#000000' }}>𝕏</Text>
+                <Text style={[styles.shareOptionText, { color: '#000000' }]}>X</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.shareOptionButton, styles.moreButton]} 
