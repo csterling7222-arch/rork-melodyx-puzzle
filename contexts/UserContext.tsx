@@ -75,6 +75,7 @@ interface UserState {
 const STORAGE_KEY_PREFIX = 'melodyx_user_state';
 const LEGACY_STORAGE_KEY = 'melodyx_user_state';
 const GUEST_STORAGE_KEY = 'melodyx_user_state_guest';
+const GUEST_ID_KEY = 'melodyx_guest_id';
 
 function getStorageKey(userId: string | null): string {
   if (!userId) return GUEST_STORAGE_KEY;
@@ -158,14 +159,38 @@ function createDefaultUserState(userId: string, username: string, email: string 
   };
 }
 
-const FALLBACK_USER_STATE: UserState = createDefaultUserState(
-  `guest_${Date.now()}`,
-  'MelodyPlayer',
-  null
-);
+let FALLBACK_USER_STATE: UserState | null = null;
+
+function getFallbackUserState(): UserState {
+  if (!FALLBACK_USER_STATE) {
+    FALLBACK_USER_STATE = createDefaultUserState(
+      `guest_fallback`,
+      'MelodyPlayer',
+      null
+    );
+  }
+  return FALLBACK_USER_STATE;
+}
 
 function getTodayString(): string {
   return new Date().toISOString().split('T')[0];
+}
+
+async function getOrCreateGuestId(): Promise<string> {
+  try {
+    const existingId = await AsyncStorage.getItem(GUEST_ID_KEY);
+    if (existingId) {
+      console.log('[User] Found existing guest ID:', existingId);
+      return existingId;
+    }
+    const newId = `guest_${Date.now()}`;
+    await AsyncStorage.setItem(GUEST_ID_KEY, newId);
+    console.log('[User] Created new guest ID:', newId);
+    return newId;
+  } catch (error) {
+    console.log('[User] Error with guest ID:', error);
+    return `guest_${Date.now()}`;
+  }
 }
 
 export const [UserProvider, useUser] = createContextHook(() => {
@@ -173,9 +198,19 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const [newAchievement, setNewAchievement] = useState<Achievement | null>(null);
   const { isPremium: rcIsPremium } = usePurchases();
   const { user: authUser, isAuthenticated, isAnonymous } = useAuth();
+  const [guestId, setGuestId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!authUser?.uid) {
+      getOrCreateGuestId().then(setGuestId);
+    }
+  }, [authUser?.uid]);
 
   const storageKey = useMemo(() => {
-    return getStorageKey(authUser?.uid ?? null);
+    if (authUser?.uid) {
+      return getStorageKey(authUser.uid);
+    }
+    return GUEST_STORAGE_KEY;
   }, [authUser?.uid]);
 
   const authUid = authUser?.uid;
@@ -183,9 +218,11 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const authDisplayName = authUser?.displayName;
 
   const userQuery = useQuery({
-    queryKey: ['userState', authUid, authEmail, authDisplayName, storageKey],
+    queryKey: ['userState', storageKey, authUid, guestId],
     queryFn: async (): Promise<UserState> => {
       try {
+        console.log('[User] Loading user state from:', storageKey);
+        
         let stored = await AsyncStorage.getItem(storageKey);
         
         if (!stored) {
@@ -221,7 +258,8 @@ export const [UserProvider, useUser] = createContextHook(() => {
               parsed.profile.username = authDisplayName;
             }
           }
-          console.log('[User] Loaded user state for:', authUid || 'guest');
+          console.log('[User] Successfully loaded user state for:', parsed.profile.id);
+          console.log('[User] Progress:', JSON.stringify(parsed.progress));
           return parsed;
         }
       } catch (error) {
@@ -230,19 +268,23 @@ export const [UserProvider, useUser] = createContextHook(() => {
       
       if (authUid) {
         console.log('[User] Creating new user state for:', authUid);
-        return createDefaultUserState(
+        const newState = createDefaultUserState(
           authUid,
           authDisplayName || 'MelodyPlayer',
           authEmail ?? null
         );
+        await AsyncStorage.setItem(storageKey, JSON.stringify(newState));
+        return newState;
       }
       
-      const guestId = `guest_${Date.now()}`;
-      console.log('[User] Creating new guest state:', guestId);
-      return createDefaultUserState(guestId, 'MelodyPlayer', null);
+      const finalGuestId = guestId || await getOrCreateGuestId();
+      console.log('[User] Creating new guest state:', finalGuestId);
+      const newState = createDefaultUserState(finalGuestId, 'MelodyPlayer', null);
+      await AsyncStorage.setItem(storageKey, JSON.stringify(newState));
+      return newState;
     },
     enabled: true,
-    staleTime: 0,
+    staleTime: Infinity,
     gcTime: Infinity,
   });
 
@@ -250,14 +292,15 @@ export const [UserProvider, useUser] = createContextHook(() => {
     mutationFn: async (state: UserState) => {
       await AsyncStorage.setItem(storageKey, JSON.stringify(state));
       console.log('[User] Saved user state for:', state.profile.id);
+      console.log('[User] Saved progress:', JSON.stringify(state.progress));
       return state;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userState', authUid] });
+    onSuccess: (savedState) => {
+      queryClient.setQueryData(['userState', storageKey, authUid, guestId], savedState);
     },
   });
 
-  const userState = userQuery.data ?? FALLBACK_USER_STATE;
+  const userState = userQuery.data ?? getFallbackUserState();
 
   const checkAndUnlockAchievements = useCallback((currentState: UserState): Achievement[] => {
     const newUnlocks: Achievement[] = [];
