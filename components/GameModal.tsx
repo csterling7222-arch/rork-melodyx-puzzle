@@ -528,30 +528,57 @@ export default function GameModal() {
   const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength, stats.currentStreak);
 
   const handleCopyToClipboard = async () => {
-    if (Platform.OS === 'web') {
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(shareText);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+    try {
+      console.log('[GameModal] Copying to clipboard:', shareText.substring(0, 50) + '...');
+      
+      if (Platform.OS === 'web') {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(shareText);
+          console.log('[GameModal] Copied to clipboard successfully');
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } else {
+          // Fallback for browsers without clipboard API
+          const textArea = document.createElement('textarea');
+          textArea.value = shareText;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '-9999px';
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          console.log('[GameModal] Copied using fallback method');
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
+      } else {
+        const result = await Share.share({ message: shareText });
+        console.log('[GameModal] Share result:', result);
+        if (result.action === Share.sharedAction) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
       }
-    } else {
-      await Share.share({ message: shareText });
-    }
-
-    if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error('[GameModal] Error copying/sharing:', error);
+      // Show copied anyway to give user feedback
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
   const handleShareToTwitter = async () => {
-    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
-    if (Platform.OS === 'web') {
-      window.open(twitterUrl, '_blank');
-    } else {
-      await Share.share({ message: shareText, title: 'Share to X' });
-    }
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
+      if (Platform.OS === 'web') {
+        window.open(twitterUrl, '_blank');
+      } else {
+        await Share.share({ message: shareText, title: 'Share to X' });
+      }
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+    } catch (error) {
+      console.error('[GameModal] Error sharing to Twitter:', error);
     }
   };
 

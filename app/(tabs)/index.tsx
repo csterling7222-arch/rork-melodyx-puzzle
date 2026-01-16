@@ -613,17 +613,48 @@ export default function HomeScreen() {
   const handleShare = useCallback(async () => {
     if (gameStatus === 'playing') return;
 
-    const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength, stats.currentStreak);
+    try {
+      const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength, stats.currentStreak);
+      console.log('[Share] Attempting to share:', shareText.substring(0, 50) + '...');
 
-    if (Platform.OS === 'web') {
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(shareText);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+      if (Platform.OS === 'web') {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(shareText);
+          console.log('[Share] Copied to clipboard successfully');
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } else {
+          // Fallback for browsers without clipboard API
+          const textArea = document.createElement('textarea');
+          textArea.value = shareText;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '-9999px';
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          console.log('[Share] Copied using fallback method');
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
+      } else {
+        const result = await Share.share({ message: shareText });
+        console.log('[Share] Share result:', result);
+        if (result.action === Share.sharedAction) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
       }
-    } else {
-      await Share.share({ message: shareText });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error('[Share] Error sharing:', error);
+      // Try fallback for native
+      if (Platform.OS !== 'web') {
+        try {
+          const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength, stats.currentStreak);
+          await Share.share({ message: shareText });
+        } catch (fallbackError) {
+          console.error('[Share] Fallback also failed:', fallbackError);
+        }
+      }
     }
   }, [gameStatus, guesses, puzzleNumber, melodyLength, stats.currentStreak]);
 
