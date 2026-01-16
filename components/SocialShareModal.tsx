@@ -41,6 +41,7 @@ import {
   Lock,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { Colors } from '@/constants/colors';
 import { Melody } from '@/utils/melodies';
 import { GuessResult } from '@/utils/gameLogic';
@@ -291,7 +292,6 @@ export default function SocialShareModal({
     getHashtagsForPlatform,
     getPlatformConfig,
     formatContentForPlatform,
-    getShareUrl,
     getViralScore,
     isGeneratingCaption,
   } = useSocialShare();
@@ -416,14 +416,23 @@ export default function SocialShareModal({
     }
 
     const text = getFullShareText();
-    if (Platform.OS === 'web') {
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(text);
+    
+    try {
+      if (Platform.OS === 'web') {
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
+      } else {
+        // On native, just copy to clipboard without opening share sheet
+        await Clipboard.setStringAsync(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-    } else {
-      await Share.share({ message: text });
+    } catch (error) {
+      console.log('[SocialShare] Copy error:', error);
     }
 
     recordShare('clipboard', selectedTemplate.id, {
@@ -432,55 +441,9 @@ export default function SocialShareModal({
       hasEffects: selectedEffect.id !== 'none',
       shareType: 'text',
     });
-
-    if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
   }, [canShare, getFullShareText, recordShare, selectedTemplate.id, selectedStickers.length, selectedFilter.id, selectedEffect.id]);
 
-  const handleShareToPlatform = useCallback(async (platformId: string) => {
-    if (!canShare()) {
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
-      return;
-    }
-
-    const text = getFullShareText();
-    const platformConfig = getPlatformConfig(platformId);
-
-    if (Platform.OS === 'web' && platformConfig) {
-      const url = getShareUrl(platformConfig, text);
-      if (url) {
-        window.open(url, '_blank');
-      } else {
-        // Platform doesn't support web sharing, copy to clipboard instead
-        if (navigator.clipboard) {
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        }
-      }
-    } else {
-      await Share.share({
-        message: text,
-        title: `Melodyx #${puzzleNumber}`,
-      });
-    }
-
-    recordShare(platformId, selectedTemplate.id, {
-      hasStickers: selectedStickers.length > 0,
-      hasFilters: selectedFilter.id !== 'none',
-      hasEffects: selectedEffect.id !== 'none',
-      shareType: 'text',
-    });
-
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-  }, [canShare, getFullShareText, getPlatformConfig, getShareUrl, puzzleNumber, recordShare, selectedTemplate.id, selectedStickers.length, selectedFilter.id, selectedEffect.id]);
-
-  const handleNativeShare = useCallback(async () => {
+  const handleShareToPlatform = useCallback(async () => {
     if (!canShare()) {
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -491,35 +454,17 @@ export default function SocialShareModal({
     const text = getFullShareText();
     
     try {
-      if (Platform.OS === 'web') {
-        // Try Web Share API first (works on mobile browsers)
-        if (typeof navigator !== 'undefined' && navigator.share) {
-          try {
-            await navigator.share({
-              title: `Melodyx #${puzzleNumber}`,
-              text: text,
-            });
-            console.log('[SocialShare] Web Share API succeeded');
-          } catch {
-            // User cancelled or Web Share not supported, fall back to clipboard
-            console.log('[SocialShare] Web Share failed, using clipboard');
-            if (navigator.clipboard) {
-              await navigator.clipboard.writeText(text);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2000);
-            }
-          }
-        } else if (navigator.clipboard) {
-          // Fallback to clipboard
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        }
-      } else {
-        await Share.share({
-          message: text,
-          title: `Melodyx #${puzzleNumber}`,
-        });
+      console.log('[SocialShare] Opening native share dialog...');
+      
+      const result = await Share.share({
+        message: text,
+        title: `Melodyx #${puzzleNumber}`,
+      });
+      
+      console.log('[SocialShare] Share result:', result);
+
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
 
       recordShare('native', selectedTemplate.id, {
@@ -528,21 +473,23 @@ export default function SocialShareModal({
         hasEffects: selectedEffect.id !== 'none',
         shareType: 'text',
       });
-
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
     } catch (error) {
       console.log('[SocialShare] Share error:', error);
-      // Try clipboard as last resort on web
-      if (Platform.OS === 'web' && navigator.clipboard) {
-        try {
-          await navigator.clipboard.writeText(text);
+      // Fallback to clipboard
+      try {
+        if (Platform.OS === 'web') {
+          if (navigator.clipboard) {
+            await navigator.clipboard.writeText(text);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }
+        } else {
+          await Clipboard.setStringAsync(text);
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
-        } catch (e) {
-          console.log('[SocialShare] Clipboard fallback failed:', e);
         }
+      } catch (clipboardError) {
+        console.log('[SocialShare] Clipboard fallback failed:', clipboardError);
       }
     }
   }, [canShare, getFullShareText, puzzleNumber, recordShare, selectedTemplate.id, selectedStickers.length, selectedFilter.id, selectedEffect.id]);
@@ -895,6 +842,7 @@ export default function SocialShareModal({
                 style={[styles.shareButton, styles.copyButton, !canShare() && styles.shareButtonDisabled]}
                 onPress={handleCopy}
                 disabled={!canShare()}
+                testID="copy-share-button"
               >
                 <Copy size={18} color={canShare() ? Colors.text : Colors.textMuted} />
                 <Text style={[styles.shareButtonText, !canShare() && styles.textDisabled]}>
@@ -903,24 +851,14 @@ export default function SocialShareModal({
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.shareButton, styles.platformShareButton, !canShare() && styles.shareButtonDisabled]}
-                onPress={() => handleShareToPlatform(selectedPlatform)}
+                style={[styles.shareButton, styles.primaryShareButton, { flex: 2 }, !canShare() && styles.shareButtonDisabled]}
+                onPress={handleShareToPlatform}
                 disabled={!canShare()}
+                testID="share-button"
               >
-                {getPlatformIcon(selectedPlatform, canShare() ? SHARE_PLATFORMS.find(p => p.id === selectedPlatform)?.color || Colors.accent : Colors.textMuted)}
-                <Text style={[styles.shareButtonText, !canShare() && styles.textDisabled]}>
-                  Share
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.shareButton, styles.primaryShareButton, !canShare() && styles.shareButtonDisabled]}
-                onPress={handleNativeShare}
-                disabled={!canShare()}
-              >
-                <Share2 size={18} color={canShare() ? Colors.background : Colors.textMuted} />
+                <Share2 size={20} color={canShare() ? Colors.background : Colors.textMuted} />
                 <Text style={[styles.primaryShareButtonText, !canShare() && styles.textDisabled]}>
-                  More
+                  Share via Text, Apps & More
                 </Text>
               </TouchableOpacity>
             </View>
