@@ -529,16 +529,32 @@ export default function GameModal() {
 
   const handleCopyToClipboard = async () => {
     try {
-      console.log('[GameModal] Copying to clipboard:', shareText.substring(0, 50) + '...');
+      console.log('[GameModal] Sharing result...');
       
       if (Platform.OS === 'web') {
+        // Try Web Share API first (works on mobile browsers)
+        if (typeof navigator !== 'undefined' && navigator.share) {
+          try {
+            await navigator.share({
+              title: 'Melodyx Result',
+              text: shareText,
+            });
+            console.log('[GameModal] Shared via Web Share API');
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+            return;
+          } catch {
+            console.log('[GameModal] Web Share API failed, trying clipboard');
+          }
+        }
+        
+        // Fallback to clipboard
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(shareText);
-          console.log('[GameModal] Copied to clipboard successfully');
+          console.log('[GameModal] Copied to clipboard');
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
         } else {
-          // Fallback for browsers without clipboard API
           const textArea = document.createElement('textarea');
           textArea.value = shareText;
           textArea.style.position = 'fixed';
@@ -547,20 +563,23 @@ export default function GameModal() {
           textArea.select();
           document.execCommand('copy');
           document.body.removeChild(textArea);
-          console.log('[GameModal] Copied using fallback method');
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
         }
       } else {
-        const result = await Share.share({ message: shareText });
+        const result = await Share.share({
+          message: shareText,
+          title: 'Melodyx Result',
+        });
         console.log('[GameModal] Share result:', result);
         if (result.action === Share.sharedAction) {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
       }
     } catch (error) {
-      console.error('[GameModal] Error copying/sharing:', error);
-      // Show copied anyway to give user feedback
+      console.error('[GameModal] Share error:', error);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
