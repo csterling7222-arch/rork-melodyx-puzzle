@@ -451,7 +451,16 @@ export default function SocialShareModal({
 
     if (Platform.OS === 'web' && platformConfig) {
       const url = getShareUrl(platformConfig, text);
-      window.open(url, '_blank');
+      if (url) {
+        window.open(url, '_blank');
+      } else {
+        // Platform doesn't support web sharing, copy to clipboard instead
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
+      }
     } else {
       await Share.share({
         message: text,

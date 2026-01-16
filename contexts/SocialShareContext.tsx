@@ -349,20 +349,26 @@ Create a fun, engaging caption with emojis. Keep it under 200 characters. Includ
     return truncated;
   }, []);
 
-  const getShareUrl = useCallback((platform: SharePlatform, content: string): string => {
+  const getShareUrl = useCallback((platform: SharePlatform, content: string): string | null => {
     const encodedContent = encodeURIComponent(content);
     
     switch (platform.id) {
       case 'twitter':
-        return `${platform.webUrl}?text=${encodedContent}`;
+        return `https://twitter.com/intent/tweet?text=${encodedContent}`;
       case 'facebook':
-        return `${platform.webUrl}?quote=${encodedContent}`;
+        return `https://www.facebook.com/sharer/sharer.php?quote=${encodedContent}`;
       case 'reddit':
-        return `${platform.webUrl}?title=${encodedContent}`;
+        return `https://www.reddit.com/submit?title=${encodedContent}`;
       case 'whatsapp':
-        return `${platform.webUrl}?text=${encodedContent}`;
+        return `https://api.whatsapp.com/send?text=${encodedContent}`;
+      case 'tiktok':
+      case 'instagram':
+      case 'snapchat':
+      case 'youtube':
+        // These platforms don't support direct web sharing with text
+        return null;
       default:
-        return platform.webUrl;
+        return null;
     }
   }, []);
 
