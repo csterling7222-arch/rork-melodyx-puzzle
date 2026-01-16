@@ -444,55 +444,53 @@ export default function SocialShareModal({
   }, [canShare, getFullShareText, recordShare, selectedTemplate.id, selectedStickers.length, selectedFilter.id, selectedEffect.id]);
 
   const handleShareToPlatform = useCallback(async () => {
-    if (!canShare()) {
+    const text = getFullShareText();
+    
+    console.log('[SocialShare] Attempting to share, platform:', Platform.OS);
+    console.log('[SocialShare] Share text length:', text.length);
+    
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
+    try {
+      const shareContent: { message: string; title?: string } = {
+        message: text,
+      };
+      
+      if (Platform.OS === 'ios') {
+        shareContent.title = `Melodyx #${puzzleNumber}`;
+      }
+      
+      console.log('[SocialShare] Calling Share.share with:', JSON.stringify(shareContent));
+      
+      const result = await Share.share(shareContent);
+      
+      console.log('[SocialShare] Share completed, action:', result.action);
+
+      if (result.action === Share.sharedAction) {
+        console.log('[SocialShare] User shared successfully');
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        recordShare('native', selectedTemplate.id, {
+          hasStickers: selectedStickers.length > 0,
+          hasFilters: selectedFilter.id !== 'none',
+          hasEffects: selectedEffect.id !== 'none',
+          shareType: 'text',
+        });
+      } else if (result.action === Share.dismissedAction) {
+        console.log('[SocialShare] User dismissed share dialog');
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log('[SocialShare] Share error:', errorMessage);
+      
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
-      return;
     }
-
-    const text = getFullShareText();
-    
-    try {
-      console.log('[SocialShare] Opening native share dialog...');
-      
-      const result = await Share.share({
-        message: text,
-        title: `Melodyx #${puzzleNumber}`,
-      });
-      
-      console.log('[SocialShare] Share result:', result);
-
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-
-      recordShare('native', selectedTemplate.id, {
-        hasStickers: selectedStickers.length > 0,
-        hasFilters: selectedFilter.id !== 'none',
-        hasEffects: selectedEffect.id !== 'none',
-        shareType: 'text',
-      });
-    } catch (error) {
-      console.log('[SocialShare] Share error:', error);
-      // Fallback to clipboard
-      try {
-        if (Platform.OS === 'web') {
-          if (navigator.clipboard) {
-            await navigator.clipboard.writeText(text);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          }
-        } else {
-          await Clipboard.setStringAsync(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        }
-      } catch (clipboardError) {
-        console.log('[SocialShare] Clipboard fallback failed:', clipboardError);
-      }
-    }
-  }, [canShare, getFullShareText, puzzleNumber, recordShare, selectedTemplate.id, selectedStickers.length, selectedFilter.id, selectedEffect.id]);
+  }, [getFullShareText, puzzleNumber, recordShare, selectedTemplate.id, selectedStickers.length, selectedFilter.id, selectedEffect.id]);
 
   const handleGenerateAICaption = useCallback(async () => {
     const caption = await generateAICaption({
