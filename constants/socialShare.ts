@@ -29,7 +29,7 @@ export const SHARE_PLATFORMS: SharePlatform[] = [
   {
     id: 'x',
     name: 'X',
-    color: '#000000',
+    color: '#1DA1F2',
     icon: 'x',
     maxLength: 280,
     supportsVideo: true,

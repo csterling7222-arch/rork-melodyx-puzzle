@@ -10,6 +10,7 @@ import {
   Platform,
   TextInput,
   ScrollView,
+  Alert,
 } from 'react-native';
 import {
   X,
@@ -455,7 +456,29 @@ export default function SocialShareModal({
     }
 
     try {
-      const shareContent: { message: string; title?: string } = {
+      if (Platform.OS === 'web') {
+        if (navigator.share) {
+          await navigator.share({
+            text: text,
+            title: `Melodyx #${puzzleNumber}`,
+          });
+          console.log('[SocialShare] Web share completed');
+          recordShare('native', selectedTemplate.id, {
+            hasStickers: selectedStickers.length > 0,
+            hasFilters: selectedFilter.id !== 'none',
+            hasEffects: selectedEffect.id !== 'none',
+            shareType: 'text',
+          });
+        } else {
+          await Clipboard.setStringAsync(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+          Alert.alert('Copied!', 'Your result has been copied to clipboard. Paste it anywhere to share!');
+        }
+        return;
+      }
+
+      const shareContent: { message: string; title?: string; url?: string } = {
         message: text,
       };
       
@@ -471,9 +494,7 @@ export default function SocialShareModal({
 
       if (result.action === Share.sharedAction) {
         console.log('[SocialShare] User shared successfully');
-        if (Platform.OS !== 'web') {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         recordShare('native', selectedTemplate.id, {
           hasStickers: selectedStickers.length > 0,
           hasFilters: selectedFilter.id !== 'none',
@@ -487,8 +508,18 @@ export default function SocialShareModal({
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.log('[SocialShare] Share error:', errorMessage);
       
+      try {
+        await Clipboard.setStringAsync(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        Alert.alert('Copied!', 'Your result has been copied. You can paste it in any app to share!');
+      } catch (clipboardError) {
+        console.log('[SocialShare] Clipboard fallback error:', clipboardError);
+        Alert.alert('Share Error', 'Unable to share. Please try again.');
+      }
+      
       if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
     }
   }, [getFullShareText, puzzleNumber, recordShare, selectedTemplate.id, selectedStickers.length, selectedFilter.id, selectedEffect.id]);
@@ -540,7 +571,7 @@ export default function SocialShareModal({
       case 'tiktok':
         return <Video size={20} color={color} />;
       case 'x':
-        return <Text style={{ fontSize: 18, fontWeight: '900' as const, color }}>𝕏</Text>;
+        return <Text style={{ fontSize: 20, fontWeight: '900' as const, color }}>𝕏</Text>;
       case 'instagram':
         return <Instagram size={20} color={color} />;
       case 'facebook':
