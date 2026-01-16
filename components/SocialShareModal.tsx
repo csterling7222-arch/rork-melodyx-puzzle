@@ -489,11 +489,38 @@ export default function SocialShareModal({
     }
 
     const text = getFullShareText();
+    
     try {
-      await Share.share({
-        message: text,
-        title: `Melodyx #${puzzleNumber}`,
-      });
+      if (Platform.OS === 'web') {
+        // Try Web Share API first (works on mobile browsers)
+        if (typeof navigator !== 'undefined' && navigator.share) {
+          try {
+            await navigator.share({
+              title: `Melodyx #${puzzleNumber}`,
+              text: text,
+            });
+            console.log('[SocialShare] Web Share API succeeded');
+          } catch {
+            // User cancelled or Web Share not supported, fall back to clipboard
+            console.log('[SocialShare] Web Share failed, using clipboard');
+            if (navigator.clipboard) {
+              await navigator.clipboard.writeText(text);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }
+          }
+        } else if (navigator.clipboard) {
+          // Fallback to clipboard
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
+      } else {
+        await Share.share({
+          message: text,
+          title: `Melodyx #${puzzleNumber}`,
+        });
+      }
 
       recordShare('native', selectedTemplate.id, {
         hasStickers: selectedStickers.length > 0,
@@ -507,6 +534,16 @@ export default function SocialShareModal({
       }
     } catch (error) {
       console.log('[SocialShare] Share error:', error);
+      // Try clipboard as last resort on web
+      if (Platform.OS === 'web' && navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch (e) {
+          console.log('[SocialShare] Clipboard fallback failed:', e);
+        }
+      }
     }
   }, [canShare, getFullShareText, puzzleNumber, recordShare, selectedTemplate.id, selectedStickers.length, selectedFilter.id, selectedEffect.id]);
 
