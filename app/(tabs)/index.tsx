@@ -613,43 +613,49 @@ export default function HomeScreen() {
   const handleShare = useCallback(async () => {
     if (gameStatus === 'playing') return;
 
-    try {
-      const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength, stats.currentStreak);
-      console.log('[Share] Attempting to share:', shareText.substring(0, 50) + '...');
+    const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength, stats.currentStreak);
+    console.log('[Share] Attempting to share:', shareText.substring(0, 50) + '...');
 
+    try {
       if (Platform.OS === 'web') {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
+        // Try native share API first (works on mobile browsers)
+        if (typeof navigator !== 'undefined' && navigator.share) {
+          try {
+            await navigator.share({
+              text: shareText,
+              title: `Melodyx #${puzzleNumber}`,
+            });
+            console.log('[Share] Web share completed successfully');
+            return;
+          } catch (webShareError) {
+            // User cancelled or share failed, fall back to clipboard
+            console.log('[Share] Web share cancelled or failed:', webShareError);
+          }
+        }
+        
+        // Fallback to clipboard for desktop browsers
+        if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(shareText);
-          console.log('[Share] Copied to clipboard successfully');
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        } else {
-          // Fallback for browsers without clipboard API
-          const textArea = document.createElement('textarea');
-          textArea.value = shareText;
-          textArea.style.position = 'fixed';
-          textArea.style.left = '-9999px';
-          document.body.appendChild(textArea);
-          textArea.select();
-          document.execCommand('copy');
-          document.body.removeChild(textArea);
-          console.log('[Share] Copied using fallback method');
+          console.log('[Share] Copied to clipboard');
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
         }
       } else {
-        const result = await Share.share({ message: shareText });
-        console.log('[Share] Share result:', result);
+        // Native platforms - use Share API
+        const result = await Share.share({
+          message: shareText,
+          title: `Melodyx #${puzzleNumber}`,
+        });
+        console.log('[Share] Native share result:', result);
         if (result.action === Share.sharedAction) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
       }
     } catch (error) {
       console.error('[Share] Error sharing:', error);
-      // Try fallback for native
+      // Last resort fallback - try Share API again for native
       if (Platform.OS !== 'web') {
         try {
-          const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength, stats.currentStreak);
           await Share.share({ message: shareText });
         } catch (fallbackError) {
           console.error('[Share] Fallback also failed:', fallbackError);
@@ -813,7 +819,7 @@ export default function HomeScreen() {
                 <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
                   <Share2 size={18} color={Colors.text} />
                   <Text style={styles.shareButtonText}>
-                    {copied ? 'Copied!' : 'Share Result'}
+                    {copied ? 'Copied!' : 'Share My Result'}
                   </Text>
                 </TouchableOpacity>
 
