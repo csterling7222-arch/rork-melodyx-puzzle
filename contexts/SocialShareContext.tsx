@@ -159,14 +159,14 @@ export const [SocialShareProvider, useSocialShare] = createContextHook(() => {
   });
 
   const canShare = useCallback((): boolean => {
-    if (limits.dailyShares === -1) return true;
-    return shareState.dailyShareCount < limits.dailyShares;
-  }, [shareState.dailyShareCount, limits.dailyShares]);
+    // Always allow sharing - don't block users
+    return true;
+  }, []);
 
   const getRemainingShares = useCallback((): number => {
-    if (limits.dailyShares === -1) return -1;
-    return Math.max(0, limits.dailyShares - shareState.dailyShareCount);
-  }, [shareState.dailyShareCount, limits.dailyShares]);
+    // Return -1 to indicate unlimited shares
+    return -1;
+  }, []);
 
   const recordShare = useCallback((platform: string, templateId: string, analytics: Partial<ShareAnalytics>) => {
     const today = getTodayString();
