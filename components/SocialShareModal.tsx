@@ -15,7 +15,6 @@ import {
   X,
   Share2,
   Copy,
-  Twitter,
   Instagram,
   Youtube,
   Music,
@@ -25,6 +24,7 @@ import {
   Image as ImageIcon,
   Video,
   MessageCircle,
+  MessageSquare,
   Camera,
   Crown,
   Zap,
@@ -39,6 +39,7 @@ import {
   Send,
   RefreshCw,
   Lock,
+  Linkedin,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -296,7 +297,7 @@ export default function SocialShareModal({
     isGeneratingCaption,
   } = useSocialShare();
 
-  const [selectedPlatform, setSelectedPlatform] = useState<string>('twitter');
+  const [selectedPlatform, setSelectedPlatform] = useState<string>('x');
   const [selectedTemplate, setSelectedTemplate] = useState<ShareTemplate>(
     SHARE_TEMPLATES.find(t => t.category === (won ? 'win' : 'loss') && !t.isPremium) || SHARE_TEMPLATES[0]
   );
@@ -538,8 +539,8 @@ export default function SocialShareModal({
     switch (platformId) {
       case 'tiktok':
         return <Video size={20} color={color} />;
-      case 'twitter':
-        return <Twitter size={20} color={color} />;
+      case 'x':
+        return <Text style={{ fontSize: 18, fontWeight: '900' as const, color }}>𝕏</Text>;
       case 'instagram':
         return <Instagram size={20} color={color} />;
       case 'facebook':
@@ -552,6 +553,12 @@ export default function SocialShareModal({
         return <MessageCircle size={20} color={color} />;
       case 'whatsapp':
         return <Send size={20} color={color} />;
+      case 'sms':
+        return <MessageSquare size={20} color={color} />;
+      case 'imessage':
+        return <MessageCircle size={20} color={color} />;
+      case 'linkedin':
+        return <Linkedin size={20} color={color} />;
       default:
         return <Share2 size={20} color={color} />;
     }
@@ -617,7 +624,7 @@ export default function SocialShareModal({
               <Text style={styles.sectionTitle}>Choose Platform</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.platformsRow}>
-                  {SHARE_PLATFORMS.slice(0, 6).map(platform => (
+                  {SHARE_PLATFORMS.slice(0, 8).map(platform => (
                     <PlatformButton
                       key={platform.id}
                       icon={getPlatformIcon(platform.id, platform.color)}

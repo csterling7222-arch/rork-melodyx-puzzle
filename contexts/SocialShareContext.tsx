@@ -353,19 +353,24 @@ Create a fun, engaging caption with emojis. Keep it under 200 characters. Includ
     const encodedContent = encodeURIComponent(content);
     
     switch (platform.id) {
-      case 'twitter':
-        return `https://twitter.com/intent/tweet?text=${encodedContent}`;
+      case 'x':
+        return `https://x.com/intent/tweet?text=${encodedContent}`;
       case 'facebook':
         return `https://www.facebook.com/sharer/sharer.php?quote=${encodedContent}`;
       case 'reddit':
         return `https://www.reddit.com/submit?title=${encodedContent}`;
       case 'whatsapp':
         return `https://api.whatsapp.com/send?text=${encodedContent}`;
+      case 'linkedin':
+        return `https://www.linkedin.com/sharing/share-offsite/?url=melodyx.app&summary=${encodedContent}`;
+      case 'sms':
+        return `sms:?body=${encodedContent}`;
+      case 'imessage':
+        return `sms:?body=${encodedContent}`;
       case 'tiktok':
       case 'instagram':
       case 'snapchat':
       case 'youtube':
-        // These platforms don't support direct web sharing with text
         return null;
       default:
         return null;

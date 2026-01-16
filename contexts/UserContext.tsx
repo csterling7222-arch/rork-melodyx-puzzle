@@ -73,9 +73,35 @@ interface UserState {
 }
 
 const STORAGE_KEY_PREFIX = 'melodyx_user_state';
+const LEGACY_STORAGE_KEY = 'melodyx_user_state';
+const GUEST_STORAGE_KEY = 'melodyx_user_state_guest';
 
 function getStorageKey(userId: string | null): string {
-  return userId ? `${STORAGE_KEY_PREFIX}_${userId}` : STORAGE_KEY_PREFIX;
+  if (!userId) return GUEST_STORAGE_KEY;
+  return `${STORAGE_KEY_PREFIX}_${userId}`;
+}
+
+async function migrateOldData(newKey: string): Promise<UserState | null> {
+  try {
+    const legacyData = await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacyData && newKey !== LEGACY_STORAGE_KEY) {
+      const parsed = JSON.parse(legacyData) as UserState;
+      await AsyncStorage.setItem(newKey, legacyData);
+      console.log('[User] Migrated legacy data to new key:', newKey);
+      return parsed;
+    }
+    
+    const guestData = await AsyncStorage.getItem(GUEST_STORAGE_KEY);
+    if (guestData && newKey !== GUEST_STORAGE_KEY) {
+      const parsed = JSON.parse(guestData) as UserState;
+      await AsyncStorage.setItem(newKey, guestData);
+      console.log('[User] Migrated guest data to user key:', newKey);
+      return parsed;
+    }
+  } catch (error) {
+    console.log('[User] Migration error:', error);
+  }
+  return null;
 }
 
 function createDefaultUserState(userId: string, username: string, email: string | null): UserState {
@@ -160,7 +186,28 @@ export const [UserProvider, useUser] = createContextHook(() => {
     queryKey: ['userState', authUid, authEmail, authDisplayName, storageKey],
     queryFn: async (): Promise<UserState> => {
       try {
-        const stored = await AsyncStorage.getItem(storageKey);
+        let stored = await AsyncStorage.getItem(storageKey);
+        
+        if (!stored) {
+          const migratedData = await migrateOldData(storageKey);
+          if (migratedData) {
+            console.log('[User] Using migrated data');
+            const today = getTodayString();
+            if (migratedData.dailyReward.lastClaimDate !== today) {
+              migratedData.dailyReward.claimedToday = false;
+            }
+            if (authUid) {
+              migratedData.profile.id = authUid;
+              migratedData.profile.email = authEmail ?? null;
+              if (authDisplayName && migratedData.profile.username === 'MelodyPlayer') {
+                migratedData.profile.username = authDisplayName;
+              }
+            }
+            await AsyncStorage.setItem(storageKey, JSON.stringify(migratedData));
+            return migratedData;
+          }
+        }
+        
         if (stored) {
           const parsed = JSON.parse(stored) as UserState;
           const today = getTodayString();
@@ -190,9 +237,13 @@ export const [UserProvider, useUser] = createContextHook(() => {
         );
       }
       
-      return FALLBACK_USER_STATE;
+      const guestId = `guest_${Date.now()}`;
+      console.log('[User] Creating new guest state:', guestId);
+      return createDefaultUserState(guestId, 'MelodyPlayer', null);
     },
     enabled: true,
+    staleTime: 0,
+    gcTime: Infinity,
   });
 
   const { mutate: saveUserState } = useMutation({
