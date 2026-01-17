@@ -1,7 +1,7 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { ACHIEVEMENTS, Achievement } from '@/constants/achievements';
 import { getDailyReward, getStreakMilestone } from '@/constants/shop';
 import { usePurchases } from './PurchasesContext';
@@ -78,6 +78,9 @@ const GUEST_STORAGE_KEY = 'melodyx_user_state_guest';
 const GUEST_ID_KEY = 'melodyx_guest_id';
 const DATA_VERSION_KEY = 'melodyx_data_version';
 const CURRENT_DATA_VERSION = 2;
+const DEVICE_ID_KEY = 'melodyx_device_id';
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 100;
 
 function getStorageKey(userId: string | null): string {
   if (!userId) return GUEST_STORAGE_KEY;
@@ -241,20 +244,61 @@ function getTodayString(): string {
   return new Date().toISOString().split('T')[0];
 }
 
+async function asyncStorageRetry<T>(
+  operation: () => Promise<T>,
+  retries: number = MAX_RETRY_ATTEMPTS
+): Promise<T> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      console.log(`[User] AsyncStorage operation failed (attempt ${attempt}/${retries}):`, error);
+      if (attempt === retries) throw error;
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * attempt));
+    }
+  }
+  throw new Error('AsyncStorage operation failed after retries');
+}
+
+async function getOrCreateDeviceId(): Promise<string> {
+  try {
+    const existingId = await asyncStorageRetry(() => AsyncStorage.getItem(DEVICE_ID_KEY));
+    if (existingId) {
+      console.log('[User] Found existing device ID:', existingId);
+      return existingId;
+    }
+    const newId = `device_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    await asyncStorageRetry(() => AsyncStorage.setItem(DEVICE_ID_KEY, newId));
+    console.log('[User] Created new device ID:', newId);
+    return newId;
+  } catch (error) {
+    console.error('[User] Critical error with device ID:', error);
+    throw error;
+  }
+}
+
 async function getOrCreateGuestId(): Promise<string> {
   try {
-    const existingId = await AsyncStorage.getItem(GUEST_ID_KEY);
+    const existingId = await asyncStorageRetry(() => AsyncStorage.getItem(GUEST_ID_KEY));
     if (existingId) {
       console.log('[User] Found existing guest ID:', existingId);
       return existingId;
     }
-    const newId = `guest_${Date.now()}`;
-    await AsyncStorage.setItem(GUEST_ID_KEY, newId);
+    
+    const deviceId = await getOrCreateDeviceId();
+    const newId = `guest_${deviceId}`;
+    await asyncStorageRetry(() => AsyncStorage.setItem(GUEST_ID_KEY, newId));
     console.log('[User] Created new guest ID:', newId);
     return newId;
   } catch (error) {
-    console.log('[User] Error with guest ID:', error);
-    return `guest_${Date.now()}`;
+    console.error('[User] Error with guest ID, using device fallback:', error);
+    try {
+      const deviceId = await getOrCreateDeviceId();
+      return `guest_${deviceId}`;
+    } catch {
+      console.error('[User] All ID generation failed, using emergency fallback');
+      return `guest_emergency_${Date.now()}`;
+    }
   }
 }
 
@@ -265,19 +309,33 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const { user: authUser, isAuthenticated, isAnonymous } = useAuth();
   const [guestId, setGuestId] = useState<string | null>(null);
   const [isGuestIdLoaded, setIsGuestIdLoaded] = useState(false);
+  const [initError, setInitError] = useState<Error | null>(null);
+  const guestIdLoadAttemptRef = useRef(0);
 
   useEffect(() => {
     const loadGuestId = async () => {
+      guestIdLoadAttemptRef.current++;
+      const attempt = guestIdLoadAttemptRef.current;
+      
       try {
+        console.log('[User] Loading guest ID (attempt', attempt, ')...');
         const id = await getOrCreateGuestId();
+        
+        if (guestIdLoadAttemptRef.current !== attempt) {
+          console.log('[User] Stale guest ID load, ignoring');
+          return;
+        }
+        
         setGuestId(id);
-        console.log('[User] Guest ID loaded:', id);
+        setInitError(null);
+        console.log('[User] Guest ID loaded successfully:', id);
       } catch (error) {
-        console.log('[User] Error loading guest ID:', error);
-        const fallbackId = `guest_${Date.now()}`;
-        setGuestId(fallbackId);
+        console.error('[User] Critical error loading guest ID:', error);
+        setInitError(error instanceof Error ? error : new Error('Failed to load guest ID'));
       } finally {
-        setIsGuestIdLoaded(true);
+        if (guestIdLoadAttemptRef.current === attempt) {
+          setIsGuestIdLoaded(true);
+        }
       }
     };
     loadGuestId();
@@ -296,14 +354,16 @@ export const [UserProvider, useUser] = createContextHook(() => {
 
   const userQuery = useQuery({
     // eslint-disable-next-line @tanstack/query/exhaustive-deps
-    queryKey: ['userState', storageKey],
+    queryKey: ['userState', storageKey, guestId],
     queryFn: async (): Promise<UserState> => {
       try {
         console.log('[User] Loading user state from:', storageKey);
+        console.log('[User] Current guestId:', guestId, 'authUid:', authUid);
         
-        let stored = await AsyncStorage.getItem(storageKey);
+        let stored = await asyncStorageRetry(() => AsyncStorage.getItem(storageKey));
         
         if (!stored) {
+          console.log('[User] No data at primary key, checking for migration...');
           const migratedData = await migrateOldData(storageKey);
           if (migratedData) {
             console.log('[User] Using migrated data');
@@ -318,7 +378,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
                 migratedData.profile.username = authDisplayName;
               }
             }
-            await AsyncStorage.setItem(storageKey, JSON.stringify(migratedData));
+            await asyncStorageRetry(() => AsyncStorage.setItem(storageKey, JSON.stringify(migratedData)));
             return migratedData;
           }
         }
@@ -340,53 +400,63 @@ export const [UserProvider, useUser] = createContextHook(() => {
             }
           }
           
-          await AsyncStorage.setItem(storageKey, JSON.stringify(parsed));
+          await asyncStorageRetry(() => AsyncStorage.setItem(storageKey, JSON.stringify(parsed)));
           
           console.log('[User] Successfully loaded user state for:', parsed.profile.id);
           console.log('[User] Progress:', JSON.stringify(parsed.progress));
+          console.log('[User] Inventory coins:', parsed.inventory.coins, 'hints:', parsed.inventory.hints);
           return parsed;
         }
       } catch (error) {
-        console.log('[User] Error loading user state:', error);
+        console.error('[User] Error loading user state:', error);
       }
       
       if (authUid) {
-        console.log('[User] Creating new user state for:', authUid);
+        console.log('[User] Creating new user state for authenticated user:', authUid);
         const newState = createDefaultUserState(
           authUid,
           authDisplayName || 'MelodyPlayer',
           authEmail ?? null
         );
-        await AsyncStorage.setItem(storageKey, JSON.stringify(newState));
+        await asyncStorageRetry(() => AsyncStorage.setItem(storageKey, JSON.stringify(newState)));
         return newState;
       }
       
-      const finalGuestId = guestId || await getOrCreateGuestId();
-      console.log('[User] Creating new guest state:', finalGuestId);
-      const newState = createDefaultUserState(finalGuestId, 'MelodyPlayer', null);
-      await AsyncStorage.setItem(storageKey, JSON.stringify(newState));
+      if (!guestId) {
+        console.error('[User] No guestId available, this should not happen!');
+        throw new Error('Guest ID not loaded');
+      }
+      
+      console.log('[User] Creating new guest state for:', guestId);
+      const newState = createDefaultUserState(guestId, 'MelodyPlayer', null);
+      await asyncStorageRetry(() => AsyncStorage.setItem(storageKey, JSON.stringify(newState)));
       console.log('[User] Saved new guest state to:', storageKey);
       return newState;
     },
-    enabled: isGuestIdLoaded || !!authUser?.uid,
+    enabled: (isGuestIdLoaded && !!guestId) || !!authUser?.uid,
     staleTime: Infinity,
     gcTime: Infinity,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 
   const { mutate: saveUserState } = useMutation({
     mutationFn: async (state: UserState) => {
       try {
         const serialized = JSON.stringify(state);
-        await AsyncStorage.setItem(storageKey, serialized);
+        await asyncStorageRetry(() => AsyncStorage.setItem(storageKey, serialized));
         console.log('[User] Saved user state for:', state.profile.id, 'to key:', storageKey);
         console.log('[User] Saved progress:', JSON.stringify(state.progress));
+        console.log('[User] Saved inventory coins:', state.inventory.coins, 'hints:', state.inventory.hints);
         
         const verification = await AsyncStorage.getItem(storageKey);
         if (verification !== serialized) {
           console.error('[User] SAVE VERIFICATION FAILED - data mismatch!');
+          await asyncStorageRetry(() => AsyncStorage.setItem(storageKey, serialized));
+          console.log('[User] Retried save after verification failure');
         } else {
           console.log('[User] Save verification passed');
         }
@@ -397,11 +467,12 @@ export const [UserProvider, useUser] = createContextHook(() => {
       }
     },
     onSuccess: (savedState) => {
-      queryClient.setQueryData(['userState', storageKey], savedState);
+      queryClient.setQueryData(['userState', storageKey, guestId], savedState);
     },
     onError: (error) => {
       console.error('[User] Mutation error:', error);
     },
+    retry: 3,
   });
 
   const userState = userQuery.data ?? getFallbackUserState();
@@ -872,7 +943,8 @@ export const [UserProvider, useUser] = createContextHook(() => {
     progress: userState.progress,
     achievements: userState.achievements,
     dailyReward: userState.dailyReward,
-    isLoading: userQuery.isLoading || !isGuestIdLoaded,
+    isLoading: userQuery.isLoading || !isGuestIdLoaded || (!authUser?.uid && !guestId),
+    initError,
     newAchievement,
     isAuthenticated,
     isAnonymous,

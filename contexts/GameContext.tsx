@@ -30,6 +30,25 @@ const STORAGE_KEYS = {
   DAILY_GAME: 'melodyx_daily_game',
 };
 
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 100;
+
+async function asyncStorageRetry<T>(
+  operation: () => Promise<T>,
+  retries: number = MAX_RETRY_ATTEMPTS
+): Promise<T> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      console.log(`[Game] AsyncStorage operation failed (attempt ${attempt}/${retries}):`, error);
+      if (attempt === retries) throw error;
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * attempt));
+    }
+  }
+  throw new Error('AsyncStorage operation failed after retries');
+}
+
 const DEFAULT_STATS: GameStats = {
   gamesPlayed: 0,
   gamesWon: 0,
@@ -65,23 +84,28 @@ export const [GameProvider, useGame] = createContextHook(() => {
     queryFn: async (): Promise<GameStats> => {
       try {
         console.log('[Game] Loading stats from AsyncStorage...');
-        const stored = await AsyncStorage.getItem(STORAGE_KEYS.STATS);
+        const stored = await asyncStorageRetry(() => AsyncStorage.getItem(STORAGE_KEYS.STATS));
         if (stored) {
           const parsed = JSON.parse(stored);
           console.log('[Game] Loaded stats:', JSON.stringify(parsed));
+          console.log('[Game] Games played:', parsed.gamesPlayed, 'Games won:', parsed.gamesWon, 'Current streak:', parsed.currentStreak);
           return parsed;
         }
-        console.log('[Game] No stats found, using defaults');
+        console.log('[Game] No stats found, creating defaults and saving...');
+        await asyncStorageRetry(() => AsyncStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(DEFAULT_STATS)));
+        return DEFAULT_STATS;
       } catch (error) {
         console.error('[Game] Error loading stats:', error);
+        return DEFAULT_STATS;
       }
-      return DEFAULT_STATS;
     },
     staleTime: Infinity,
     gcTime: Infinity,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 
   const dailyGameQuery = useQuery({
@@ -89,16 +113,19 @@ export const [GameProvider, useGame] = createContextHook(() => {
     queryFn: async (): Promise<DailyGameState | null> => {
       try {
         console.log('[Game] Loading daily game from AsyncStorage...');
-        const stored = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_GAME);
+        const stored = await asyncStorageRetry(() => AsyncStorage.getItem(STORAGE_KEYS.DAILY_GAME));
         if (stored) {
           const parsed = JSON.parse(stored) as DailyGameState;
           const today = getTodayString();
           console.log('[Game] Stored date:', parsed.date, 'Today:', today);
           if (parsed.date === today) {
             console.log('[Game] Loaded daily game:', JSON.stringify(parsed));
+            console.log('[Game] Game status:', parsed.gameStatus, 'Guesses:', parsed.guesses.length);
             return parsed;
           }
           console.log('[Game] Daily game is from a different day, resetting');
+        } else {
+          console.log('[Game] No daily game found in storage');
         }
       } catch (error) {
         console.error('[Game] Error loading daily game:', error);
@@ -110,18 +137,21 @@ export const [GameProvider, useGame] = createContextHook(() => {
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 
   const { mutate: saveStats } = useMutation({
     mutationFn: async (stats: GameStats) => {
       try {
         const serialized = JSON.stringify(stats);
-        await AsyncStorage.setItem(STORAGE_KEYS.STATS, serialized);
-        console.log('[Game] Saved stats:', serialized);
+        await asyncStorageRetry(() => AsyncStorage.setItem(STORAGE_KEYS.STATS, serialized));
+        console.log('[Game] Saved stats - Games played:', stats.gamesPlayed, 'Won:', stats.gamesWon, 'Streak:', stats.currentStreak);
         
         const verification = await AsyncStorage.getItem(STORAGE_KEYS.STATS);
         if (verification !== serialized) {
-          console.error('[Game] STATS SAVE VERIFICATION FAILED!');
+          console.error('[Game] STATS SAVE VERIFICATION FAILED! Retrying...');
+          await asyncStorageRetry(() => AsyncStorage.setItem(STORAGE_KEYS.STATS, serialized));
         } else {
           console.log('[Game] Stats save verification passed');
         }
@@ -137,18 +167,20 @@ export const [GameProvider, useGame] = createContextHook(() => {
     onError: (error) => {
       console.error('[Game] Stats mutation error:', error);
     },
+    retry: 3,
   });
 
   const { mutate: saveDailyGame } = useMutation({
     mutationFn: async (gameState: DailyGameState) => {
       try {
         const serialized = JSON.stringify(gameState);
-        await AsyncStorage.setItem(STORAGE_KEYS.DAILY_GAME, serialized);
-        console.log('[Game] Saved daily game:', serialized);
+        await asyncStorageRetry(() => AsyncStorage.setItem(STORAGE_KEYS.DAILY_GAME, serialized));
+        console.log('[Game] Saved daily game - Status:', gameState.gameStatus, 'Guesses:', gameState.guesses.length);
         
         const verification = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_GAME);
         if (verification !== serialized) {
-          console.error('[Game] DAILY GAME SAVE VERIFICATION FAILED!');
+          console.error('[Game] DAILY GAME SAVE VERIFICATION FAILED! Retrying...');
+          await asyncStorageRetry(() => AsyncStorage.setItem(STORAGE_KEYS.DAILY_GAME, serialized));
         } else {
           console.log('[Game] Daily game save verification passed');
         }
@@ -164,6 +196,7 @@ export const [GameProvider, useGame] = createContextHook(() => {
     onError: (error) => {
       console.error('[Game] Daily game mutation error:', error);
     },
+    retry: 3,
   });
 
   const guesses = useMemo(() => dailyGameQuery.data?.guesses ?? [], [dailyGameQuery.data?.guesses]);

@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initErrorTracking, addBreadcrumb, captureError } from '@/utils/errorTracking';
 import { initAccessibility } from '@/utils/accessibility';
 import { initGlitchFreeEngine, logNavigation } from '@/utils/glitchFreeEngine';
@@ -44,10 +45,62 @@ export default function RootLayout() {
   const [showPerfMonitor, setShowPerfMonitor] = useState(__DEV__);
 
   useEffect(() => {
+    const verifyDataIntegrity = async () => {
+      try {
+        console.log('[App] Verifying data integrity...');
+        const keys = await AsyncStorage.getAllKeys();
+        const melodxyKeys = keys.filter(k => k.startsWith('melodyx_'));
+        console.log('[App] Found', melodxyKeys.length, 'MelodyX storage keys:', melodxyKeys);
+        
+        const criticalKeys = [
+          'melodyx_device_id',
+          'melodyx_guest_id', 
+          'melodyx_user_state_guest',
+          'melodyx_stats',
+        ];
+        
+        for (const key of criticalKeys) {
+          const value = await AsyncStorage.getItem(key);
+          if (value) {
+            console.log(`[App] ✓ ${key}: exists (${value.length} chars)`);
+          } else {
+            console.log(`[App] ○ ${key}: not found (will be created)`);
+          }
+        }
+        
+        const guestState = await AsyncStorage.getItem('melodyx_user_state_guest');
+        if (guestState) {
+          try {
+            const parsed = JSON.parse(guestState);
+            console.log('[App] Guest state verified - ID:', parsed.profile?.id, 'Coins:', parsed.inventory?.coins);
+          } catch {
+            console.error('[App] Guest state corrupted, will be recreated');
+          }
+        }
+        
+        const stats = await AsyncStorage.getItem('melodyx_stats');
+        if (stats) {
+          try {
+            const parsed = JSON.parse(stats);
+            console.log('[App] Stats verified - Games:', parsed.gamesPlayed, 'Won:', parsed.gamesWon, 'Streak:', parsed.currentStreak);
+          } catch {
+            console.error('[App] Stats corrupted, will be recreated');
+          }
+        }
+        
+        addBreadcrumb({ category: 'storage', message: `Data integrity check complete: ${melodxyKeys.length} keys`, level: 'info' });
+      } catch (error) {
+        console.error('[App] Data integrity check failed:', error);
+        captureError(error, { tags: { component: 'RootLayout', action: 'verifyDataIntegrity' } });
+      }
+    };
+
     const initializeApp = async () => {
       try {
         initErrorTracking();
         console.log('[App] Error tracking initialized');
+        
+        await verifyDataIntegrity();
         
         await Promise.all([
           initGlitchFreeEngine(),
