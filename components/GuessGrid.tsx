@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, Animated, ScrollView, Dimensions, Platform } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { View, Text, StyleSheet, Animated, ScrollView } from 'react-native';
 import { Colors } from '@/constants/colors';
 import { GuessResult, FeedbackType } from '@/utils/gameLogic';
 import { DEFAULT_NOTE_DURATION } from '@/utils/melodies';
+import { debouncedImpact } from '@/utils/hapticDebounce';
+import { useDimensions } from '@/hooks/useDimensions';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
 const MAX_VISIBLE_COLUMNS = 8;
 const MIN_CELL_SIZE = 36;
 const MAX_CELL_SIZE = 48;
@@ -205,10 +205,12 @@ export default function GuessGrid({
   maxGuesses,
   durations,
 }: GuessGridProps) {
+  const { width: screenWidth } = useDimensions();
   const prevLengthRef = useRef(melodyLength);
   const prevDurationsRef = useRef<number[]>(durations || []);
   const scrollViewRef = useRef<ScrollView>(null);
   const gridScaleAnim = useRef(new Animated.Value(1)).current;
+  const autoZoomScaleRef = useRef(1);
 
   const normalizedDurations = useMemo(() => {
     if (!durations || durations.length === 0) {
@@ -226,12 +228,12 @@ export default function GuessGrid({
   }, [normalizedDurations]);
 
   const cellSize = useMemo(() => {
-    const availableWidth = SCREEN_WIDTH - HORIZONTAL_PADDING;
+    const availableWidth = screenWidth - HORIZONTAL_PADDING;
     const maxColumnsToShow = Math.min(melodyLength, MAX_VISIBLE_COLUMNS);
     const totalGaps = (maxColumnsToShow - 1) * CELL_GAP;
     const calculatedSize = Math.floor((availableWidth - totalGaps) / maxColumnsToShow);
     return Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, calculatedSize));
-  }, [melodyLength]);
+  }, [melodyLength, screenWidth]);
 
   const cellWidths = useMemo(() => {
     if (!hasVariableDurations) {
@@ -250,12 +252,21 @@ export default function GuessGrid({
     return totalCellWidth + ((melodyLength - 1) * CELL_GAP);
   }, [cellWidths, melodyLength]);
 
-  const needsScroll = gridWidth > (SCREEN_WIDTH - HORIZONTAL_PADDING);
+  const needsScroll = gridWidth > (screenWidth - HORIZONTAL_PADDING);
+
+  useEffect(() => {
+    const availableWidth = screenWidth - HORIZONTAL_PADDING;
+    if (gridWidth > availableWidth && !needsScroll) {
+      const scale = Math.max(0.7, availableWidth / gridWidth);
+      autoZoomScaleRef.current = scale;
+      console.log('[GuessGrid] Auto-zoom applied:', scale);
+    } else {
+      autoZoomScaleRef.current = 1;
+    }
+  }, [gridWidth, screenWidth, needsScroll]);
 
   const triggerResizeHaptic = useCallback(() => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    debouncedImpact();
   }, []);
 
   useEffect(() => {

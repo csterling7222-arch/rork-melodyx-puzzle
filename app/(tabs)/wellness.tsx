@@ -81,39 +81,42 @@ function WellnessContent() {
     ).start();
   }, [glowAnim]);
 
+  const isBreathingRef = useRef(isBreathing);
+  isBreathingRef.current = isBreathing;
+
   useEffect(() => {
     if (!isBreathing) return;
 
     const pattern = getBreathingPattern();
-    
     let cycles = 0;
     let isMounted = true;
+    let holdTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const runBreathingCycle = () => {
-      if (!isMounted) return;
+      if (!isMounted || !isBreathingRef.current) return;
       setBreathPhase('inhale');
       Animated.timing(breathAnim, {
         toValue: 1,
         duration: pattern.inhale * 1000,
         useNativeDriver: true,
       }).start(() => {
-        if (!isMounted) return;
+        if (!isMounted || !isBreathingRef.current) return;
         if (pattern.hold > 0) {
           setBreathPhase('hold');
-          setTimeout(() => {
-            if (!isMounted) return;
+          holdTimeoutId = setTimeout(() => {
+            if (!isMounted || !isBreathingRef.current) return;
             setBreathPhase('exhale');
             Animated.timing(breathAnim, {
               toValue: 0.5,
               duration: pattern.exhale * 1000,
               useNativeDriver: true,
             }).start(() => {
-              if (!isMounted) return;
+              if (!isMounted || !isBreathingRef.current) return;
               cycles++;
               setBreathCount(cycles);
-              if (cycles < 5 && isBreathing) {
+              if (cycles < 5 && isBreathingRef.current) {
                 runBreathingCycle();
-              } else {
+              } else if (isMounted) {
                 completeBreathingSession();
                 setShowBreathingModal(false);
               }
@@ -126,12 +129,12 @@ function WellnessContent() {
             duration: pattern.exhale * 1000,
             useNativeDriver: true,
           }).start(() => {
-            if (!isMounted) return;
+            if (!isMounted || !isBreathingRef.current) return;
             cycles++;
             setBreathCount(cycles);
-            if (cycles < 5 && isBreathing) {
+            if (cycles < 5 && isBreathingRef.current) {
               runBreathingCycle();
-            } else {
+            } else if (isMounted) {
               completeBreathingSession();
               setShowBreathingModal(false);
             }
@@ -144,6 +147,7 @@ function WellnessContent() {
     
     return () => {
       isMounted = false;
+      if (holdTimeoutId) clearTimeout(holdTimeoutId);
     };
   }, [isBreathing, breathAnim, getBreathingPattern, completeBreathingSession]);
 

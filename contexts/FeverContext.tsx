@@ -35,6 +35,9 @@ const FEVER_REWARDS = {
   hintsPerMilestone: 1,
 } as const;
 
+const MAX_MULTIPLIER = 5;
+const MAX_CHAIN = 100;
+
 export type FeverGenreFilter = 'all' | 'pop' | 'rock' | 'classical' | 'movie' | 'game' | 'folk' | 'viral';
 
 const GENRE_MAPPING: Record<FeverGenreFilter, string[]> = {
@@ -201,6 +204,9 @@ export const [FeverProvider, useFever] = createContextHook(() => {
 
   const melodyLength = currentMelody?.notes.length ?? 6;
 
+  const multiplierRef = useRef(multiplier);
+  multiplierRef.current = multiplier;
+
   useEffect(() => {
     if (isFeverActive && feverTimeLeft > 0) {
       if (!feverStartTimeRef.current) {
@@ -216,7 +222,7 @@ export const [FeverProvider, useFever] = createContextHook(() => {
             setFeverDuration(d => d + duration);
             feverStartTimeRef.current = null;
             setIsFeverActive(false);
-            setMultiplier(Math.max(1, multiplier - 1));
+            setMultiplier(Math.max(1, multiplierRef.current - 1));
             return 0;
           }
           return prev - 1;
@@ -227,9 +233,10 @@ export const [FeverProvider, useFever] = createContextHook(() => {
     return () => {
       if (feverTimerRef.current) {
         clearInterval(feverTimerRef.current);
+        feverTimerRef.current = null;
       }
     };
-  }, [isFeverActive, feverTimeLeft, multiplier]);
+  }, [isFeverActive, feverTimeLeft]);
 
   const startGame = useCallback((filter: FeverGenreFilter = genreFilter) => {
     const melody = getSmartRandomMelody([], filter, playHistory, 0);
@@ -324,16 +331,16 @@ export const [FeverProvider, useFever] = createContextHook(() => {
         setTimeout(() => setShowRewardPopup(false), 1500);
       }
       
-      const newChain = chain + 1;
+      const newChain = Math.min(chain + 1, MAX_CHAIN);
       
       if (newChain >= 10 && !isFeverActive) {
         setIsFeverActive(true);
         setFeverTimeLeft(30);
-        setMultiplier(3);
+        setMultiplier(Math.min(3, MAX_MULTIPLIER));
         feverStartTimeRef.current = Date.now();
         console.log('[Fever] FEVER MODE ACTIVATED!');
       } else if (newChain >= 5 && newChain < 10) {
-        setMultiplier(2);
+        setMultiplier(Math.min(2, MAX_MULTIPLIER));
       }
       
       console.log(`[Fever] Solved! +${earnedPoints} pts, +${earnedCoins} coins, chain: ${newChain}`);
