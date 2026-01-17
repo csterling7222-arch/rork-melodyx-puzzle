@@ -64,52 +64,105 @@ export const [GameProvider, useGame] = createContextHook(() => {
     queryKey: ['stats'],
     queryFn: async (): Promise<GameStats> => {
       try {
+        console.log('[Game] Loading stats from AsyncStorage...');
         const stored = await AsyncStorage.getItem(STORAGE_KEYS.STATS);
         if (stored) {
-          return JSON.parse(stored);
+          const parsed = JSON.parse(stored);
+          console.log('[Game] Loaded stats:', JSON.stringify(parsed));
+          return parsed;
         }
+        console.log('[Game] No stats found, using defaults');
       } catch (error) {
-        console.log('Error loading stats:', error);
+        console.error('[Game] Error loading stats:', error);
       }
       return DEFAULT_STATS;
     },
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const dailyGameQuery = useQuery({
     queryKey: ['dailyGame'],
     queryFn: async (): Promise<DailyGameState | null> => {
       try {
+        console.log('[Game] Loading daily game from AsyncStorage...');
         const stored = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_GAME);
         if (stored) {
           const parsed = JSON.parse(stored) as DailyGameState;
-          if (parsed.date === getTodayString()) {
+          const today = getTodayString();
+          console.log('[Game] Stored date:', parsed.date, 'Today:', today);
+          if (parsed.date === today) {
+            console.log('[Game] Loaded daily game:', JSON.stringify(parsed));
             return parsed;
           }
+          console.log('[Game] Daily game is from a different day, resetting');
         }
       } catch (error) {
-        console.log('Error loading daily game:', error);
+        console.error('[Game] Error loading daily game:', error);
       }
       return null;
     },
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const { mutate: saveStats } = useMutation({
     mutationFn: async (stats: GameStats) => {
-      await AsyncStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(stats));
-      return stats;
+      try {
+        const serialized = JSON.stringify(stats);
+        await AsyncStorage.setItem(STORAGE_KEYS.STATS, serialized);
+        console.log('[Game] Saved stats:', serialized);
+        
+        const verification = await AsyncStorage.getItem(STORAGE_KEYS.STATS);
+        if (verification !== serialized) {
+          console.error('[Game] STATS SAVE VERIFICATION FAILED!');
+        } else {
+          console.log('[Game] Stats save verification passed');
+        }
+        return stats;
+      } catch (error) {
+        console.error('[Game] Error saving stats:', error);
+        throw error;
+      }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
+    onSuccess: (savedStats) => {
+      queryClient.setQueryData(['stats'], savedStats);
+    },
+    onError: (error) => {
+      console.error('[Game] Stats mutation error:', error);
     },
   });
 
   const { mutate: saveDailyGame } = useMutation({
     mutationFn: async (gameState: DailyGameState) => {
-      await AsyncStorage.setItem(STORAGE_KEYS.DAILY_GAME, JSON.stringify(gameState));
-      return gameState;
+      try {
+        const serialized = JSON.stringify(gameState);
+        await AsyncStorage.setItem(STORAGE_KEYS.DAILY_GAME, serialized);
+        console.log('[Game] Saved daily game:', serialized);
+        
+        const verification = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_GAME);
+        if (verification !== serialized) {
+          console.error('[Game] DAILY GAME SAVE VERIFICATION FAILED!');
+        } else {
+          console.log('[Game] Daily game save verification passed');
+        }
+        return gameState;
+      } catch (error) {
+        console.error('[Game] Error saving daily game:', error);
+        throw error;
+      }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dailyGame'] });
+    onSuccess: (savedGame) => {
+      queryClient.setQueryData(['dailyGame'], savedGame);
+    },
+    onError: (error) => {
+      console.error('[Game] Daily game mutation error:', error);
     },
   });
 

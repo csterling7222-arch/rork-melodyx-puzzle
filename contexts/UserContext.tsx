@@ -264,12 +264,24 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const { isPremium: rcIsPremium } = usePurchases();
   const { user: authUser, isAuthenticated, isAnonymous } = useAuth();
   const [guestId, setGuestId] = useState<string | null>(null);
+  const [isGuestIdLoaded, setIsGuestIdLoaded] = useState(false);
 
   useEffect(() => {
-    if (!authUser?.uid) {
-      getOrCreateGuestId().then(setGuestId);
-    }
-  }, [authUser?.uid]);
+    const loadGuestId = async () => {
+      try {
+        const id = await getOrCreateGuestId();
+        setGuestId(id);
+        console.log('[User] Guest ID loaded:', id);
+      } catch (error) {
+        console.log('[User] Error loading guest ID:', error);
+        const fallbackId = `guest_${Date.now()}`;
+        setGuestId(fallbackId);
+      } finally {
+        setIsGuestIdLoaded(true);
+      }
+    };
+    loadGuestId();
+  }, []);
 
   const storageKey = useMemo(() => {
     if (authUser?.uid) {
@@ -283,7 +295,8 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const authDisplayName = authUser?.displayName;
 
   const userQuery = useQuery({
-    queryKey: ['userState', storageKey, authUid, guestId],
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps
+    queryKey: ['userState', storageKey],
     queryFn: async (): Promise<UserState> => {
       try {
         console.log('[User] Loading user state from:', storageKey);
@@ -352,22 +365,42 @@ export const [UserProvider, useUser] = createContextHook(() => {
       console.log('[User] Creating new guest state:', finalGuestId);
       const newState = createDefaultUserState(finalGuestId, 'MelodyPlayer', null);
       await AsyncStorage.setItem(storageKey, JSON.stringify(newState));
+      console.log('[User] Saved new guest state to:', storageKey);
       return newState;
     },
-    enabled: true,
+    enabled: isGuestIdLoaded || !!authUser?.uid,
     staleTime: Infinity,
     gcTime: Infinity,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const { mutate: saveUserState } = useMutation({
     mutationFn: async (state: UserState) => {
-      await AsyncStorage.setItem(storageKey, JSON.stringify(state));
-      console.log('[User] Saved user state for:', state.profile.id);
-      console.log('[User] Saved progress:', JSON.stringify(state.progress));
-      return state;
+      try {
+        const serialized = JSON.stringify(state);
+        await AsyncStorage.setItem(storageKey, serialized);
+        console.log('[User] Saved user state for:', state.profile.id, 'to key:', storageKey);
+        console.log('[User] Saved progress:', JSON.stringify(state.progress));
+        
+        const verification = await AsyncStorage.getItem(storageKey);
+        if (verification !== serialized) {
+          console.error('[User] SAVE VERIFICATION FAILED - data mismatch!');
+        } else {
+          console.log('[User] Save verification passed');
+        }
+        return state;
+      } catch (error) {
+        console.error('[User] Error saving user state:', error);
+        throw error;
+      }
     },
     onSuccess: (savedState) => {
-      queryClient.setQueryData(['userState', storageKey, authUid, guestId], savedState);
+      queryClient.setQueryData(['userState', storageKey], savedState);
+    },
+    onError: (error) => {
+      console.error('[User] Mutation error:', error);
     },
   });
 
@@ -839,7 +872,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
     progress: userState.progress,
     achievements: userState.achievements,
     dailyReward: userState.dailyReward,
-    isLoading: userQuery.isLoading,
+    isLoading: userQuery.isLoading || !isGuestIdLoaded,
     newAchievement,
     isAuthenticated,
     isAnonymous,
