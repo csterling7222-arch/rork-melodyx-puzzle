@@ -423,16 +423,13 @@ export default function SocialShareModal({
       if (Platform.OS === 'web') {
         if (navigator.clipboard) {
           await navigator.clipboard.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
         }
       } else {
-        // On native, just copy to clipboard without opening share sheet
         await Clipboard.setStringAsync(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       console.log('[SocialShare] Copy error:', error);
     }
@@ -478,17 +475,17 @@ export default function SocialShareModal({
         return;
       }
 
-      const shareContent: { message: string; title?: string; url?: string } = {
-        message: text,
-      };
+      console.log('[SocialShare] Opening native share sheet...');
       
-      if (Platform.OS === 'ios') {
-        shareContent.title = `Melodyx #${puzzleNumber}`;
-      }
-      
-      console.log('[SocialShare] Calling Share.share with:', JSON.stringify(shareContent));
-      
-      const result = await Share.share(shareContent);
+      const result = await Share.share(
+        {
+          message: text,
+        },
+        {
+          dialogTitle: `Share Melodyx #${puzzleNumber}`,
+          subject: `Melodyx #${puzzleNumber}`,
+        }
+      );
       
       console.log('[SocialShare] Share completed, action:', result.action);
 
@@ -501,6 +498,8 @@ export default function SocialShareModal({
           hasEffects: selectedEffect.id !== 'none',
           shareType: 'text',
         });
+        
+        Alert.alert('Shared!', 'Your result has been shared successfully!');
       } else if (result.action === Share.dismissedAction) {
         console.log('[SocialShare] User dismissed share dialog');
       }

@@ -76,10 +76,73 @@ const STORAGE_KEY_PREFIX = 'melodyx_user_state';
 const LEGACY_STORAGE_KEY = 'melodyx_user_state';
 const GUEST_STORAGE_KEY = 'melodyx_user_state_guest';
 const GUEST_ID_KEY = 'melodyx_guest_id';
+const DATA_VERSION_KEY = 'melodyx_data_version';
+const CURRENT_DATA_VERSION = 2;
 
 function getStorageKey(userId: string | null): string {
   if (!userId) return GUEST_STORAGE_KEY;
   return `${STORAGE_KEY_PREFIX}_${userId}`;
+}
+
+async function getDataVersion(): Promise<number> {
+  try {
+    const version = await AsyncStorage.getItem(DATA_VERSION_KEY);
+    return version ? parseInt(version, 10) : 1;
+  } catch {
+    return 1;
+  }
+}
+
+async function setDataVersion(version: number): Promise<void> {
+  await AsyncStorage.setItem(DATA_VERSION_KEY, String(version));
+}
+
+function migrateStateToVersion2(state: UserState): UserState {
+  return {
+    ...state,
+    inventory: {
+      ...state.inventory,
+      ownedThemes: state.inventory.ownedThemes || ['default'],
+      equippedTheme: state.inventory.equippedTheme || 'default',
+      ownedCosmetics: state.inventory.ownedCosmetics || [],
+      equippedCosmetics: state.inventory.equippedCosmetics || {
+        badge: null,
+        frame: null,
+        title: null,
+        watermark: null,
+        avatarEffect: null,
+      },
+      ownedPowerUps: state.inventory.ownedPowerUps || {},
+      ownedLearningPacks: state.inventory.ownedLearningPacks || [],
+      ownedInstrumentAddons: state.inventory.ownedInstrumentAddons || [],
+      ownedBundles: state.inventory.ownedBundles || [],
+    },
+    progress: {
+      ...state.progress,
+      createdMelodies: state.progress.createdMelodies || 0,
+      featuredMelodies: state.progress.featuredMelodies || 0,
+    },
+  };
+}
+
+async function runMigrations(state: UserState, storageKey: string): Promise<UserState> {
+  const currentVersion = await getDataVersion();
+  let migratedState = state;
+  
+  console.log('[User] Current data version:', currentVersion, 'Target:', CURRENT_DATA_VERSION);
+  
+  if (currentVersion < 2) {
+    console.log('[User] Running migration to version 2...');
+    migratedState = migrateStateToVersion2(migratedState);
+  }
+  
+  if (currentVersion < CURRENT_DATA_VERSION) {
+    await AsyncStorage.setItem(storageKey, JSON.stringify(migratedState));
+    await setDataVersion(CURRENT_DATA_VERSION);
+    console.log('[User] Migration complete, data version:', CURRENT_DATA_VERSION);
+  }
+  
+  return migratedState;
 }
 
 async function migrateOldData(newKey: string): Promise<UserState | null> {
@@ -87,17 +150,19 @@ async function migrateOldData(newKey: string): Promise<UserState | null> {
     const legacyData = await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
     if (legacyData && newKey !== LEGACY_STORAGE_KEY) {
       const parsed = JSON.parse(legacyData) as UserState;
-      await AsyncStorage.setItem(newKey, legacyData);
+      const migrated = await runMigrations(parsed, newKey);
+      await AsyncStorage.setItem(newKey, JSON.stringify(migrated));
       console.log('[User] Migrated legacy data to new key:', newKey);
-      return parsed;
+      return migrated;
     }
     
     const guestData = await AsyncStorage.getItem(GUEST_STORAGE_KEY);
     if (guestData && newKey !== GUEST_STORAGE_KEY) {
       const parsed = JSON.parse(guestData) as UserState;
-      await AsyncStorage.setItem(newKey, guestData);
+      const migrated = await runMigrations(parsed, newKey);
+      await AsyncStorage.setItem(newKey, JSON.stringify(migrated));
       console.log('[User] Migrated guest data to user key:', newKey);
-      return parsed;
+      return migrated;
     }
   } catch (error) {
     console.log('[User] Migration error:', error);
@@ -246,7 +311,10 @@ export const [UserProvider, useUser] = createContextHook(() => {
         }
         
         if (stored) {
-          const parsed = JSON.parse(stored) as UserState;
+          let parsed = JSON.parse(stored) as UserState;
+          
+          parsed = await runMigrations(parsed, storageKey);
+          
           const today = getTodayString();
           if (parsed.dailyReward.lastClaimDate !== today) {
             parsed.dailyReward.claimedToday = false;
@@ -258,6 +326,9 @@ export const [UserProvider, useUser] = createContextHook(() => {
               parsed.profile.username = authDisplayName;
             }
           }
+          
+          await AsyncStorage.setItem(storageKey, JSON.stringify(parsed));
+          
           console.log('[User] Successfully loaded user state for:', parsed.profile.id);
           console.log('[User] Progress:', JSON.stringify(parsed.progress));
           return parsed;
