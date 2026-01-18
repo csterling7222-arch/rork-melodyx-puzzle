@@ -240,6 +240,10 @@ function getFallbackUserState(): UserState {
   return FALLBACK_USER_STATE;
 }
 
+function isFallbackState(state: UserState): boolean {
+  return state.profile.id === 'guest_fallback';
+}
+
 function getTodayString(): string {
   return new Date().toISOString().split('T')[0];
 }
@@ -443,8 +447,20 @@ export const [UserProvider, useUser] = createContextHook(() => {
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 
+  const isDataReady = !userQuery.isLoading && userQuery.data && !isFallbackState(userQuery.data);
+
   const { mutate: saveUserState } = useMutation({
     mutationFn: async (state: UserState) => {
+      if (isFallbackState(state)) {
+        console.warn('[User] BLOCKED: Attempted to save fallback state - this would erase real data!');
+        throw new Error('Cannot save fallback state');
+      }
+      
+      if (userQuery.isLoading) {
+        console.warn('[User] BLOCKED: Attempted to save while data is still loading!');
+        throw new Error('Cannot save while loading');
+      }
+      
       try {
         const serialized = JSON.stringify(state);
         await asyncStorageRetry(() => AsyncStorage.setItem(storageKey, serialized));
@@ -567,6 +583,11 @@ export const [UserProvider, useUser] = createContextHook(() => {
   }, []);
 
   const updateProgress = useCallback((updates: Partial<UserProgress>) => {
+    if (!isDataReady) {
+      console.warn('[User] Skipping updateProgress - data not ready yet');
+      return;
+    }
+    
     const newState: UserState = {
       ...userState,
       progress: { ...userState.progress, ...updates },
@@ -582,9 +603,14 @@ export const [UserProvider, useUser] = createContextHook(() => {
     }
 
     saveUserState(newState);
-  }, [userState, checkAndUnlockAchievements, saveUserState]);
+  }, [userState, checkAndUnlockAchievements, saveUserState, isDataReady]);
 
   const checkStreakAchievement = useCallback((streak: number) => {
+    if (!isDataReady) {
+      console.warn('[User] Skipping checkStreakAchievement - data not ready yet');
+      return;
+    }
+    
     const newState = { ...userState };
     const unlockedIds = newState.achievements.map(a => a.id);
     const newUnlocks: Achievement[] = [];
@@ -614,9 +640,14 @@ export const [UserProvider, useUser] = createContextHook(() => {
       setNewAchievement(newUnlocks[0]);
       saveUserState(newState);
     }
-  }, [userState, saveUserState]);
+  }, [userState, saveUserState, isDataReady]);
 
   const addCoins = useCallback((amount: number) => {
+    if (!isDataReady) {
+      console.warn('[User] Skipping addCoins - data not ready yet');
+      return;
+    }
+    
     const newState: UserState = {
       ...userState,
       inventory: {
@@ -625,9 +656,14 @@ export const [UserProvider, useUser] = createContextHook(() => {
       },
     };
     saveUserState(newState);
-  }, [userState, saveUserState]);
+  }, [userState, saveUserState, isDataReady]);
 
   const spendCoins = useCallback((amount: number): boolean => {
+    if (!isDataReady) {
+      console.warn('[User] Skipping spendCoins - data not ready yet');
+      return false;
+    }
+    
     if (userState.inventory.coins < amount) return false;
     const newState: UserState = {
       ...userState,
@@ -638,9 +674,14 @@ export const [UserProvider, useUser] = createContextHook(() => {
     };
     saveUserState(newState);
     return true;
-  }, [userState, saveUserState]);
+  }, [userState, saveUserState, isDataReady]);
 
   const addHints = useCallback((amount: number) => {
+    if (!isDataReady) {
+      console.warn('[User] Skipping addHints - data not ready yet');
+      return;
+    }
+    
     const newState: UserState = {
       ...userState,
       inventory: {
@@ -649,9 +690,14 @@ export const [UserProvider, useUser] = createContextHook(() => {
       },
     };
     saveUserState(newState);
-  }, [userState, saveUserState]);
+  }, [userState, saveUserState, isDataReady]);
 
   const useHint = useCallback((): boolean => {
+    if (!isDataReady) {
+      console.warn('[User] Skipping useHint - data not ready yet');
+      return false;
+    }
+    
     if (userState.inventory.hints < 1) return false;
     const newState: UserState = {
       ...userState,
@@ -662,7 +708,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
     };
     saveUserState(newState);
     return true;
-  }, [userState, saveUserState]);
+  }, [userState, saveUserState, isDataReady]);
 
   const purchaseSkin = useCallback((skinId: string): boolean => {
     if (userState.inventory.ownedSkins.includes(skinId)) return false;
@@ -912,7 +958,13 @@ export const [UserProvider, useUser] = createContextHook(() => {
   }, []);
 
   useEffect(() => {
+    if (!isDataReady) {
+      console.log('[User] Skipping premium sync - data not ready yet');
+      return;
+    }
+    
     if (rcIsPremium && !userState.profile.isPremium) {
+      console.log('[User] Syncing premium status from RevenueCat');
       const newState: UserState = {
         ...userState,
         profile: {
@@ -922,7 +974,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
       };
       saveUserState(newState);
     }
-  }, [rcIsPremium, userState, saveUserState]);
+  }, [rcIsPremium, userState, saveUserState, isDataReady]);
 
   const isPremium = rcIsPremium || userState.profile.isPremium;
 
