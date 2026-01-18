@@ -204,14 +204,18 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         if (stored) {
           const parsed = JSON.parse(stored) as AuthState;
           if (parsed.isAuthenticated && parsed.user) {
-            const token = await secureGet(AUTH_TOKEN_KEY);
-            if (!token) {
-              console.log('[Auth] No session token found, clearing auth state');
-              return { user: null, isAuthenticated: false, isAnonymous: false };
+            if (parsed.isAnonymous) {
+              console.log('[Auth] Anonymous user restored, skipping token validation');
+            } else {
+              const token = await secureGet(AUTH_TOKEN_KEY);
+              if (!token) {
+                console.log('[Auth] No session token found for non-anonymous user, clearing auth state');
+                return { user: null, isAuthenticated: false, isAnonymous: false };
+              }
+              console.log('[Auth] Session token validated');
             }
-            console.log('[Auth] Session token validated');
           }
-          console.log('[Auth] Restored auth state:', parsed.user?.email || 'anonymous');
+          console.log('[Auth] Restored auth state:', parsed.user?.email || (parsed.isAnonymous ? 'anonymous' : 'guest'), 'uid:', parsed.user?.uid);
           return parsed;
         }
       } catch (error) {
@@ -219,6 +223,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }
       return { user: null, isAuthenticated: false, isAnonymous: false };
     },
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 
   const { mutateAsync: saveAuthState } = useMutation({

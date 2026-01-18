@@ -79,6 +79,8 @@ const GUEST_ID_KEY = 'melodyx_guest_id';
 const DATA_VERSION_KEY = 'melodyx_data_version';
 const CURRENT_DATA_VERSION = 2;
 const DEVICE_ID_KEY = 'melodyx_device_id';
+const LAST_STORAGE_KEY_KEY = 'melodyx_last_storage_key';
+const KNOWN_USER_KEYS_KEY = 'melodyx_known_user_keys';
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 100;
 
@@ -148,13 +150,146 @@ async function runMigrations(state: UserState, storageKey: string): Promise<User
   return migratedState;
 }
 
+async function getKnownUserKeys(): Promise<string[]> {
+  try {
+    const stored = await AsyncStorage.getItem(KNOWN_USER_KEYS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function addKnownUserKey(key: string): Promise<void> {
+  try {
+    const keys = await getKnownUserKeys();
+    if (!keys.includes(key)) {
+      keys.push(key);
+      await AsyncStorage.setItem(KNOWN_USER_KEYS_KEY, JSON.stringify(keys));
+      console.log('[User] Added known user key:', key);
+    }
+  } catch (error) {
+    console.log('[User] Error adding known user key:', error);
+  }
+}
+
+async function getLastStorageKey(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(LAST_STORAGE_KEY_KEY);
+  } catch {
+    return null;
+  }
+}
+
+async function setLastStorageKey(key: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(LAST_STORAGE_KEY_KEY, key);
+    console.log('[User] Saved last storage key:', key);
+  } catch (error) {
+    console.log('[User] Error saving last storage key:', error);
+  }
+}
+
+async function findBestExistingData(): Promise<{ key: string; data: UserState } | null> {
+  console.log('[User] Searching for existing user data...');
+  
+  const lastKey = await getLastStorageKey();
+  if (lastKey) {
+    try {
+      const data = await AsyncStorage.getItem(lastKey);
+      if (data) {
+        console.log('[User] Found data at last known key:', lastKey);
+        return { key: lastKey, data: JSON.parse(data) };
+      }
+    } catch (error) {
+      console.log('[User] Error reading last key:', error);
+    }
+  }
+  
+  const knownKeys = await getKnownUserKeys();
+  for (const key of knownKeys) {
+    try {
+      const data = await AsyncStorage.getItem(key);
+      if (data) {
+        const parsed = JSON.parse(data) as UserState;
+        if (parsed.progress && (parsed.progress.totalWins > 0 || parsed.inventory?.coins > 100)) {
+          console.log('[User] Found data with progress at known key:', key);
+          return { key, data: parsed };
+        }
+      }
+    } catch (error) {
+      console.log('[User] Error reading known key:', key, error);
+    }
+  }
+  
+  const keysToCheck = [GUEST_STORAGE_KEY, LEGACY_STORAGE_KEY];
+  for (const key of keysToCheck) {
+    try {
+      const data = await AsyncStorage.getItem(key);
+      if (data) {
+        console.log('[User] Found data at fallback key:', key);
+        return { key, data: JSON.parse(data) };
+      }
+    } catch (error) {
+      console.log('[User] Error reading fallback key:', key, error);
+    }
+  }
+  
+  try {
+    const allKeys = await AsyncStorage.getAllKeys();
+    const userStateKeys = allKeys.filter(k => k.startsWith(STORAGE_KEY_PREFIX));
+    console.log('[User] Found user state keys:', userStateKeys);
+    
+    let bestData: { key: string; data: UserState } | null = null;
+    let bestProgress = 0;
+    
+    for (const key of userStateKeys) {
+      try {
+        const data = await AsyncStorage.getItem(key);
+        if (data) {
+          const parsed = JSON.parse(data) as UserState;
+          const progress = (parsed.progress?.totalWins || 0) + (parsed.inventory?.coins || 0);
+          if (progress > bestProgress) {
+            bestProgress = progress;
+            bestData = { key, data: parsed };
+          }
+        }
+      } catch (error) {
+        console.log('[User] Error reading key:', key, error);
+      }
+    }
+    
+    if (bestData) {
+      console.log('[User] Found best data at:', bestData.key, 'with progress score:', bestProgress);
+      return bestData;
+    }
+  } catch (error) {
+    console.log('[User] Error scanning all keys:', error);
+  }
+  
+  console.log('[User] No existing user data found');
+  return null;
+}
+
 async function migrateOldData(newKey: string): Promise<UserState | null> {
   try {
+    const existingData = await findBestExistingData();
+    if (existingData && existingData.key !== newKey) {
+      console.log('[User] Migrating data from', existingData.key, 'to', newKey);
+      const migrated = await runMigrations(existingData.data, newKey);
+      await AsyncStorage.setItem(newKey, JSON.stringify(migrated));
+      await addKnownUserKey(newKey);
+      await setLastStorageKey(newKey);
+      console.log('[User] Migration complete to:', newKey);
+      return migrated;
+    }
+    
     const legacyData = await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
     if (legacyData && newKey !== LEGACY_STORAGE_KEY) {
       const parsed = JSON.parse(legacyData) as UserState;
       const migrated = await runMigrations(parsed, newKey);
       await AsyncStorage.setItem(newKey, JSON.stringify(migrated));
+      await addKnownUserKey(newKey);
+      await setLastStorageKey(newKey);
       console.log('[User] Migrated legacy data to new key:', newKey);
       return migrated;
     }
@@ -164,6 +299,8 @@ async function migrateOldData(newKey: string): Promise<UserState | null> {
       const parsed = JSON.parse(guestData) as UserState;
       const migrated = await runMigrations(parsed, newKey);
       await AsyncStorage.setItem(newKey, JSON.stringify(migrated));
+      await addKnownUserKey(newKey);
+      await setLastStorageKey(newKey);
       console.log('[User] Migrated guest data to user key:', newKey);
       return migrated;
     }
@@ -383,6 +520,8 @@ export const [UserProvider, useUser] = createContextHook(() => {
               }
             }
             await asyncStorageRetry(() => AsyncStorage.setItem(storageKey, JSON.stringify(migratedData)));
+            await addKnownUserKey(storageKey);
+            await setLastStorageKey(storageKey);
             return migratedData;
           }
         }
@@ -405,6 +544,8 @@ export const [UserProvider, useUser] = createContextHook(() => {
           }
           
           await asyncStorageRetry(() => AsyncStorage.setItem(storageKey, JSON.stringify(parsed)));
+          await addKnownUserKey(storageKey);
+          await setLastStorageKey(storageKey);
           
           console.log('[User] Successfully loaded user state for:', parsed.profile.id);
           console.log('[User] Progress:', JSON.stringify(parsed.progress));
@@ -413,6 +554,16 @@ export const [UserProvider, useUser] = createContextHook(() => {
         }
       } catch (error) {
         console.error('[User] Error loading user state:', error);
+        
+        const recoveredData = await findBestExistingData();
+        if (recoveredData) {
+          console.log('[User] Recovered data from:', recoveredData.key);
+          const migrated = await runMigrations(recoveredData.data, storageKey);
+          await asyncStorageRetry(() => AsyncStorage.setItem(storageKey, JSON.stringify(migrated)));
+          await addKnownUserKey(storageKey);
+          await setLastStorageKey(storageKey);
+          return migrated;
+        }
       }
       
       if (authUid) {
@@ -423,6 +574,8 @@ export const [UserProvider, useUser] = createContextHook(() => {
           authEmail ?? null
         );
         await asyncStorageRetry(() => AsyncStorage.setItem(storageKey, JSON.stringify(newState)));
+        await addKnownUserKey(storageKey);
+        await setLastStorageKey(storageKey);
         return newState;
       }
       
@@ -434,6 +587,8 @@ export const [UserProvider, useUser] = createContextHook(() => {
       console.log('[User] Creating new guest state for:', guestId);
       const newState = createDefaultUserState(guestId, 'MelodyPlayer', null);
       await asyncStorageRetry(() => AsyncStorage.setItem(storageKey, JSON.stringify(newState)));
+      await addKnownUserKey(storageKey);
+      await setLastStorageKey(storageKey);
       console.log('[User] Saved new guest state to:', storageKey);
       return newState;
     },
@@ -464,6 +619,8 @@ export const [UserProvider, useUser] = createContextHook(() => {
       try {
         const serialized = JSON.stringify(state);
         await asyncStorageRetry(() => AsyncStorage.setItem(storageKey, serialized));
+        await addKnownUserKey(storageKey);
+        await setLastStorageKey(storageKey);
         console.log('[User] Saved user state for:', state.profile.id, 'to key:', storageKey);
         console.log('[User] Saved progress:', JSON.stringify(state.progress));
         console.log('[User] Saved inventory coins:', state.inventory.coins, 'hints:', state.inventory.hints);
