@@ -428,6 +428,11 @@ export default function GameModal() {
 
   const { currentInstrument, instruments } = useInstrument();
   const { isPremium } = useUser();
+  const [selectedInstrumentTwist, setSelectedInstrumentTwist] = useState<string | null>(null);
+  
+  // Use twist instrument for playback if selected, otherwise use current instrument
+  const playbackInstrumentId = selectedInstrumentTwist || currentInstrument.id;
+  
   const { 
     playSnippet, 
     playHintNotes, 
@@ -443,7 +448,7 @@ export default function GameModal() {
     playbackSpeed,
     updateVolume,
     updatePlaybackSpeed,
-  } = useAudio(currentInstrument.id);
+  } = useAudio(playbackInstrumentId);
   const [hasPlayedSnippet, setHasPlayedSnippet] = useState(false);
   const [hasPlayedLossReveal, setHasPlayedLossReveal] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -451,7 +456,6 @@ export default function GameModal() {
   const [showArtistModal, setShowArtistModal] = useState(false);
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [showPlaybackControls, setShowPlaybackControls] = useState(false);
-  const [selectedInstrumentTwist, setSelectedInstrumentTwist] = useState<string | null>(null);
 
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -701,7 +705,10 @@ export default function GameModal() {
     if (playbackState.isPlaying) {
       stopPlayback();
     } else {
-      console.log('[GameModal] Playing snippet manually:', melody.extendedNotes);
+      const instrumentName = selectedInstrumentTwist 
+        ? instruments.find(i => i.id === selectedInstrumentTwist)?.name || 'selected instrument'
+        : currentInstrument.name;
+      console.log(`[GameModal] Playing snippet manually on ${instrumentName}:`, melody.extendedNotes);
       playSnippet(melody.extendedNotes, () => {
         setHasPlayedSnippet(true);
       });
@@ -899,20 +906,36 @@ export default function GameModal() {
                   </View>
                   <Text style={styles.twistLabel}>Play with different instrument:</Text>
                   <View style={styles.instrumentChips}>
-                    {instruments.slice(0, 4).map((inst) => (
-                      <TouchableOpacity
-                        key={inst.id}
-                        style={[
-                          styles.instrumentChip,
-                          selectedInstrumentTwist === inst.id && styles.instrumentChipActive
-                        ]}
-                        onPress={() => setSelectedInstrumentTwist(
-                          selectedInstrumentTwist === inst.id ? null : inst.id
-                        )}
-                      >
-                        <Text style={styles.instrumentChipText}>{inst.name}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    {instruments.slice(0, 4).map((inst) => {
+                      const isSelected = selectedInstrumentTwist === inst.id;
+                      const isCurrentDefault = !selectedInstrumentTwist && inst.id === currentInstrument.id;
+                      return (
+                        <TouchableOpacity
+                          key={inst.id}
+                          style={[
+                            styles.instrumentChip,
+                            (isSelected || isCurrentDefault) && styles.instrumentChipActive
+                          ]}
+                          onPress={() => {
+                            // Stop any current playback when switching instruments
+                            if (playbackState.isPlaying) {
+                              stopPlayback();
+                            }
+                            setSelectedInstrumentTwist(
+                              isSelected ? null : inst.id
+                            );
+                            if (Platform.OS !== 'web') {
+                              Haptics.selectionAsync();
+                            }
+                          }}
+                        >
+                          <Text style={[
+                            styles.instrumentChipText,
+                            (isSelected || isCurrentDefault) && styles.instrumentChipTextActive
+                          ]}>{inst.name}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 </View>
               )}
@@ -1504,5 +1527,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600' as const,
     color: Colors.text,
+  },
+  instrumentChipTextActive: {
+    color: Colors.background,
   },
 });
