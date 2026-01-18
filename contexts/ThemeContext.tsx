@@ -230,13 +230,14 @@ export const [ThemeProvider, useTheme] = createContextHook(() => {
 });
 
 export function useScreenTheme(screenName: string) {
-  const { customScreenThemes, isDarkMode, animationsEnabled, highContrast, setCurrentScreen } = useTheme();
+  const { customScreenThemes, backgroundTheme, isDarkMode, animationsEnabled, highContrast, setCurrentScreen } = useTheme();
   
   useEffect(() => {
     setCurrentScreen(screenName);
   }, [screenName, setCurrentScreen]);
 
-  const theme = customScreenThemes[screenName] || getThemeForScreen(screenName);
+  // Priority: 1. Custom screen theme, 2. Global background theme, 3. Screen default
+  const theme = customScreenThemes[screenName] || backgroundTheme || getThemeForScreen(screenName);
   
   return {
     theme,
