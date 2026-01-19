@@ -1,7 +1,8 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { 
   ECO_POINTS_PER_WIN, 
   ECO_POINTS_PER_PERFECT, 
@@ -44,6 +45,28 @@ const DEFAULT_ECO_STATE: EcoState = {
 export const [EcoProvider, useEco] = createContextHook(() => {
   const queryClient = useQueryClient();
   const [showOffsetModal, setShowOffsetModal] = useState(false);
+  const pendingSaveRef = useRef<EcoState | null>(null);
+
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        if (pendingSaveRef.current) {
+          console.log('[Eco] App going to background, force saving eco state...');
+          try {
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(pendingSaveRef.current));
+            console.log('[Eco] Force saved eco state on background');
+          } catch (error) {
+            console.error('[Eco] Error force saving on background:', error);
+          }
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   const ecoQuery = useQuery({
     queryKey: ['ecoState'],
@@ -62,11 +85,14 @@ export const [EcoProvider, useEco] = createContextHook(() => {
 
   const { mutate: saveEcoState } = useMutation({
     mutationFn: async (state: EcoState) => {
+      pendingSaveRef.current = state;
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      console.log('[Eco] Saved eco state - Points:', state.ecoPoints, 'Offset tons:', state.totalOffsetTons);
+      pendingSaveRef.current = null;
       return state;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ecoState'] });
+    onSuccess: (savedState) => {
+      queryClient.setQueryData(['ecoState'], savedState);
     },
   });
 

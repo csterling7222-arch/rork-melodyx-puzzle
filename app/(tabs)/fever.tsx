@@ -27,10 +27,12 @@ function FeverBar({ timeLeft, isActive }: { timeLeft: number; isActive: boolean 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const widthAnim = useRef(new Animated.Value(timeLeft / 30)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+  const glowAnimRef = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
     if (isActive) {
-      Animated.loop(
+      pulseAnimRef.current = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
             toValue: 1.1,
@@ -43,9 +45,10 @@ function FeverBar({ timeLeft, isActive }: { timeLeft: number; isActive: boolean 
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      pulseAnimRef.current.start();
 
-      Animated.loop(
+      glowAnimRef.current = Animated.loop(
         Animated.sequence([
           Animated.timing(glowAnim, {
             toValue: 1,
@@ -58,11 +61,29 @@ function FeverBar({ timeLeft, isActive }: { timeLeft: number; isActive: boolean 
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      glowAnimRef.current.start();
     } else {
+      if (pulseAnimRef.current) {
+        pulseAnimRef.current.stop();
+        pulseAnimRef.current = null;
+      }
+      if (glowAnimRef.current) {
+        glowAnimRef.current.stop();
+        glowAnimRef.current = null;
+      }
       pulseAnim.setValue(1);
       glowAnim.setValue(0);
     }
+    
+    return () => {
+      if (pulseAnimRef.current) {
+        pulseAnimRef.current.stop();
+      }
+      if (glowAnimRef.current) {
+        glowAnimRef.current.stop();
+      }
+    };
   }, [isActive, pulseAnim, glowAnim]);
 
   useEffect(() => {
@@ -393,10 +414,11 @@ function GameOverModal({
 
 function FeverGlowOverlay({ isActive, multiplier }: { isActive: boolean; multiplier: number }) {
   const glowOpacity = useRef(new Animated.Value(0)).current;
+  const loopAnimRef = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
     if (isActive) {
-      Animated.loop(
+      loopAnimRef.current = Animated.loop(
         Animated.sequence([
           Animated.timing(glowOpacity, {
             toValue: 0.3,
@@ -409,20 +431,34 @@ function FeverGlowOverlay({ isActive, multiplier }: { isActive: boolean; multipl
             useNativeDriver: true,
           }),
         ])
-      ).start();
-    } else if (multiplier >= 2) {
-      Animated.timing(glowOpacity, {
-        toValue: 0.1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      );
+      loopAnimRef.current.start();
     } else {
-      Animated.timing(glowOpacity, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      if (loopAnimRef.current) {
+        loopAnimRef.current.stop();
+        loopAnimRef.current = null;
+      }
+      
+      if (multiplier >= 2) {
+        Animated.timing(glowOpacity, {
+          toValue: 0.1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      } else {
+        Animated.timing(glowOpacity, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      }
     }
+    
+    return () => {
+      if (loopAnimRef.current) {
+        loopAnimRef.current.stop();
+      }
+    };
   }, [isActive, multiplier, glowOpacity]);
 
   const glowColor = isActive ? '#FF6B35' : (multiplier >= 2 ? Colors.present : 'transparent');

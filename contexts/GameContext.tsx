@@ -1,8 +1,8 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useCallback, useMemo, useRef } from 'react';
-import { Platform } from 'react-native';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { Platform, AppState, AppStateStatus } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { getDailyMelody, getDailyPuzzleNumber } from '@/utils/melodies';
 import { getFeedback, isWin, GuessResult } from '@/utils/gameLogic';
@@ -72,12 +72,41 @@ export const [GameProvider, useGame] = createContextHook(() => {
   const [gameEndTime, setGameEndTime] = useState<number | null>(null);
   const [shouldAutoPlaySnippet, setShouldAutoPlaySnippet] = useState(false);
   const gameStartTimeRef = useRef<number>(Date.now());
+  const pendingSaveRef = useRef<{ stats: GameStats | null; dailyGame: DailyGameState | null }>({
+    stats: null,
+    dailyGame: null,
+  });
 
   const aiSelection = useMemo<AISelection>(() => aiChooseSong(), []);
   const melody = useMemo(() => getDailyMelody(), []);
   const puzzleNumber = useMemo(() => getDailyPuzzleNumber(), []);
   const targetNotes = melody.notes;
   const melodyLength = targetNotes.length;
+
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        console.log('[Game] App going to background, force saving pending data...');
+        try {
+          if (pendingSaveRef.current.stats) {
+            await AsyncStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(pendingSaveRef.current.stats));
+            console.log('[Game] Force saved stats on background');
+          }
+          if (pendingSaveRef.current.dailyGame) {
+            await AsyncStorage.setItem(STORAGE_KEYS.DAILY_GAME, JSON.stringify(pendingSaveRef.current.dailyGame));
+            console.log('[Game] Force saved daily game on background');
+          }
+        } catch (error) {
+          console.error('[Game] Error force saving on background:', error);
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   const statsQuery = useQuery({
     queryKey: ['stats'],
@@ -144,6 +173,7 @@ export const [GameProvider, useGame] = createContextHook(() => {
   const { mutate: saveStats } = useMutation({
     mutationFn: async (stats: GameStats) => {
       try {
+        pendingSaveRef.current.stats = stats;
         const serialized = JSON.stringify(stats);
         await asyncStorageRetry(() => AsyncStorage.setItem(STORAGE_KEYS.STATS, serialized));
         console.log('[Game] Saved stats - Games played:', stats.gamesPlayed, 'Won:', stats.gamesWon, 'Streak:', stats.currentStreak);
@@ -154,6 +184,7 @@ export const [GameProvider, useGame] = createContextHook(() => {
           await asyncStorageRetry(() => AsyncStorage.setItem(STORAGE_KEYS.STATS, serialized));
         } else {
           console.log('[Game] Stats save verification passed');
+          pendingSaveRef.current.stats = null;
         }
         return stats;
       } catch (error) {
@@ -173,6 +204,7 @@ export const [GameProvider, useGame] = createContextHook(() => {
   const { mutate: saveDailyGame } = useMutation({
     mutationFn: async (gameState: DailyGameState) => {
       try {
+        pendingSaveRef.current.dailyGame = gameState;
         const serialized = JSON.stringify(gameState);
         await asyncStorageRetry(() => AsyncStorage.setItem(STORAGE_KEYS.DAILY_GAME, serialized));
         console.log('[Game] Saved daily game - Status:', gameState.gameStatus, 'Guesses:', gameState.guesses.length);
@@ -183,6 +215,7 @@ export const [GameProvider, useGame] = createContextHook(() => {
           await asyncStorageRetry(() => AsyncStorage.setItem(STORAGE_KEYS.DAILY_GAME, serialized));
         } else {
           console.log('[Game] Daily game save verification passed');
+          pendingSaveRef.current.dailyGame = null;
         }
         return gameState;
       } catch (error) {

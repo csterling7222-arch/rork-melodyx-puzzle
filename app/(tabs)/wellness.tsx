@@ -65,7 +65,7 @@ function WellnessContent() {
   const glowAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, {
           toValue: 1,
@@ -78,40 +78,56 @@ function WellnessContent() {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    animation.start();
+    return () => {
+      animation.stop();
+    };
   }, [glowAnim]);
 
   const isBreathingRef = useRef(isBreathing);
   isBreathingRef.current = isBreathing;
 
   useEffect(() => {
-    if (!isBreathing) return;
+    if (!isBreathing) {
+      breathAnim.stopAnimation();
+      breathAnim.setValue(0.5);
+      return;
+    }
 
     const pattern = getBreathingPattern();
     let cycles = 0;
     let isMounted = true;
     let holdTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let currentAnimation: Animated.CompositeAnimation | null = null;
 
     const runBreathingCycle = () => {
       if (!isMounted || !isBreathingRef.current) return;
       setBreathPhase('inhale');
-      Animated.timing(breathAnim, {
+      
+      currentAnimation = Animated.timing(breathAnim, {
         toValue: 1,
         duration: pattern.inhale * 1000,
         useNativeDriver: true,
-      }).start(() => {
-        if (!isMounted || !isBreathingRef.current) return;
+      });
+      
+      currentAnimation.start(({ finished }) => {
+        if (!finished || !isMounted || !isBreathingRef.current) return;
+        
         if (pattern.hold > 0) {
           setBreathPhase('hold');
           holdTimeoutId = setTimeout(() => {
             if (!isMounted || !isBreathingRef.current) return;
             setBreathPhase('exhale');
-            Animated.timing(breathAnim, {
+            
+            currentAnimation = Animated.timing(breathAnim, {
               toValue: 0.5,
               duration: pattern.exhale * 1000,
               useNativeDriver: true,
-            }).start(() => {
-              if (!isMounted || !isBreathingRef.current) return;
+            });
+            
+            currentAnimation.start(({ finished: exhaleFinished }) => {
+              if (!exhaleFinished || !isMounted || !isBreathingRef.current) return;
               cycles++;
               setBreathCount(cycles);
               if (cycles < 5 && isBreathingRef.current) {
@@ -124,12 +140,15 @@ function WellnessContent() {
           }, pattern.hold * 1000);
         } else {
           setBreathPhase('exhale');
-          Animated.timing(breathAnim, {
+          
+          currentAnimation = Animated.timing(breathAnim, {
             toValue: 0.5,
             duration: pattern.exhale * 1000,
             useNativeDriver: true,
-          }).start(() => {
-            if (!isMounted || !isBreathingRef.current) return;
+          });
+          
+          currentAnimation.start(({ finished: exhaleFinished }) => {
+            if (!exhaleFinished || !isMounted || !isBreathingRef.current) return;
             cycles++;
             setBreathCount(cycles);
             if (cycles < 5 && isBreathingRef.current) {
@@ -148,6 +167,10 @@ function WellnessContent() {
     return () => {
       isMounted = false;
       if (holdTimeoutId) clearTimeout(holdTimeoutId);
+      if (currentAnimation) {
+        currentAnimation.stop();
+      }
+      breathAnim.stopAnimation();
     };
   }, [isBreathing, breathAnim, getBreathingPattern, completeBreathingSession]);
 

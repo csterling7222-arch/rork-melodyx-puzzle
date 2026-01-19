@@ -254,16 +254,19 @@ export default function GuessGrid({
 
   const needsScroll = gridWidth > (screenWidth - HORIZONTAL_PADDING);
 
-  useEffect(() => {
+  const autoZoomScale = useMemo(() => {
     const availableWidth = screenWidth - HORIZONTAL_PADDING;
     if (gridWidth > availableWidth && !needsScroll) {
       const scale = Math.max(0.7, availableWidth / gridWidth);
-      autoZoomScaleRef.current = scale;
-      console.log('[GuessGrid] Auto-zoom applied:', scale);
-    } else {
-      autoZoomScaleRef.current = 1;
+      console.log('[GuessGrid] Auto-zoom calculated:', scale);
+      return scale;
     }
+    return 1;
   }, [gridWidth, screenWidth, needsScroll]);
+
+  useEffect(() => {
+    autoZoomScaleRef.current = autoZoomScale;
+  }, [autoZoomScale]);
 
   const triggerResizeHaptic = useCallback(() => {
     debouncedImpact();
@@ -365,7 +368,11 @@ export default function GuessGrid({
     <Animated.View 
       style={[
         styles.gridContent,
-        { transform: [{ scale: gridScaleAnim }] },
+        { 
+          transform: [
+            { scale: Animated.multiply(gridScaleAnim, autoZoomScale) }
+          ] 
+        },
         needsScroll && { width: gridWidth },
       ]}
       accessible={true}

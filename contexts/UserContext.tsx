@@ -2,6 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { ACHIEVEMENTS, Achievement } from '@/constants/achievements';
 import { getDailyReward, getStreakMilestone } from '@/constants/shop';
 import { usePurchases } from './PurchasesContext';
@@ -452,6 +453,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const [isGuestIdLoaded, setIsGuestIdLoaded] = useState(false);
   const [initError, setInitError] = useState<Error | null>(null);
   const guestIdLoadAttemptRef = useRef(0);
+  const pendingSaveRef = useRef<UserState | null>(null);
 
   useEffect(() => {
     const loadGuestId = async () => {
@@ -492,6 +494,29 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const authUid = authUser?.uid;
   const authEmail = authUser?.email;
   const authDisplayName = authUser?.displayName;
+
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        if (pendingSaveRef.current && !isFallbackState(pendingSaveRef.current)) {
+          console.log('[User] App going to background, force saving user state...');
+          try {
+            await AsyncStorage.setItem(storageKey, JSON.stringify(pendingSaveRef.current));
+            await addKnownUserKey(storageKey);
+            await setLastStorageKey(storageKey);
+            console.log('[User] Force saved user state on background');
+          } catch (error) {
+            console.error('[User] Error force saving on background:', error);
+          }
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, [storageKey]);
 
   const userQuery = useQuery({
     // eslint-disable-next-line @tanstack/query/exhaustive-deps
@@ -617,6 +642,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
       }
       
       try {
+        pendingSaveRef.current = state;
         const serialized = JSON.stringify(state);
         await asyncStorageRetry(() => AsyncStorage.setItem(storageKey, serialized));
         await addKnownUserKey(storageKey);
@@ -632,6 +658,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
           console.log('[User] Retried save after verification failure');
         } else {
           console.log('[User] Save verification passed');
+          pendingSaveRef.current = null;
         }
         return state;
       } catch (error) {

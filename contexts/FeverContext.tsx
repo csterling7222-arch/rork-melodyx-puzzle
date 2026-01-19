@@ -195,10 +195,11 @@ export const [FeverProvider, useFever] = createContextHook(() => {
   const { mutate: saveStats } = useMutation({
     mutationFn: async (stats: FeverStats) => {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+      console.log('[Fever] Saved stats - High score:', stats.highScore, 'Total games:', stats.totalGames);
       return stats;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['feverStats'] });
+    onSuccess: (savedStats) => {
+      queryClient.setQueryData(['feverStats'], savedStats);
     },
   });
 

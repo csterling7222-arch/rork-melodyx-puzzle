@@ -92,20 +92,22 @@ export const [WellnessProvider, useWellness] = createContextHook(() => {
   const { mutate: saveStats } = useMutation({
     mutationFn: async (stats: WellnessStats) => {
       await AsyncStorage.setItem(STORAGE_KEYS.WELLNESS_STATS, JSON.stringify(stats));
+      console.log('[Wellness] Saved stats - Zen streak:', stats.zenStreak, 'Puzzles solved:', stats.puzzlesSolved);
       return stats;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['wellnessStats'] });
+    onSuccess: (savedStats) => {
+      queryClient.setQueryData(['wellnessStats'], savedStats);
     },
   });
 
   const { mutate: saveGame } = useMutation({
     mutationFn: async (gameState: ZenGameState) => {
       await AsyncStorage.setItem(STORAGE_KEYS.ZEN_GAME, JSON.stringify(gameState));
+      console.log('[Wellness] Saved game state - Status:', gameState.gameStatus, 'Puzzle:', gameState.currentPuzzleIndex);
       return gameState;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['zenGame'] });
+    onSuccess: (savedGame) => {
+      queryClient.setQueryData(['zenGame'], savedGame);
     },
   });
 
