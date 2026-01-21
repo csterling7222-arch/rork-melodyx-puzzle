@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -15,7 +15,7 @@ import { PerformanceMonitor } from '@/components/PerformanceMonitor';
 import { GameProvider } from '@/contexts/GameContext';
 import { FeverProvider } from '@/contexts/FeverContext';
 import { UserProvider } from '@/contexts/UserContext';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { DuelsProvider } from '@/contexts/DuelsContext';
 import { EventsProvider } from '@/contexts/EventsContext';
 import { EcoProvider } from '@/contexts/EcoContext';
@@ -32,12 +32,43 @@ SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+  const [hasChecked, setHasChecked] = useState(false);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === 'auth';
+
+    if (!isAuthenticated && !inAuthGroup) {
+      console.log('[Auth] Not authenticated, redirecting to auth screen');
+      router.replace('/auth');
+    } else if (isAuthenticated && inAuthGroup) {
+      console.log('[Auth] Already authenticated, redirecting to tabs');
+      router.replace('/(tabs)');
+    }
+    
+    setHasChecked(true);
+  }, [isAuthenticated, isLoading, segments, router]);
+
+  if (isLoading || (!hasChecked && !isAuthenticated)) {
+    return null;
+  }
+
+  return <>{children}</>;
+}
+
 function RootLayoutNav() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="auth" options={{ headerShown: false, presentation: 'modal' }} />
-    </Stack>
+    <AuthGate>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="auth" options={{ headerShown: false }} />
+      </Stack>
+    </AuthGate>
   );
 }
 
