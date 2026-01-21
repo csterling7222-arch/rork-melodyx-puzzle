@@ -660,7 +660,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }
 
       const users = await getUsersDb();
-      const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      const user = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
 
       if (!user) {
         return { 
