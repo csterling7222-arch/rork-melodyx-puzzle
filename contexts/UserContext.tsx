@@ -7,6 +7,15 @@ import { ACHIEVEMENTS, Achievement } from '@/constants/achievements';
 import { getDailyReward, getStreakMilestone } from '@/constants/shop';
 import { usePurchases } from './PurchasesContext';
 import { useAuth } from './AuthContext';
+import { 
+  initSyncManager, 
+  cleanupSyncManager, 
+  queueChange, 
+  saveLocalData, 
+  getSyncStatus, 
+  syncNow,
+  SyncStatus,
+} from '@/utils/syncManager';
 
 export interface UserProfile {
   id: string;
@@ -452,8 +461,15 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const [guestId, setGuestId] = useState<string | null>(null);
   const [isGuestIdLoaded, setIsGuestIdLoaded] = useState(false);
   const [initError, setInitError] = useState<Error | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+    lastSyncAt: null,
+    pendingChanges: 0,
+    isSyncing: false,
+    syncError: null,
+  });
   const guestIdLoadAttemptRef = useRef(0);
   const pendingSaveRef = useRef<UserState | null>(null);
+  const syncInitializedRef = useRef(false);
 
   useEffect(() => {
     const loadGuestId = async () => {
@@ -483,6 +499,26 @@ export const [UserProvider, useUser] = createContextHook(() => {
     };
     loadGuestId();
   }, []);
+
+  useEffect(() => {
+    if (authUser?.uid && !isAnonymous && !syncInitializedRef.current) {
+      syncInitializedRef.current = true;
+      console.log('[User] Initializing sync manager for:', authUser.uid);
+      initSyncManager(authUser.uid).then(() => {
+        getSyncStatus(authUser.uid).then(status => {
+          setSyncStatus(status);
+          console.log('[User] Sync status loaded:', status.lastSyncAt);
+        });
+      });
+    }
+    
+    return () => {
+      if (syncInitializedRef.current) {
+        cleanupSyncManager();
+        syncInitializedRef.current = false;
+      }
+    };
+  }, [authUser?.uid, isAnonymous]);
 
   const storageKey = useMemo(() => {
     if (authUser?.uid) {
@@ -660,6 +696,16 @@ export const [UserProvider, useUser] = createContextHook(() => {
           console.log('[User] Save verification passed');
           pendingSaveRef.current = null;
         }
+        
+        if (authUser?.uid && !isAnonymous) {
+          await saveLocalData(authUser.uid, {
+            userState: state as unknown as Record<string, unknown>,
+          });
+          await queueChange(authUser.uid, 'userState', 'update', state as unknown as Record<string, unknown>);
+          const newStatus = await getSyncStatus(authUser.uid);
+          setSyncStatus(newStatus);
+        }
+        
         return state;
       } catch (error) {
         console.error('[User] Error saving user state:', error);
@@ -1162,6 +1208,19 @@ export const [UserProvider, useUser] = createContextHook(() => {
 
   const isPremium = rcIsPremium || userState.profile.isPremium;
 
+  const triggerSync = useCallback(async () => {
+    if (!authUser?.uid || isAnonymous) {
+      console.log('[User] Cannot sync - no authenticated user');
+      return { success: false, error: 'Not authenticated' };
+    }
+    
+    setSyncStatus(prev => ({ ...prev, isSyncing: true }));
+    const result = await syncNow(authUser.uid);
+    const newStatus = await getSyncStatus(authUser.uid);
+    setSyncStatus(newStatus);
+    return result;
+  }, [authUser?.uid, isAnonymous]);
+
   return {
     profile: { ...userState.profile, isPremium },
     isPremium,
@@ -1185,6 +1244,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
     isAuthenticated,
     isAnonymous,
     authUser,
+    syncStatus,
     updateProgress,
     checkStreakAchievement,
     addCoins,
@@ -1206,5 +1266,6 @@ export const [UserProvider, useUser] = createContextHook(() => {
     claimDailyReward,
     updateUsername,
     clearAchievementPopup,
+    triggerSync,
   };
 });

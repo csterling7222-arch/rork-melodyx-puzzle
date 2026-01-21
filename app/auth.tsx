@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Mail, Lock, Eye, EyeOff, Music, UserPlus, LogIn, User, UserCircle } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, Music, UserPlus, LogIn, User, UserCircle, AtSign, CheckCircle, XCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
@@ -25,9 +25,10 @@ type AuthMode = 'login' | 'signup' | 'forgot';
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { signUp, signIn, signInAnonymously, requestPasswordReset, isSigningUp, isSigningIn, isResettingPassword, error, clearError } = useAuth();
+  const { signUp, signIn, signInAnonymously, requestPasswordReset, checkUsernameAvailability, isSigningUp, isSigningIn, isResettingPassword, error, clearError } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>('login');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -37,6 +38,8 @@ export default function AuthScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState({ title: '', subtitle: '' });
   const [passwordStrength, setPasswordStrength] = useState<'weak' | 'medium' | 'strong' | null>(null);
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+  const usernameCheckTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const logoAnim = useRef(new Animated.Value(0)).current;
   const formAnim = useRef(new Animated.Value(0)).current;
@@ -67,24 +70,78 @@ export default function AuthScreen() {
     ]).start();
   }, [shakeAnim]);
 
+  const handleUsernameChange = useCallback((text: string) => {
+    setUsername(text);
+    setUsernameStatus('idle');
+    
+    if (usernameCheckTimeout.current) {
+      clearTimeout(usernameCheckTimeout.current);
+    }
+    
+    if (mode === 'signup' && text.trim().length >= 3) {
+      setUsernameStatus('checking');
+      usernameCheckTimeout.current = setTimeout(async () => {
+        try {
+          const isAvailable = await checkUsernameAvailability(text.trim());
+          setUsernameStatus(isAvailable ? 'available' : 'taken');
+        } catch {
+          setUsernameStatus('idle');
+        }
+      }, 500);
+    }
+  }, [mode, checkUsernameAvailability]);
+
   const handleSubmit = useCallback(async () => {
     clearError();
     setLocalError(null);
 
-    if (!email.trim()) {
-      setLocalError('Please enter your email');
-      shakeForm();
-      return;
+    if (mode === 'login') {
+      if (!username.trim()) {
+        setLocalError('Please enter your username or email');
+        shakeForm();
+        return;
+      }
+    } else if (mode === 'signup') {
+      if (!username.trim()) {
+        setLocalError('Please enter a username');
+        shakeForm();
+        return;
+      }
+      if (username.trim().length < 3) {
+        setLocalError('Username must be at least 3 characters');
+        shakeForm();
+        return;
+      }
+      if (!/^[a-zA-Z0-9_]+$/.test(username.trim())) {
+        setLocalError('Username can only contain letters, numbers, and underscores');
+        shakeForm();
+        return;
+      }
+      if (/^[0-9]/.test(username.trim())) {
+        setLocalError('Username cannot start with a number');
+        shakeForm();
+        return;
+      }
+      if (usernameStatus === 'taken') {
+        setLocalError('This username is already taken');
+        shakeForm();
+        return;
+      }
+    } else if (mode === 'forgot') {
+      if (!email.trim()) {
+        setLocalError('Please enter your email');
+        shakeForm();
+        return;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        setLocalError('Please enter a valid email address');
+        shakeForm();
+        return;
+      }
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      setLocalError('Please enter a valid email address');
-      shakeForm();
-      return;
-    }
-
-    if (!password) {
+    if (mode !== 'forgot' && !password) {
       setLocalError('Please enter your password');
       shakeForm();
       return;
@@ -111,24 +168,21 @@ export default function AuthScreen() {
         shakeForm();
         return;
       }
-    }
-
-    if (mode === 'signup' && password !== confirmPassword) {
-      setLocalError('Passwords do not match');
-      shakeForm();
-      return;
-    }
-
-    if (mode === 'signup' && !displayName.trim()) {
-      setLocalError('Please enter your name');
-      shakeForm();
-      return;
-    }
-
-    if (mode === 'signup' && displayName.trim().length < 2) {
-      setLocalError('Name must be at least 2 characters');
-      shakeForm();
-      return;
+      if (password !== confirmPassword) {
+        setLocalError('Passwords do not match');
+        shakeForm();
+        return;
+      }
+      if (!displayName.trim()) {
+        setLocalError('Please enter your display name');
+        shakeForm();
+        return;
+      }
+      if (displayName.trim().length < 2) {
+        setLocalError('Display name must be at least 2 characters');
+        shakeForm();
+        return;
+      }
     }
 
     if (mode === 'forgot') {
@@ -159,14 +213,14 @@ export default function AuthScreen() {
       }
 
       if (mode === 'signup') {
-        await signUp(email.trim(), password, displayName.trim());
+        await signUp(username.trim(), password, displayName.trim(), email.trim() || undefined);
         setSuccessMessage({
           title: 'Welcome to Melodyx!',
-          subtitle: `Account created for ${displayName.trim()}. Let's start playing!`,
+          subtitle: `Account created for @${username.trim()}. Let's start playing!`,
         });
         setShowSuccessModal(true);
       } else {
-        await signIn(email.trim(), password);
+        await signIn(username.trim(), password);
         if (Platform.OS !== 'web') {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
@@ -178,7 +232,7 @@ export default function AuthScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
     }
-  }, [email, password, confirmPassword, displayName, mode, signUp, signIn, requestPasswordReset, clearError, shakeForm, router]);
+  }, [username, email, password, confirmPassword, displayName, mode, usernameStatus, signUp, signIn, requestPasswordReset, clearError, shakeForm, router]);
 
   const handleGuestLogin = useCallback(async () => {
     try {
@@ -281,15 +335,47 @@ export default function AuthScreen() {
             </Text>
             <Text style={styles.formSubtitle}>
               {mode === 'login' 
-                ? 'Sign in to sync your progress' 
+                ? 'Sign in with username or email to sync your progress' 
                 : mode === 'signup'
-                ? 'Join the melody guessing community'
+                ? 'Create a unique username to join'
                 : 'Enter your email to receive reset instructions'}
             </Text>
 
             {displayError && (
               <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>{displayError}</Text>
+              </View>
+            )}
+
+            {mode !== 'forgot' && (
+              <View style={styles.inputContainer}>
+                <View style={styles.inputIcon}>
+                  <AtSign size={20} color={Colors.textMuted} />
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder={mode === 'login' ? "Username or email" : "Username"}
+                  placeholderTextColor={Colors.textMuted}
+                  value={username}
+                  onChangeText={handleUsernameChange}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isLoading}
+                  maxLength={20}
+                />
+                {mode === 'signup' && usernameStatus !== 'idle' && (
+                  <View style={styles.usernameStatus}>
+                    {usernameStatus === 'checking' && (
+                      <ActivityIndicator size="small" color={Colors.accent} />
+                    )}
+                    {usernameStatus === 'available' && (
+                      <CheckCircle size={18} color="#10B981" />
+                    )}
+                    {usernameStatus === 'taken' && (
+                      <XCircle size={18} color="#EF4444" />
+                    )}
+                  </View>
+                )}
               </View>
             )}
 
@@ -300,7 +386,7 @@ export default function AuthScreen() {
                 </View>
                 <TextInput
                   style={styles.input}
-                  placeholder="Your name"
+                  placeholder="Display name"
                   placeholderTextColor={Colors.textMuted}
                   value={displayName}
                   onChangeText={setDisplayName}
@@ -312,61 +398,65 @@ export default function AuthScreen() {
               </View>
             )}
 
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIcon}>
-                <Mail size={20} color={Colors.textMuted} />
+            {(mode === 'signup' || mode === 'forgot') && (
+              <View style={styles.inputContainer}>
+                <View style={styles.inputIcon}>
+                  <Mail size={20} color={Colors.textMuted} />
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder={mode === 'forgot' ? "Email address" : "Email (optional, for recovery)"}
+                  placeholderTextColor={Colors.textMuted}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isLoading}
+                />
               </View>
-              <TextInput
-                style={styles.input}
-                placeholder="Email address"
-                placeholderTextColor={Colors.textMuted}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isLoading}
-              />
-            </View>
+            )}
 
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIcon}>
-                <Lock size={20} color={Colors.textMuted} />
+            {mode !== 'forgot' && (
+              <View style={styles.inputContainer}>
+                <View style={styles.inputIcon}>
+                  <Lock size={20} color={Colors.textMuted} />
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Password"
+                  placeholderTextColor={Colors.textMuted}
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (mode === 'signup') {
+                      const hasUpper = /[A-Z]/.test(text);
+                      const hasLower = /[a-z]/.test(text);
+                      const hasNumber = /[0-9]/.test(text);
+                      const isLong = text.length >= 8;
+                      const score = [hasUpper, hasLower, hasNumber, isLong].filter(Boolean).length;
+                      if (text.length === 0) setPasswordStrength(null);
+                      else if (score <= 2) setPasswordStrength('weak');
+                      else if (score === 3) setPasswordStrength('medium');
+                      else setPasswordStrength('strong');
+                    }
+                  }}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  editable={!isLoading}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} color={Colors.textMuted} />
+                  ) : (
+                    <Eye size={20} color={Colors.textMuted} />
+                  )}
+                </TouchableOpacity>
               </View>
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor={Colors.textMuted}
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (mode === 'signup') {
-                    const hasUpper = /[A-Z]/.test(text);
-                    const hasLower = /[a-z]/.test(text);
-                    const hasNumber = /[0-9]/.test(text);
-                    const isLong = text.length >= 8;
-                    const score = [hasUpper, hasLower, hasNumber, isLong].filter(Boolean).length;
-                    if (text.length === 0) setPasswordStrength(null);
-                    else if (score <= 2) setPasswordStrength('weak');
-                    else if (score === 3) setPasswordStrength('medium');
-                    else setPasswordStrength('strong');
-                  }
-                }}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                editable={!isLoading}
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? (
-                  <EyeOff size={20} color={Colors.textMuted} />
-                ) : (
-                  <Eye size={20} color={Colors.textMuted} />
-                )}
-              </TouchableOpacity>
-            </View>
+            )}
 
             {mode === 'signup' && passwordStrength && (
               <View style={styles.passwordStrengthContainer}>
@@ -615,6 +705,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.text,
     paddingVertical: 14,
+    paddingRight: 14,
+  },
+  usernameStatus: {
     paddingRight: 14,
   },
   eyeButton: {

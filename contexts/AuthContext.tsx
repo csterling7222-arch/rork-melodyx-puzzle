@@ -9,10 +9,12 @@ import { captureError, addBreadcrumb } from '@/utils/errorTracking';
 
 export interface AuthUser {
   uid: string;
+  username: string | null;
   email: string | null;
   displayName: string | null;
   isAnonymous: boolean;
   createdAt: string;
+  lastSyncAt: string | null;
 }
 
 interface AuthState {
@@ -22,7 +24,8 @@ interface AuthState {
 }
 
 interface AuthCredentials {
-  email: string;
+  email?: string;
+  username?: string;
   password: string;
   displayName?: string;
 }
@@ -83,11 +86,24 @@ const ERROR_MESSAGES = {
 
 interface StoredUser {
   uid: string;
-  email: string;
+  username: string;
+  email: string | null;
   passwordHash: string;
   displayName: string | null;
   createdAt: string;
+  lastSyncAt: string | null;
 }
+
+interface SyncData {
+  userState: Record<string, unknown> | null;
+  gameStats: Record<string, unknown> | null;
+  ecoData: Record<string, unknown> | null;
+  playlists: Record<string, unknown> | null;
+  lastModified: string;
+}
+
+const SYNC_DATA_KEY = 'melodyx_sync_data';
+const SYNC_QUEUE_KEY = 'melodyx_sync_queue';
 
 function simpleHash(str: string): string {
   let hash = 0;
@@ -160,6 +176,25 @@ function validateDisplayName(name: string): ValidationResult {
   return { valid: true };
 }
 
+function validateUsername(username: string): ValidationResult {
+  if (!username || username.trim().length === 0) {
+    return { valid: false, error: 'Username is required' };
+  }
+  if (username.trim().length < 3) {
+    return { valid: false, error: 'Username must be at least 3 characters' };
+  }
+  if (username.trim().length > 20) {
+    return { valid: false, error: 'Username must be at most 20 characters' };
+  }
+  if (!/^[a-zA-Z0-9_]+$/.test(username.trim())) {
+    return { valid: false, error: 'Username can only contain letters, numbers, and underscores' };
+  }
+  if (/^[0-9]/.test(username.trim())) {
+    return { valid: false, error: 'Username cannot start with a number' };
+  }
+  return { valid: true };
+}
+
 async function getUsersDb(): Promise<StoredUser[]> {
   try {
     const stored = await AsyncStorage.getItem(USERS_STORAGE_KEY);
@@ -172,6 +207,39 @@ async function getUsersDb(): Promise<StoredUser[]> {
 
 async function saveUsersDb(users: StoredUser[]): Promise<void> {
   await AsyncStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+}
+
+async function checkUsernameAvailable(username: string): Promise<boolean> {
+  const users = await getUsersDb();
+  return !users.some(u => u.username.toLowerCase() === username.toLowerCase());
+}
+
+async function getSyncData(uid: string): Promise<SyncData | null> {
+  try {
+    const stored = await AsyncStorage.getItem(`${SYNC_DATA_KEY}_${uid}`);
+    return stored ? JSON.parse(stored) : null;
+  } catch (error) {
+    console.log('[Auth] Error reading sync data:', error);
+    return null;
+  }
+}
+
+async function saveSyncData(uid: string, data: SyncData): Promise<void> {
+  await AsyncStorage.setItem(`${SYNC_DATA_KEY}_${uid}`, JSON.stringify(data));
+  console.log('[Auth] Sync data saved for user:', uid);
+}
+
+async function queueSyncOperation(uid: string, operation: string, data: Record<string, unknown>): Promise<void> {
+  try {
+    const queueKey = `${SYNC_QUEUE_KEY}_${uid}`;
+    const existingQueue = await AsyncStorage.getItem(queueKey);
+    const queue = existingQueue ? JSON.parse(existingQueue) : [];
+    queue.push({ operation, data, timestamp: new Date().toISOString() });
+    await AsyncStorage.setItem(queueKey, JSON.stringify(queue));
+    console.log('[Auth] Queued sync operation:', operation);
+  } catch (error) {
+    console.log('[Auth] Error queueing sync operation:', error);
+  }
 }
 
 function generateResetToken(): string {
@@ -249,13 +317,35 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const authState = authQuery.data ?? { user: null, isAuthenticated: false, isAnonymous: false };
 
   const signUpMutation = useMutation({
-    mutationFn: async ({ email, password, displayName }: AuthCredentials): Promise<AuthUser> => {
+    mutationFn: async ({ email, username, password, displayName }: AuthCredentials): Promise<AuthUser> => {
       setAuthError(null);
       addBreadcrumb({ category: 'auth', message: 'Sign up attempt', level: 'info' });
       
-      const emailValidation = validateEmail(email);
-      if (!emailValidation.valid) {
-        throw new Error(emailValidation.error);
+      if (!username) {
+        throw new Error('Username is required');
+      }
+      
+      const usernameValidation = validateUsername(username);
+      if (!usernameValidation.valid) {
+        throw new Error(usernameValidation.error);
+      }
+      
+      const isUsernameAvailable = await checkUsernameAvailable(username);
+      if (!isUsernameAvailable) {
+        throw new Error('This username is already taken. Please choose another.');
+      }
+      
+      if (email) {
+        const emailValidation = validateEmail(email);
+        if (!emailValidation.valid) {
+          throw new Error(emailValidation.error);
+        }
+        
+        const users = await getUsersDb();
+        const existingEmail = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+        if (existingEmail) {
+          throw new Error(ERROR_MESSAGES.EMAIL_TAKEN);
+        }
       }
       
       const passwordValidation = validatePassword(password);
@@ -271,30 +361,30 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }
 
       const users = await getUsersDb();
-      const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-      
-      if (existingUser) {
-        throw new Error(ERROR_MESSAGES.EMAIL_TAKEN);
-      }
-
       const uid = generateUid();
-      const userName = displayName?.trim() || email.split('@')[0];
+      const userName = displayName?.trim() || username.trim();
+      const now = new Date().toISOString();
+      
       const newUser: StoredUser = {
         uid,
-        email: email.toLowerCase(),
+        username: username.toLowerCase().trim(),
+        email: email?.toLowerCase() || null,
         passwordHash: simpleHash(password),
         displayName: userName,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        lastSyncAt: now,
       };
 
       await saveUsersDb([...users, newUser]);
 
       const authUser: AuthUser = {
         uid,
+        username: newUser.username,
         email: newUser.email,
         displayName: newUser.displayName,
         isAnonymous: false,
         createdAt: newUser.createdAt,
+        lastSyncAt: now,
       };
 
       await saveAuthState({
@@ -302,9 +392,17 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         isAuthenticated: true,
         isAnonymous: false,
       });
+      
+      await saveSyncData(uid, {
+        userState: null,
+        gameStats: null,
+        ecoData: null,
+        playlists: null,
+        lastModified: now,
+      });
 
-      addBreadcrumb({ category: 'auth', message: `User signed up: ${email}`, level: 'info' });
-      console.log('[Auth] User signed up:', email, 'as', userName);
+      addBreadcrumb({ category: 'auth', message: `User signed up: ${username}`, level: 'info' });
+      console.log('[Auth] User signed up:', username, 'as', userName);
       
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -323,35 +421,52 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   });
 
   const signInMutation = useMutation({
-    mutationFn: async ({ email, password }: AuthCredentials): Promise<AuthUser> => {
+    mutationFn: async ({ email, username, password }: AuthCredentials): Promise<AuthUser> => {
       setAuthError(null);
       addBreadcrumb({ category: 'auth', message: 'Sign in attempt', level: 'info' });
 
-      const emailValidation = validateEmail(email);
-      if (!emailValidation.valid) {
-        throw new Error(emailValidation.error);
+      const loginIdentifier = username || email;
+      if (!loginIdentifier) {
+        throw new Error('Please enter your username or email');
       }
       if (!password) {
         throw new Error('Please enter your password');
       }
 
       const users = await getUsersDb();
-      const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      const isEmail = loginIdentifier.includes('@');
+      
+      let user: StoredUser | undefined;
+      if (isEmail) {
+        const emailValidation = validateEmail(loginIdentifier);
+        if (!emailValidation.valid) {
+          throw new Error(emailValidation.error);
+        }
+        user = users.find(u => u.email?.toLowerCase() === loginIdentifier.toLowerCase());
+      } else {
+        user = users.find(u => u.username.toLowerCase() === loginIdentifier.toLowerCase());
+      }
 
       if (!user) {
-        throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
+        throw new Error(isEmail ? ERROR_MESSAGES.USER_NOT_FOUND : 'No account found with this username.');
       }
 
       if (user.passwordHash !== simpleHash(password)) {
         throw new Error(ERROR_MESSAGES.INVALID_CREDENTIALS);
       }
 
+      const now = new Date().toISOString();
+      user.lastSyncAt = now;
+      await saveUsersDb(users);
+
       const authUser: AuthUser = {
         uid: user.uid,
+        username: user.username,
         email: user.email,
         displayName: user.displayName,
         isAnonymous: false,
         createdAt: user.createdAt,
+        lastSyncAt: now,
       };
 
       await saveAuthState({
@@ -360,8 +475,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         isAnonymous: false,
       });
 
-      addBreadcrumb({ category: 'auth', message: `User signed in: ${email}`, level: 'info' });
-      console.log('[Auth] User signed in:', email);
+      addBreadcrumb({ category: 'auth', message: `User signed in: ${user.username}`, level: 'info' });
+      console.log('[Auth] User signed in:', user.username);
       
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -384,12 +499,15 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       setAuthError(null);
       
       const uid = generateUid();
+      const now = new Date().toISOString();
       const authUser: AuthUser = {
         uid,
+        username: null,
         email: null,
         displayName: 'Guest Player',
         isAnonymous: true,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        lastSyncAt: null,
       };
 
       await saveAuthState({
@@ -432,12 +550,13 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         user: updatedUser,
       });
 
-      if (!authState.isAnonymous && authState.user.email) {
+      if (!authState.isAnonymous && authState.user.username) {
         const users = await getUsersDb();
         const updatedUsers = users.map(u => 
           u.uid === authState.user!.uid ? { ...u, displayName } : u
         );
         await saveUsersDb(updatedUsers);
+        await queueSyncOperation(authState.user.uid, 'profile_update', { displayName });
       }
 
       console.log('[Auth] Profile updated:', displayName);
@@ -445,16 +564,38 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   });
 
   const linkAnonymousAccountMutation = useMutation({
-    mutationFn: async ({ email, password }: AuthCredentials): Promise<AuthUser> => {
+    mutationFn: async ({ email, username, password }: AuthCredentials): Promise<AuthUser> => {
       setAuthError(null);
 
       if (!authState.user || !authState.isAnonymous) {
         throw new Error('No anonymous account to link');
       }
 
-      const emailValidation = validateEmail(email);
-      if (!emailValidation.valid) {
-        throw new Error(emailValidation.error);
+      if (!username) {
+        throw new Error('Username is required');
+      }
+      
+      const usernameValidation = validateUsername(username);
+      if (!usernameValidation.valid) {
+        throw new Error(usernameValidation.error);
+      }
+      
+      const isUsernameAvailable = await checkUsernameAvailable(username);
+      if (!isUsernameAvailable) {
+        throw new Error('This username is already taken. Please choose another.');
+      }
+
+      if (email) {
+        const emailValidation = validateEmail(email);
+        if (!emailValidation.valid) {
+          throw new Error(emailValidation.error);
+        }
+        
+        const users = await getUsersDb();
+        const existingEmail = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+        if (existingEmail) {
+          throw new Error(ERROR_MESSAGES.EMAIL_TAKEN);
+        }
       }
       
       const passwordValidation = validatePassword(password);
@@ -463,27 +604,27 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }
 
       const users = await getUsersDb();
-      const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      const now = new Date().toISOString();
       
-      if (existingUser) {
-        throw new Error(ERROR_MESSAGES.EMAIL_TAKEN);
-      }
-
       const newUser: StoredUser = {
         uid: authState.user.uid,
-        email: email.toLowerCase(),
+        username: username.toLowerCase().trim(),
+        email: email?.toLowerCase() || null,
         passwordHash: simpleHash(password),
-        displayName: authState.user.displayName || email.split('@')[0],
+        displayName: authState.user.displayName || username.trim(),
         createdAt: authState.user.createdAt,
+        lastSyncAt: now,
       };
 
       await saveUsersDb([...users, newUser]);
 
       const authUser: AuthUser = {
         ...authState.user,
+        username: newUser.username,
         email: newUser.email,
         displayName: newUser.displayName,
         isAnonymous: false,
+        lastSyncAt: now,
       };
 
       await saveAuthState({
@@ -491,8 +632,16 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         isAuthenticated: true,
         isAnonymous: false,
       });
+      
+      await saveSyncData(authState.user.uid, {
+        userState: null,
+        gameStats: null,
+        ecoData: null,
+        playlists: null,
+        lastModified: now,
+      });
 
-      console.log('[Auth] Anonymous account linked:', email);
+      console.log('[Auth] Anonymous account linked:', username);
       return authUser;
     },
     onError: (error: Error) => {
@@ -632,12 +781,17 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const { mutateAsync: doConfirmPasswordReset } = confirmPasswordResetMutation;
   const { mutateAsync: doChangePassword } = changePasswordMutation;
 
-  const signUp = useCallback(async (email: string, password: string, displayName?: string) => {
-    return doSignUp({ email, password, displayName });
+  const signUp = useCallback(async (username: string, password: string, displayName?: string, email?: string) => {
+    return doSignUp({ username, email, password, displayName });
   }, [doSignUp]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    return doSignIn({ email, password });
+  const signIn = useCallback(async (usernameOrEmail: string, password: string) => {
+    const isEmail = usernameOrEmail.includes('@');
+    return doSignIn({ 
+      email: isEmail ? usernameOrEmail : undefined, 
+      username: isEmail ? undefined : usernameOrEmail, 
+      password 
+    });
   }, [doSignIn]);
 
   const signInAnonymously = useCallback(async () => {
@@ -652,8 +806,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     return doUpdateProfile(displayName);
   }, [doUpdateProfile]);
 
-  const linkAnonymousAccount = useCallback(async (email: string, password: string) => {
-    return doLinkAccount({ email, password });
+  const linkAnonymousAccount = useCallback(async (username: string, password: string, email?: string) => {
+    return doLinkAccount({ username, email, password });
   }, [doLinkAccount]);
 
   const requestPasswordReset = useCallback(async (email: string) => {
@@ -667,6 +821,64 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
     return doChangePassword({ currentPassword, newPassword });
   }, [doChangePassword]);
+
+  const syncUserData = useCallback(async () => {
+    if (!authState.user || authState.isAnonymous) {
+      console.log('[Auth] Cannot sync - no authenticated user');
+      return null;
+    }
+    
+    try {
+      console.log('[Auth] Syncing user data for:', authState.user.username);
+      const syncData = await getSyncData(authState.user.uid);
+      
+      const now = new Date().toISOString();
+      const users = await getUsersDb();
+      const updatedUsers = users.map(u => 
+        u.uid === authState.user!.uid ? { ...u, lastSyncAt: now } : u
+      );
+      await saveUsersDb(updatedUsers);
+      
+      const updatedAuthUser: AuthUser = {
+        ...authState.user,
+        lastSyncAt: now,
+      };
+      
+      await saveAuthState({
+        ...authState,
+        user: updatedAuthUser,
+      });
+      
+      console.log('[Auth] Sync complete at:', now);
+      return syncData;
+    } catch (error) {
+      console.error('[Auth] Sync error:', error);
+      return null;
+    }
+  }, [authState, saveAuthState]);
+
+  const updateSyncData = useCallback(async (data: Partial<SyncData>) => {
+    if (!authState.user || authState.isAnonymous) return;
+    
+    try {
+      const existingData = await getSyncData(authState.user.uid);
+      const updatedData: SyncData = {
+        userState: data.userState ?? existingData?.userState ?? null,
+        gameStats: data.gameStats ?? existingData?.gameStats ?? null,
+        ecoData: data.ecoData ?? existingData?.ecoData ?? null,
+        playlists: data.playlists ?? existingData?.playlists ?? null,
+        lastModified: new Date().toISOString(),
+      };
+      await saveSyncData(authState.user.uid, updatedData);
+      console.log('[Auth] Updated sync data');
+    } catch (error) {
+      console.error('[Auth] Error updating sync data:', error);
+    }
+  }, [authState]);
+
+  const checkUsernameAvailability = useCallback(async (username: string): Promise<boolean> => {
+    return checkUsernameAvailable(username);
+  }, []);
 
   return {
     user: authState.user,
@@ -689,5 +901,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     confirmPasswordReset,
     changePassword,
     clearError,
+    syncUserData,
+    updateSyncData,
+    checkUsernameAvailability,
   };
 });

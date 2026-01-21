@@ -15,7 +15,7 @@ import {
   Leaf, ListMusic, ChevronRight, Palette,
   Sun, Moon, Eye, Zap, LogOut, UserPlus, Mail,
   PenTool, Music, Heart, TrendingUp, FlaskConical,
-  Battery
+  Battery, RefreshCw, Cloud, CloudOff, AtSign, AlertCircle
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
@@ -123,6 +123,8 @@ export default function ProfileScreen() {
     dailyReward,
     updateUsername,
     claimDailyReward,
+    syncStatus,
+    triggerSync,
   } = useUser();
   const { ecoPoints, totalOffsetTons } = useEco();
   const { playlists, solvedMelodies } = usePlaylist();
@@ -161,6 +163,16 @@ export default function ProfileScreen() {
     }
     router.push('/auth' as any);
   }, [router]);
+
+  const handleSync = useCallback(async () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    await triggerSync();
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  }, [triggerSync]);
 
   const handleClaimReward = useCallback(() => {
     const result = claimDailyReward();
@@ -269,15 +281,54 @@ export default function ProfileScreen() {
 
           {authUser && (
             <View style={styles.accountInfo}>
+              {authUser.username ? (
+                <View style={styles.usernameRow}>
+                  <AtSign size={14} color={Colors.accent} />
+                  <Text style={styles.usernameText}>{authUser.username}</Text>
+                </View>
+              ) : null}
               {authUser.email ? (
                 <View style={styles.emailRow}>
                   <Mail size={14} color={Colors.textMuted} />
                   <Text style={styles.emailText}>{authUser.email}</Text>
                 </View>
-              ) : (
+              ) : !authUser.username ? (
                 <View style={styles.guestBadge}>
                   <Text style={styles.guestText}>Guest Account</Text>
                 </View>
+              ) : null}
+            </View>
+          )}
+
+          {authUser && !isAnonymous && (
+            <View style={styles.syncStatusContainer}>
+              {syncStatus.isSyncing ? (
+                <View style={styles.syncStatusRow}>
+                  <RefreshCw size={14} color={Colors.accent} />
+                  <Text style={styles.syncStatusText}>Syncing...</Text>
+                </View>
+              ) : syncStatus.syncError ? (
+                <View style={styles.syncStatusRow}>
+                  <AlertCircle size={14} color="#EF4444" />
+                  <Text style={[styles.syncStatusText, { color: '#EF4444' }]}>Sync error</Text>
+                </View>
+              ) : syncStatus.lastSyncAt ? (
+                <View style={styles.syncStatusRow}>
+                  <Cloud size={14} color={Colors.correct} />
+                  <Text style={styles.syncStatusText}>
+                    Synced {new Date(syncStatus.lastSyncAt).toLocaleDateString()}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.syncStatusRow}>
+                  <CloudOff size={14} color={Colors.textMuted} />
+                  <Text style={styles.syncStatusText}>Not synced</Text>
+                </View>
+              )}
+              {syncStatus.pendingChanges > 0 && (
+                <Text style={styles.pendingChangesText}>
+                  {syncStatus.pendingChanges} pending
+                </Text>
               )}
             </View>
           )}
@@ -596,6 +647,24 @@ export default function ProfileScreen() {
                 <Text style={styles.signUpSubtitle}>Save your progress across devices</Text>
               </View>
               <ChevronRight size={20} color={Colors.text} />
+            </TouchableOpacity>
+          )}
+
+          {authUser && !isAnonymous && (
+            <TouchableOpacity
+              style={styles.syncButton}
+              onPress={handleSync}
+              disabled={syncStatus.isSyncing}
+              activeOpacity={0.8}
+            >
+              <RefreshCw size={20} color={Colors.accent} />
+              <View style={styles.syncInfo}>
+                <Text style={styles.syncTitle}>
+                  {syncStatus.isSyncing ? 'Syncing...' : 'Sync Now'}
+                </Text>
+                <Text style={styles.syncSubtitle}>Backup your progress to cloud</Text>
+              </View>
+              <ChevronRight size={20} color={Colors.accent} />
             </TouchableOpacity>
           )}
 
@@ -949,6 +1018,41 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontWeight: '600' as const,
   },
+  usernameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  usernameText: {
+    fontSize: 14,
+    color: Colors.accent,
+    fontWeight: '600' as const,
+  },
+  syncStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.surfaceLight,
+  },
+  syncStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  syncStatusText: {
+    fontSize: 12,
+    color: Colors.textMuted,
+  },
+  pendingChangesText: {
+    fontSize: 11,
+    color: Colors.accent,
+    fontWeight: '600' as const,
+  },
   signUpButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -986,6 +1090,30 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600' as const,
     color: '#EF4444',
+  },
+  syncButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.accent + '15',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.accent + '30',
+  },
+  syncInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  syncTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: Colors.accent,
+  },
+  syncSubtitle: {
+    fontSize: 12,
+    color: Colors.accent + 'AA',
+    marginTop: 2,
   },
   quickLinks: {
     gap: 10,
