@@ -93,6 +93,7 @@ export default function AuthScreen() {
   }, [mode, checkUsernameAvailability]);
 
   const handleSubmit = useCallback(async () => {
+    console.log('[Auth] handleSubmit called, mode:', mode);
     clearError();
     setLocalError(null);
 
@@ -214,20 +215,27 @@ export default function AuthScreen() {
       }
 
       if (mode === 'signup') {
+        console.log('[Auth] Attempting signup for:', username.trim());
         await signUp(username.trim(), password, displayName.trim(), email.trim() || undefined);
+        console.log('[Auth] Signup successful');
         setSuccessMessage({
           title: 'Welcome to Melodyx!',
           subtitle: `Account created for @${username.trim()}. Let's start playing!`,
         });
         setShowSuccessModal(true);
       } else {
+        console.log('[Auth] Attempting signin for:', username.trim());
         await signIn(username.trim(), password);
+        console.log('[Auth] Signin successful, navigating to tabs');
         if (Platform.OS !== 'web') {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
         router.replace('/(tabs)');
       }
-    } catch {
+    } catch (err) {
+      console.log('[Auth] Submit error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      setLocalError(errorMessage);
       shakeForm();
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
