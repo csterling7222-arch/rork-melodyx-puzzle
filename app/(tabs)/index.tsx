@@ -699,7 +699,7 @@ export default function HomeScreen() {
         >
           <View style={styles.logoRow}>
             <Image 
-              source={{ uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/5klcwa4g4ks8oiububgv2' }}
+              source={{ uri: 'https://r2-pub.rork.com/generated-images/ae24d799-8471-4a52-96ca-55ba27e78232.png' }}
               style={styles.logoImage}
               resizeMode="contain"
             />
