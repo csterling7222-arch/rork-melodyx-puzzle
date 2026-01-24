@@ -11,6 +11,7 @@ import {
   Animated,
   ActivityIndicator,
   Modal,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -313,9 +314,11 @@ export default function AuthScreen() {
               transform: [{ scale: logoAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }]
             }
           ]}>
-            <View style={styles.logoCircle}>
-              <Music size={48} color={Colors.accent} />
-            </View>
+            <Image 
+              source={{ uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/pvwohus8v3p9gw2jrhjcb' }}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
             <Text style={styles.appName}>Melodyx</Text>
             <Text style={styles.tagline}>Daily Melody Puzzle</Text>
           </Animated.View>
@@ -634,16 +637,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
   },
-  logoCircle: {
+  logoImage: {
     width: 100,
     height: 100,
-    borderRadius: 50,
-    backgroundColor: Colors.accent + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 20,
     marginBottom: 16,
-    borderWidth: 2,
-    borderColor: Colors.accent + '40',
   },
   appName: {
     fontSize: 36,

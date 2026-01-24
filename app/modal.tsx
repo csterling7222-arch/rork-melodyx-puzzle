@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useRef, useEffect } from 'react';
 import {
   Animated,
+  Image,
   Linking,
   Platform,
   Pressable,
@@ -180,9 +181,11 @@ export default function ModalScreen() {
             </TouchableOpacity>
 
             <View style={styles.header}>
-              <View style={styles.logoContainer}>
-                <Sparkles size={32} color={Colors.accent} />
-              </View>
+              <Image 
+                source={{ uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/pvwohus8v3p9gw2jrhjcb' }}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
               <Text style={styles.title}>Melodyx</Text>
               <Text style={styles.subtitle}>Daily Melody Puzzle & Music Learning</Text>
               <Text style={styles.version}>Version 1.0.0</Text>
@@ -330,13 +333,10 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     paddingHorizontal: 24,
   },
-  logoContainer: {
-    width: 64,
-    height: 64,
+  logoImage: {
+    width: 72,
+    height: 72,
     borderRadius: 16,
-    backgroundColor: Colors.accent + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
     marginBottom: 16,
   },
   title: {

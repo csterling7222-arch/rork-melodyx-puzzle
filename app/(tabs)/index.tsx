@@ -699,7 +699,7 @@ export default function HomeScreen() {
         >
           <View style={styles.logoRow}>
             <Image 
-              source={{ uri: 'https://r2-pub.rork.com/generated-images/ae24d799-8471-4a52-96ca-55ba27e78232.png' }}
+              source={{ uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/pvwohus8v3p9gw2jrhjcb' }}
               style={styles.logoImage}
               resizeMode="contain"
             />
@@ -983,8 +983,9 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   logoImage: {
-    width: 140,
-    height: 40,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
   },
   coinsContainer: {
     backgroundColor: Colors.surface,
