@@ -10,6 +10,7 @@ import {
   Platform,
   Dimensions,
   Modal,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -697,7 +698,11 @@ export default function HomeScreen() {
           ]}
         >
           <View style={styles.logoRow}>
-            <Text style={styles.logo}>Melodyx</Text>
+            <Image 
+              source={{ uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/f24t26po9camhz7urduds' }}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
             <View style={styles.coinsContainer}>
               <Text style={styles.coinsText}>🪙 {inventory.coins}</Text>
             </View>
@@ -976,6 +981,10 @@ const styles = StyleSheet.create({
     fontWeight: '800' as const,
     color: Colors.text,
     letterSpacing: -1,
+  },
+  logoImage: {
+    width: 140,
+    height: 40,
   },
   coinsContainer: {
     backgroundColor: Colors.surface,
