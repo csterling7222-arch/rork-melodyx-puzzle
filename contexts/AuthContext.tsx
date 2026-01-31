@@ -309,8 +309,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }
       return state;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['authState'] });
+    onSuccess: (state) => {
+      queryClient.setQueryData(['authState'], state);
+      console.log('[Auth] Auth state updated in cache immediately');
     },
   });
 
@@ -387,11 +388,13 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         lastSyncAt: now,
       };
 
-      await saveAuthState({
+      const newAuthState = {
         user: authUser,
         isAuthenticated: true,
         isAnonymous: false,
-      });
+      };
+      
+      await saveAuthState(newAuthState);
       
       await saveSyncData(uid, {
         userState: null,
@@ -402,7 +405,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       });
 
       addBreadcrumb({ category: 'auth', message: `User signed up: ${username}`, level: 'info' });
-      console.log('[Auth] User signed up:', username, 'as', userName);
+      console.log('[Auth] User signed up successfully:', username, 'uid:', uid);
       
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -469,14 +472,16 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         lastSyncAt: now,
       };
 
-      await saveAuthState({
+      const newAuthState = {
         user: authUser,
         isAuthenticated: true,
         isAnonymous: false,
-      });
+      };
+      
+      await saveAuthState(newAuthState);
 
       addBreadcrumb({ category: 'auth', message: `User signed in: ${user.username}`, level: 'info' });
-      console.log('[Auth] User signed in:', user.username);
+      console.log('[Auth] User signed in successfully:', user.username, 'uid:', user.uid);
       
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

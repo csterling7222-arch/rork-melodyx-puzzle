@@ -80,10 +80,22 @@ export default function AuthScreen() {
     }
     
     if (mode === 'signup' && text.trim().length >= 3) {
+      const trimmed = text.trim();
+      
+      if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
+        setUsernameStatus('idle');
+        return;
+      }
+      
+      if (/^[0-9]/.test(trimmed)) {
+        setUsernameStatus('idle');
+        return;
+      }
+      
       setUsernameStatus('checking');
       usernameCheckTimeout.current = setTimeout(async () => {
         try {
-          const isAvailable = await checkUsernameAvailability(text.trim());
+          const isAvailable = await checkUsernameAvailability(trimmed);
           setUsernameStatus(isAvailable ? 'available' : 'taken');
         } catch {
           setUsernameStatus('idle');
@@ -358,6 +370,12 @@ export default function AuthScreen() {
               </View>
             )}
 
+            {mode === 'signup' && username.length > 0 && !/^[a-zA-Z][a-zA-Z0-9_]*$/.test(username.trim()) && (
+              <View style={styles.hintContainer}>
+                <Text style={styles.hintText}>Username must start with a letter and contain only letters, numbers, and underscores</Text>
+              </View>
+            )}
+
             {mode !== 'forgot' && (
               <View style={styles.inputContainer}>
                 <View style={styles.inputIcon}>
@@ -365,7 +383,7 @@ export default function AuthScreen() {
                 </View>
                 <TextInput
                   style={styles.input}
-                  placeholder={mode === 'login' ? "Username or email" : "Username"}
+                  placeholder={mode === 'login' ? "Username or email" : "Choose a username (letters, numbers, _)"}
                   placeholderTextColor={Colors.textMuted}
                   value={username}
                   onChangeText={handleUsernameChange}
@@ -373,6 +391,7 @@ export default function AuthScreen() {
                   autoCorrect={false}
                   editable={!isLoading}
                   maxLength={20}
+                  testID="username-input"
                 />
                 {mode === 'signup' && usernameStatus !== 'idle' && (
                   <View style={styles.usernameStatus}>
@@ -858,6 +877,19 @@ const styles = StyleSheet.create({
   },
   requirementMet: {
     color: '#10B981',
+  },
+  hintContainer: {
+    backgroundColor: '#F59E0B' + '20',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#F59E0B' + '40',
+  },
+  hintText: {
+    fontSize: 13,
+    color: '#F59E0B',
+    textAlign: 'center',
   },
   successOverlay: {
     flex: 1,
