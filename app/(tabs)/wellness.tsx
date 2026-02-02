@@ -86,53 +86,71 @@ function WellnessContent() {
   }, [glowAnim]);
 
   const isBreathingRef = useRef(isBreathing);
+  const breathingCleanupRef = useRef<{
+    isMounted: boolean;
+    holdTimeoutId: ReturnType<typeof setTimeout> | null;
+    currentAnimation: Animated.CompositeAnimation | null;
+  }>({ isMounted: true, holdTimeoutId: null, currentAnimation: null });
+  
   isBreathingRef.current = isBreathing;
 
   useEffect(() => {
+    const cleanup = breathingCleanupRef.current;
+    cleanup.isMounted = true;
+    
     if (!isBreathing) {
+      if (cleanup.holdTimeoutId) {
+        clearTimeout(cleanup.holdTimeoutId);
+        cleanup.holdTimeoutId = null;
+      }
+      if (cleanup.currentAnimation) {
+        cleanup.currentAnimation.stop();
+        cleanup.currentAnimation = null;
+      }
       breathAnim.stopAnimation();
       breathAnim.setValue(0.5);
+      console.log('[Wellness] Breathing stopped, animations cleaned up');
       return;
     }
 
     const pattern = getBreathingPattern();
     let cycles = 0;
-    let isMounted = true;
-    let holdTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    let currentAnimation: Animated.CompositeAnimation | null = null;
 
     const runBreathingCycle = () => {
-      if (!isMounted || !isBreathingRef.current) return;
+      if (!cleanup.isMounted || !isBreathingRef.current) {
+        console.log('[Wellness] Breathing cycle aborted - unmounted or stopped');
+        return;
+      }
       setBreathPhase('inhale');
       
-      currentAnimation = Animated.timing(breathAnim, {
+      cleanup.currentAnimation = Animated.timing(breathAnim, {
         toValue: 1,
         duration: pattern.inhale * 1000,
         useNativeDriver: true,
       });
       
-      currentAnimation.start(({ finished }) => {
-        if (!finished || !isMounted || !isBreathingRef.current) return;
+      cleanup.currentAnimation.start(({ finished }) => {
+        if (!finished || !cleanup.isMounted || !isBreathingRef.current) return;
         
         if (pattern.hold > 0) {
           setBreathPhase('hold');
-          holdTimeoutId = setTimeout(() => {
-            if (!isMounted || !isBreathingRef.current) return;
+          cleanup.holdTimeoutId = setTimeout(() => {
+            if (!cleanup.isMounted || !isBreathingRef.current) return;
             setBreathPhase('exhale');
             
-            currentAnimation = Animated.timing(breathAnim, {
+            cleanup.currentAnimation = Animated.timing(breathAnim, {
               toValue: 0.5,
               duration: pattern.exhale * 1000,
               useNativeDriver: true,
             });
             
-            currentAnimation.start(({ finished: exhaleFinished }) => {
-              if (!exhaleFinished || !isMounted || !isBreathingRef.current) return;
+            cleanup.currentAnimation.start(({ finished: exhaleFinished }) => {
+              if (!exhaleFinished || !cleanup.isMounted || !isBreathingRef.current) return;
               cycles++;
               setBreathCount(cycles);
               if (cycles < 5 && isBreathingRef.current) {
                 runBreathingCycle();
-              } else if (isMounted) {
+              } else if (cleanup.isMounted) {
                 completeBreathingSession();
                 setShowBreathingModal(false);
               }
@@ -141,19 +159,19 @@ function WellnessContent() {
         } else {
           setBreathPhase('exhale');
           
-          currentAnimation = Animated.timing(breathAnim, {
+          cleanup.currentAnimation = Animated.timing(breathAnim, {
             toValue: 0.5,
             duration: pattern.exhale * 1000,
             useNativeDriver: true,
           });
           
-          currentAnimation.start(({ finished: exhaleFinished }) => {
-            if (!exhaleFinished || !isMounted || !isBreathingRef.current) return;
+          cleanup.currentAnimation.start(({ finished: exhaleFinished }) => {
+            if (!exhaleFinished || !cleanup.isMounted || !isBreathingRef.current) return;
             cycles++;
             setBreathCount(cycles);
             if (cycles < 5 && isBreathingRef.current) {
               runBreathingCycle();
-            } else if (isMounted) {
+            } else if (cleanup.isMounted) {
               completeBreathingSession();
               setShowBreathingModal(false);
             }
@@ -162,13 +180,19 @@ function WellnessContent() {
       });
     };
 
+    console.log('[Wellness] Starting breathing cycle with pattern:', pattern.name);
     runBreathingCycle();
     
     return () => {
-      isMounted = false;
-      if (holdTimeoutId) clearTimeout(holdTimeoutId);
-      if (currentAnimation) {
-        currentAnimation.stop();
+      console.log('[Wellness] Cleaning up breathing cycle');
+      cleanup.isMounted = false;
+      if (cleanup.holdTimeoutId) {
+        clearTimeout(cleanup.holdTimeoutId);
+        cleanup.holdTimeoutId = null;
+      }
+      if (cleanup.currentAnimation) {
+        cleanup.currentAnimation.stop();
+        cleanup.currentAnimation = null;
       }
       breathAnim.stopAnimation();
     };

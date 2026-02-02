@@ -26,11 +26,15 @@ import {
 
 function ProjectCard({ 
   project, 
-  onSelect 
+  onSelect,
+  userContribution = 0,
 }: { 
   project: { id: string; name: string; description: string; icon: string; impact: string; region: string };
   onSelect: () => void;
+  userContribution?: number;
 }) {
+  const progressPercent = Math.min((userContribution / 10) * 100, 100);
+  
   return (
     <TouchableOpacity style={styles.projectCard} onPress={onSelect} activeOpacity={0.8}>
       <View style={styles.projectIcon}>
@@ -41,7 +45,18 @@ function ProjectCard({
         <Text style={styles.projectDesc} numberOfLines={2}>{project.description}</Text>
         <View style={styles.projectMeta}>
           <Text style={styles.projectRegion}>{project.region}</Text>
+          {userContribution > 0 && (
+            <View style={styles.contributionBadge}>
+              <TreePine size={10} color={ECO_THEME_COLORS.primary} />
+              <Text style={styles.contributionText}>{userContribution.toFixed(1)}t offset</Text>
+            </View>
+          )}
         </View>
+        {userContribution > 0 && (
+          <View style={styles.projectProgressBar}>
+            <View style={[styles.projectProgressFill, { width: `${progressPercent}%` }]} />
+          </View>
+        )}
       </View>
       <ChevronRight size={20} color={Colors.textMuted} />
     </TouchableOpacity>
@@ -51,12 +66,16 @@ function ProjectCard({
 function MilestoneCard({ 
   milestone, 
   achieved, 
-  current 
+  current,
+  progress = 0,
 }: { 
   milestone: typeof ECO_MILESTONES[0]; 
   achieved: boolean;
   current: boolean;
+  progress?: number;
 }) {
+  const progressPercent = current ? Math.min(progress * 100, 100) : (achieved ? 100 : 0);
+  
   return (
     <View style={[
       styles.milestoneCard,
@@ -68,9 +87,21 @@ function MilestoneCard({
         {milestone.reward}
       </Text>
       <Text style={styles.milestonePoints}>{milestone.points} pts</Text>
+      {current && !achieved && (
+        <View style={styles.milestoneProgressContainer}>
+          <View style={styles.milestoneProgressBar}>
+            <View style={[styles.milestoneProgressFill, { width: `${progressPercent}%` }]} />
+          </View>
+        </View>
+      )}
       {achieved && (
         <View style={styles.achievedBadge}>
           <Check size={10} color={ECO_THEME_COLORS.primary} />
+        </View>
+      )}
+      {achieved && (
+        <View style={styles.rewardBadge}>
+          <Text style={styles.rewardBadgeText}>+{milestone.points}</Text>
         </View>
       )}
     </View>
@@ -211,14 +242,22 @@ export default function EcoScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.milestonesRow}
           >
-            {ECO_MILESTONES.map((milestone, index) => (
-              <MilestoneCard
-                key={milestone.points}
-                milestone={milestone}
-                achieved={ecoPoints >= milestone.points}
-                current={currentMilestone?.points === milestone.points}
-              />
-            ))}
+            {ECO_MILESTONES.map((milestone, index) => {
+              const prevMilestone = index > 0 ? ECO_MILESTONES[index - 1] : null;
+              const prevPoints = prevMilestone?.points || 0;
+              const milestoneProgress = currentMilestone?.points === milestone.points
+                ? (ecoPoints - prevPoints) / (milestone.points - prevPoints)
+                : 0;
+              return (
+                <MilestoneCard
+                  key={milestone.points}
+                  milestone={milestone}
+                  achieved={ecoPoints >= milestone.points}
+                  current={currentMilestone?.points === milestone.points}
+                  progress={milestoneProgress}
+                />
+              );
+            })}
           </ScrollView>
         </View>
 
@@ -568,6 +607,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  milestoneProgressContainer: {
+    width: '100%',
+    marginTop: 6,
+  },
+  milestoneProgressBar: {
+    height: 3,
+    backgroundColor: Colors.surfaceLight,
+    borderRadius: 1.5,
+    overflow: 'hidden',
+  },
+  milestoneProgressFill: {
+    height: '100%',
+    backgroundColor: ECO_THEME_COLORS.primary,
+    borderRadius: 1.5,
+  },
+  rewardBadge: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    backgroundColor: ECO_THEME_COLORS.primary + '30',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  rewardBadgeText: {
+    fontSize: 9,
+    fontWeight: '700' as const,
+    color: ECO_THEME_COLORS.primary,
+  },
   projectCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -610,6 +678,33 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: ECO_THEME_COLORS.primary,
     fontWeight: '600' as const,
+  },
+  contributionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: ECO_THEME_COLORS.background,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  contributionText: {
+    fontSize: 10,
+    color: ECO_THEME_COLORS.primary,
+    fontWeight: '600' as const,
+  },
+  projectProgressBar: {
+    height: 4,
+    backgroundColor: Colors.surfaceLight,
+    borderRadius: 2,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  projectProgressFill: {
+    height: '100%',
+    backgroundColor: ECO_THEME_COLORS.primary,
+    borderRadius: 2,
   },
   impactCard: {
     backgroundColor: Colors.surface,

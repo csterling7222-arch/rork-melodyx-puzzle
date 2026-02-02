@@ -26,6 +26,8 @@ import PianoKeyboard from '@/components/PianoKeyboard';
 import GameModal from '@/components/GameModal';
 import { getThemeEmoji } from '@/utils/aiSongChooser';
 import { hasRealSnippet, playMelodySnippet, initAudioSnippets } from '@/utils/audioSnippets';
+import { initAudioOnce, unlockWebAudio, isWebAudioUnlocked } from '@/utils/audioMutex';
+import { debouncedImpact } from '@/utils/hapticDebounce';
 
 function StreakBadge({ streak }: { streak: number }) {
   if (streak === 0) return null;
@@ -141,19 +143,33 @@ export default function DailyPuzzleScreen() {
   const [hasRealAudioSnippet, setHasRealAudioSnippet] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [revealedNotes, setRevealedNotes] = useState<number[]>([]);
+  const [showWebAudioPrompt, setShowWebAudioPrompt] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const hasNavigatedRef = useRef(false);
+  const audioInitRef = useRef(false);
 
   useEffect(() => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    debouncedImpact();
     
-    initAudioSnippets().then(() => {
+    const initAudio = async () => {
+      if (audioInitRef.current) return;
+      audioInitRef.current = true;
+      
+      await initAudioOnce(async () => {
+        await initAudioSnippets();
+        console.log('[Daily] Audio snippets initialized');
+      });
+      
       const hasSnippet = hasRealSnippet(melody.name);
       setHasRealAudioSnippet(hasSnippet);
       console.log('[Daily] Melody snippet available:', melody.name, hasSnippet);
-    });
+      
+      if (Platform.OS === 'web' && !isWebAudioUnlocked()) {
+        setShowWebAudioPrompt(true);
+      }
+    };
+    
+    initAudio();
   }, [melody.name]);
 
   useEffect(() => {
@@ -510,6 +526,25 @@ export default function DailyPuzzleScreen() {
       </View>
 
       <GameModal />
+      
+      {showWebAudioPrompt && Platform.OS === 'web' && (
+        <View style={styles.webAudioOverlay}>
+          <View style={styles.webAudioPrompt}>
+            <Text style={styles.webAudioTitle}>🎵 Enable Sound</Text>
+            <Text style={styles.webAudioText}>Tap to enable audio playback</Text>
+            <TouchableOpacity
+              style={styles.webAudioButton}
+              onPress={async () => {
+                await unlockWebAudio();
+                initAudio();
+                setShowWebAudioPrompt(false);
+              }}
+            >
+              <Text style={styles.webAudioButtonText}>Enable Sound</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
       </Animated.View>
     </ThemedBackground>
   );
@@ -757,5 +792,42 @@ const styles = StyleSheet.create({
   },
   noteHintButtonText: {
     color: '#FFD700',
+  },
+  webAudioOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  webAudioPrompt: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    maxWidth: 280,
+  },
+  webAudioTitle: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    marginBottom: 8,
+  },
+  webAudioText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center' as const,
+    marginBottom: 20,
+  },
+  webAudioButton: {
+    backgroundColor: Colors.accent,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+  },
+  webAudioButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.background,
   },
 });

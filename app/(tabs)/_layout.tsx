@@ -2,8 +2,9 @@ import { Tabs } from 'expo-router';
 import { Home, Flame, User, Trophy, GraduationCap, PenTool } from 'lucide-react-native';
 import React from 'react';
 import { Colors } from '@/constants/colors';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
-export default function TabLayout() {
+function TabsContent() {
   return (
     <Tabs
       screenOptions={{
@@ -122,5 +123,13 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+  );
+}
+
+export default function TabLayout() {
+  return (
+    <ErrorBoundary>
+      <TabsContent />
+    </ErrorBoundary>
   );
 }

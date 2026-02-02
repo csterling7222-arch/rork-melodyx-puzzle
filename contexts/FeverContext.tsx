@@ -35,8 +35,9 @@ const FEVER_REWARDS = {
   hintsPerMilestone: 1,
 } as const;
 
-const MAX_MULTIPLIER = 5;
+const MAX_MULTIPLIER = 10;
 const MAX_CHAIN = 100;
+const MISS_RESET_THRESHOLD = 6;
 
 export type FeverGenreFilter = 'all' | 'pop' | 'rock' | 'classical' | 'movie' | 'game' | 'folk' | 'viral';
 
@@ -337,9 +338,18 @@ export const [FeverProvider, useFever] = createContextHook(() => {
       if (newChain >= 10 && !isFeverActive) {
         setIsFeverActive(true);
         setFeverTimeLeft(30);
-        setMultiplier(Math.min(3, MAX_MULTIPLIER));
+        const newMultiplier = Math.min(3, MAX_MULTIPLIER);
+        setMultiplier(newMultiplier);
         feverStartTimeRef.current = Date.now();
-        console.log('[Fever] FEVER MODE ACTIVATED!');
+        console.log('[Fever] FEVER MODE ACTIVATED! Multiplier:', newMultiplier);
+      } else if (newChain >= 20 && isFeverActive) {
+        const newMultiplier = Math.min(5, MAX_MULTIPLIER);
+        setMultiplier(newMultiplier);
+        console.log('[Fever] Chain 20+, boosted multiplier:', newMultiplier);
+      } else if (newChain >= 50 && isFeverActive) {
+        const newMultiplier = Math.min(8, MAX_MULTIPLIER);
+        setMultiplier(newMultiplier);
+        console.log('[Fever] Chain 50+, max multiplier:', newMultiplier);
       } else if (newChain >= 5 && newChain < 10) {
         setMultiplier(Math.min(2, MAX_MULTIPLIER));
       }
@@ -349,10 +359,13 @@ export const [FeverProvider, useFever] = createContextHook(() => {
         setShowSolvedPopup(false);
         nextMelody();
       }, 1800);
-    } else if (newGuesses.length >= 6) {
+    } else if (newGuesses.length >= MISS_RESET_THRESHOLD) {
+      console.log('[Fever] Max misses reached, resetting multipliers');
       setChain(0);
       setMultiplier(1);
       setIsFeverActive(false);
+      setFeverTimeLeft(0);
+      feverStartTimeRef.current = null;
       setGameOver(true);
       
       const currentStats = statsQuery.data ?? DEFAULT_FEVER_STATS;
