@@ -390,7 +390,7 @@ export default function AuthScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                   editable={!isLoading}
-                  maxLength={20}
+                  maxLength={mode === 'login' ? 254 : 20}
                   testID="username-input"
                 />
                 {mode === 'signup' && usernameStatus !== 'idle' && (
