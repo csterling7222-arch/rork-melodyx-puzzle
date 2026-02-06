@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import Purchases, {
   PurchasesOffering,
   PurchasesPackage,
@@ -12,21 +13,19 @@ import Purchases, {
 } from 'react-native-purchases';
 import { captureError, addBreadcrumb } from '@/utils/errorTracking';
 
+function isExpoGo(): boolean {
+  return Constants.appOwnership === 'expo';
+}
+
 function getRCApiKey(): string {
-  const testKey = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY;
-  
   if (Platform.OS === 'web') {
-    if (testKey) {
-      console.log('[RevenueCat] Web: Using Test Store API key');
-      return testKey;
-    }
-    console.log('[RevenueCat] Web: No test key available, demo mode');
+    console.log('[RevenueCat] Web: demo mode');
     return '';
   }
   
-  if (__DEV__ && testKey) {
-    console.log('[RevenueCat] Dev: Using Test Store API key');
-    return testKey;
+  if (isExpoGo()) {
+    console.log('[RevenueCat] Expo Go detected: demo mode (production keys not supported)');
+    return '';
   }
   
   const key = Platform.select({
@@ -47,6 +46,12 @@ function configureRevenueCat(): boolean {
   if (configurationAttempted) return isConfigured;
   configurationAttempted = true;
   
+  if (isExpoGo()) {
+    console.log('[RevenueCat] Expo Go: skipping configuration, running in demo mode');
+    configurationError = 'Expo Go - demo mode';
+    return false;
+  }
+  
   const apiKey = getRCApiKey();
   if (!apiKey) {
     console.log('[RevenueCat] No API key available, running in demo mode');
@@ -66,7 +71,6 @@ function configureRevenueCat(): boolean {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
     console.error('[RevenueCat] Configuration error:', errorMsg);
     configurationError = errorMsg;
-    captureError(error, { tags: { component: 'RevenueCat', action: 'configure' } });
     return false;
   }
 }
