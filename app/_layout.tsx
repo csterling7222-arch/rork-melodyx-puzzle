@@ -44,10 +44,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const inAuthGroup = segments[0] === 'auth';
 
     if (!isAuthenticated && !inAuthGroup) {
-      console.log('[Auth] Not authenticated, redirecting to auth screen');
+      if (__DEV__) console.log('[Auth] Not authenticated, redirecting to auth screen');
       router.replace('/auth');
     } else if (isAuthenticated && inAuthGroup) {
-      console.log('[Auth] Already authenticated, redirecting to tabs');
+      if (__DEV__) console.log('[Auth] Already authenticated, redirecting to tabs');
       router.replace('/(tabs)');
     }
     
@@ -78,10 +78,10 @@ export default function RootLayout() {
   useEffect(() => {
     const verifyDataIntegrity = async () => {
       try {
-        console.log('[App] Verifying data integrity...');
+        if (__DEV__) console.log('[App] Verifying data integrity...');
         const keys = await AsyncStorage.getAllKeys();
         const melodxyKeys = keys.filter(k => k.startsWith('melodyx_'));
-        console.log('[App] Found', melodxyKeys.length, 'MelodyX storage keys:', melodxyKeys);
+        if (__DEV__) console.log('[App] Found', melodxyKeys.length, 'MelodyX storage keys:', melodxyKeys);
         
         const criticalKeys = [
           'melodyx_device_id',
@@ -92,10 +92,12 @@ export default function RootLayout() {
         
         for (const key of criticalKeys) {
           const value = await AsyncStorage.getItem(key);
-          if (value) {
-            console.log(`[App] ✓ ${key}: exists (${value.length} chars)`);
-          } else {
-            console.log(`[App] ○ ${key}: not found (will be created)`);
+          if (__DEV__) {
+            if (value) {
+              console.log(`[App] ✓ ${key}: exists (${value.length} chars)`);
+            } else {
+              console.log(`[App] ○ ${key}: not found (will be created)`);
+            }
           }
         }
         
@@ -103,9 +105,9 @@ export default function RootLayout() {
         if (guestState) {
           try {
             const parsed = JSON.parse(guestState);
-            console.log('[App] Guest state verified - ID:', parsed.profile?.id, 'Coins:', parsed.inventory?.coins);
+            if (__DEV__) console.log('[App] Guest state verified - ID:', parsed.profile?.id, 'Coins:', parsed.inventory?.coins);
           } catch {
-            console.error('[App] Guest state corrupted, will be recreated');
+            if (__DEV__) console.error('[App] Guest state corrupted, will be recreated');
           }
         }
         
@@ -113,15 +115,15 @@ export default function RootLayout() {
         if (stats) {
           try {
             const parsed = JSON.parse(stats);
-            console.log('[App] Stats verified - Games:', parsed.gamesPlayed, 'Won:', parsed.gamesWon, 'Streak:', parsed.currentStreak);
+            if (__DEV__) console.log('[App] Stats verified - Games:', parsed.gamesPlayed, 'Won:', parsed.gamesWon, 'Streak:', parsed.currentStreak);
           } catch {
-            console.error('[App] Stats corrupted, will be recreated');
+            if (__DEV__) console.error('[App] Stats corrupted, will be recreated');
           }
         }
         
         addBreadcrumb({ category: 'storage', message: `Data integrity check complete: ${melodxyKeys.length} keys`, level: 'info' });
       } catch (error) {
-        console.error('[App] Data integrity check failed:', error);
+        if (__DEV__) console.error('[App] Data integrity check failed:', error);
         captureError(error, { tags: { component: 'RootLayout', action: 'verifyDataIntegrity' } });
       }
     };
@@ -129,7 +131,7 @@ export default function RootLayout() {
     const initializeApp = async () => {
       try {
         initErrorTracking();
-        console.log('[App] Error tracking initialized');
+        if (__DEV__) console.log('[App] Error tracking initialized');
         
         await verifyDataIntegrity();
         
@@ -138,27 +140,27 @@ export default function RootLayout() {
           initSystemIntegration(),
           initPerformanceOptimizer(),
         ]);
-        console.log('[App] Core engines initialized');
+        if (__DEV__) console.log('[App] Core engines initialized');
         logNavigation('app_launch');
         
         configureHaptics({ enabled: true, intensity: 'high' });
-        console.log('[App] Haptics configured');
+        if (__DEV__) console.log('[App] Haptics configured');
         
         const accessSettings = await initAccessibility();
-        console.log('[App] Accessibility initialized:', accessSettings.screenReaderEnabled ? 'Screen reader active' : 'Standard mode');
+        if (__DEV__) console.log('[App] Accessibility initialized:', accessSettings.screenReaderEnabled ? 'Screen reader active' : 'Standard mode');
         
         addBreadcrumb({ category: 'lifecycle', message: 'App launched with full integration', level: 'info' });
         
         await SplashScreen.hideAsync();
         addBreadcrumb({ category: 'lifecycle', message: 'Splash screen hidden', level: 'info' });
       } catch (error) {
-        console.error('[App] Initialization error:', error);
+        if (__DEV__) console.error('[App] Initialization error:', error);
         captureError(error, { tags: { component: 'RootLayout', action: 'initialize' } });
         
         try {
           await SplashScreen.hideAsync();
         } catch (splashError) {
-          console.log('[App] Splash hide error:', splashError);
+          if (__DEV__) console.log('[App] Splash hide error:', splashError);
         }
       }
     };

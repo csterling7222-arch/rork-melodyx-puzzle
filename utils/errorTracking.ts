@@ -177,7 +177,7 @@ class ErrorTracker {
   init() {
     if (this.isInitialized) return;
     
-    console.log('[ErrorTracker] Initializing error tracking...');
+    if (__DEV__) console.log('[ErrorTracker] Initializing error tracking...');
     this.isInitialized = true;
     
     if (typeof global !== 'undefined' && Platform.OS !== 'web') {
@@ -210,7 +210,7 @@ class ErrorTracker {
       });
     }
 
-    console.log('[ErrorTracker] Error tracking initialized for platform:', Platform.OS, 'session:', this.sessionId);
+    if (__DEV__) console.log('[ErrorTracker] Error tracking initialized for platform:', Platform.OS, 'session:', this.sessionId);
     
     this.loadGlitchReports();
     this.loadAdaptiveSettings();
@@ -220,8 +220,10 @@ class ErrorTracker {
     this.startNetworkMonitoring();
     this.startAppStateMonitoring();
     
-    console.log('[ErrorTracker] Device info:', this.deviceInfo);
-    console.log('[ErrorTracker] Adaptive settings:', this.adaptiveSettings);
+    if (__DEV__) {
+      console.log('[ErrorTracker] Device info:', this.deviceInfo);
+      console.log('[ErrorTracker] Adaptive settings:', this.adaptiveSettings);
+    }
   }
 
   private startFPSMonitoring() {
@@ -238,7 +240,7 @@ class ErrorTracker {
       this.currentFPS = this.frameTimestamps.length;
       
       if (this.currentFPS < 30 && this.frameTimestamps.length > 10) {
-        console.warn('[ErrorTracker] Low FPS detected:', this.currentFPS);
+        if (__DEV__) console.warn('[ErrorTracker] Low FPS detected:', this.currentFPS);
         this.autoOptimize();
       }
       
@@ -253,10 +255,10 @@ class ErrorTracker {
       this.adaptiveSettings.animationsEnabled = false;
       this.adaptiveSettings.particleCount = 20;
       this.adaptiveSettings.audioQuality = 'low';
-      console.log('[ErrorTracker] Auto-optimizing for very low FPS');
+      if (__DEV__) console.log('[ErrorTracker] Auto-optimizing for very low FPS');
     } else if (this.currentFPS < 40) {
       this.adaptiveSettings.particleCount = Math.max(30, this.adaptiveSettings.particleCount - 20);
-      console.log('[ErrorTracker] Auto-optimizing for low FPS');
+      if (__DEV__) console.log('[ErrorTracker] Auto-optimizing for low FPS');
     }
     
     this.saveAdaptiveSettings();
@@ -285,7 +287,7 @@ class ErrorTracker {
         this.anrDetection.isResponsive = false;
         this.anrDetection.anrCount++;
         
-        console.error('[ErrorTracker] ANR detected! UI unresponsive for', timeSinceHeartbeat, 'ms');
+        if (__DEV__) console.error('[ErrorTracker] ANR detected! UI unresponsive for', timeSinceHeartbeat, 'ms');
         
         this.reportCrash({
           type: 'anr',
@@ -316,7 +318,7 @@ class ErrorTracker {
         };
         
         if (wasConnected && !state.isConnected) {
-          console.warn('[ErrorTracker] Network disconnected');
+          if (__DEV__) console.warn('[ErrorTracker] Network disconnected');
           this.addBreadcrumb({
             category: 'network',
             message: 'Network disconnected',
@@ -324,7 +326,7 @@ class ErrorTracker {
             data: { type: state.type },
           });
         } else if (!wasConnected && state.isConnected) {
-          console.log('[ErrorTracker] Network reconnected');
+          if (__DEV__) console.log('[ErrorTracker] Network reconnected');
           this.addBreadcrumb({
             category: 'network',
             message: 'Network reconnected',
@@ -337,7 +339,7 @@ class ErrorTracker {
         }
       });
     } catch (error) {
-      console.log('[ErrorTracker] Network monitoring not available:', error);
+      if (__DEV__) console.log('[ErrorTracker] Network monitoring not available:', error);
     }
   }
 
@@ -366,13 +368,13 @@ class ErrorTracker {
       const stored = await AsyncStorage.getItem(CRASH_BUFFER_KEY);
       if (stored) {
         this.crashBuffer = JSON.parse(stored);
-        console.log('[ErrorTracker] Loaded', this.crashBuffer.length, 'pending crash reports');
+        if (__DEV__) console.log('[ErrorTracker] Loaded', this.crashBuffer.length, 'pending crash reports');
         
         // Attempt to flush on load
         this.flushCrashBuffer();
       }
     } catch (error) {
-      console.log('[ErrorTracker] Failed to load crash buffer:', error);
+      if (__DEV__) console.log('[ErrorTracker] Failed to load crash buffer:', error);
     }
   }
 
@@ -381,7 +383,7 @@ class ErrorTracker {
       const toSave = this.crashBuffer.slice(-MAX_CRASH_BUFFER_SIZE);
       await AsyncStorage.setItem(CRASH_BUFFER_KEY, JSON.stringify(toSave));
     } catch (error) {
-      console.log('[ErrorTracker] Failed to save crash buffer:', error);
+      if (__DEV__) console.log('[ErrorTracker] Failed to save crash buffer:', error);
     }
   }
 
@@ -389,7 +391,7 @@ class ErrorTracker {
     if (this.crashBuffer.length === 0) return;
     if (!this.networkState.isConnected) return;
     
-    console.log('[ErrorTracker] Flushing', this.crashBuffer.length, 'crash reports');
+    if (__DEV__) console.log('[ErrorTracker] Flushing', this.crashBuffer.length, 'crash reports');
     
     const reportsToSend = [...this.crashBuffer];
     this.crashBuffer = [];
@@ -409,7 +411,7 @@ class ErrorTracker {
   private async sendCrashReport(report: CrashReport): Promise<void> {
     const endpoint = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
     if (!endpoint) {
-      console.log('[ErrorTracker] No endpoint, crash report logged locally:', report.type);
+      if (__DEV__) console.log('[ErrorTracker] No endpoint, crash report logged locally:', report.type);
       return;
     }
     
@@ -419,7 +421,7 @@ class ErrorTracker {
     }
     
     // In production, would send to crash reporting service
-    console.log('[ErrorTracker] Crash report sent:', report.id);
+    if (__DEV__) console.log('[ErrorTracker] Crash report sent:', report.id);
   }
 
   async reportCrash(options: {
@@ -447,7 +449,7 @@ class ErrorTracker {
     this.crashBuffer.push(report);
     await this.saveCrashBuffer();
     
-    console.error('[ErrorTracker] Crash reported:', report.type, '-', report.message);
+    if (__DEV__) console.error('[ErrorTracker] Crash reported:', report.type, '-', report.message);
     
     // Try to send immediately if connected
     if (this.networkState.isConnected) {
@@ -497,10 +499,10 @@ class ErrorTracker {
       const stored = await AsyncStorage.getItem(BUG_REPORTS_KEY);
       if (stored) {
         this.glitchReports = JSON.parse(stored);
-        console.log('[ErrorTracker] Loaded', this.glitchReports.length, 'pending bug reports');
+        if (__DEV__) console.log('[ErrorTracker] Loaded', this.glitchReports.length, 'pending bug reports');
       }
     } catch (error) {
-      console.log('[ErrorTracker] Failed to load bug reports:', error);
+      if (__DEV__) console.log('[ErrorTracker] Failed to load bug reports:', error);
     }
   }
 
@@ -508,7 +510,7 @@ class ErrorTracker {
     try {
       await AsyncStorage.setItem(BUG_REPORTS_KEY, JSON.stringify(this.glitchReports.slice(-20)));
     } catch (error) {
-      console.log('[ErrorTracker] Failed to save bug reports:', error);
+      if (__DEV__) console.log('[ErrorTracker] Failed to save bug reports:', error);
     }
   }
 
@@ -519,7 +521,7 @@ class ErrorTracker {
         this.adaptiveSettings = { ...this.adaptiveSettings, ...JSON.parse(stored) };
       }
     } catch (error) {
-      console.log('[ErrorTracker] Failed to load adaptive settings:', error);
+      if (__DEV__) console.log('[ErrorTracker] Failed to load adaptive settings:', error);
     }
   }
 
@@ -527,7 +529,7 @@ class ErrorTracker {
     try {
       await AsyncStorage.setItem(GLITCH_SETTINGS_KEY, JSON.stringify(this.adaptiveSettings));
     } catch (error) {
-      console.log('[ErrorTracker] Failed to save adaptive settings:', error);
+      if (__DEV__) console.log('[ErrorTracker] Failed to save adaptive settings:', error);
     }
   }
 
@@ -536,12 +538,12 @@ class ErrorTracker {
       this.userId = user.id || null;
       this.userEmail = user.email || null;
       this.userName = user.username || null;
-      console.log('[ErrorTracker] User set:', user.id || 'anonymous');
+      if (__DEV__) console.log('[ErrorTracker] User set:', user.id || 'anonymous');
     } else {
       this.userId = null;
       this.userEmail = null;
       this.userName = null;
-      console.log('[ErrorTracker] User cleared');
+      if (__DEV__) console.log('[ErrorTracker] User cleared');
     }
   }
 
@@ -564,7 +566,7 @@ class ErrorTracker {
       errorBuffer.shift();
     }
 
-    console.error('[ErrorTracker] Exception captured:', errorEvent.name, '-', errorEvent.message);
+    if (__DEV__) console.error('[ErrorTracker] Exception captured:', errorEvent.name, '-', errorEvent.message);
     
     this.sendToRemote('exception', errorEvent as unknown as Record<string, unknown>);
   }
@@ -580,10 +582,11 @@ class ErrorTracker {
       ...context?.extra,
     };
 
-    const logMethod = level === 'error' || level === 'fatal' ? console.error : 
-                      level === 'warning' ? console.warn : console.log;
-    
-    logMethod(`[ErrorTracker] ${level.toUpperCase()}:`, message);
+    if (__DEV__) {
+      const logMethod = level === 'error' || level === 'fatal' ? console.error : 
+                        level === 'warning' ? console.warn : console.log;
+      logMethod(`[ErrorTracker] ${level.toUpperCase()}:`, message);
+    }
     
     this.sendToRemote('message', logData);
   }
@@ -599,7 +602,7 @@ class ErrorTracker {
       this.breadcrumbBuffer.shift();
     }
     
-    console.log(`[ErrorTracker] Breadcrumb [${breadcrumb.category}]:`, breadcrumb.message);
+    if (__DEV__) console.log(`[ErrorTracker] Breadcrumb [${breadcrumb.category}]:`, breadcrumb.message);
   }
 
   getBreadcrumbs(): BreadcrumbData[] {
@@ -611,11 +614,11 @@ class ErrorTracker {
   }
 
   setTag(key: string, value: string) {
-    console.log(`[ErrorTracker] Tag set: ${key}=${value}`);
+    if (__DEV__) console.log(`[ErrorTracker] Tag set: ${key}=${value}`);
   }
 
   setExtra(key: string, value: unknown) {
-    console.log(`[ErrorTracker] Extra set: ${key}=`, value);
+    if (__DEV__) console.log(`[ErrorTracker] Extra set: ${key}=`, value);
   }
 
   private async sendToRemote(type: 'exception' | 'message', data: Record<string, unknown>) {
@@ -628,9 +631,9 @@ class ErrorTracker {
         return;
       }
       
-      console.log(`[ErrorTracker] Sending ${type} to remote...`);
+      if (__DEV__) console.log(`[ErrorTracker] Sending ${type} to remote...`);
     } catch (err) {
-      console.log('[ErrorTracker] Failed to send to remote:', err);
+      if (__DEV__) console.log('[ErrorTracker] Failed to send to remote:', err);
     }
   }
 
@@ -659,10 +662,12 @@ class ErrorTracker {
       performanceBuffer.shift();
     }
 
-    if (duration > 1000) {
-      console.warn(`[ErrorTracker] Slow operation: ${name} took ${duration}ms`);
-    } else {
-      console.log(`[ErrorTracker] Performance: ${name} - ${duration}ms`);
+    if (__DEV__) {
+      if (duration > 1000) {
+        console.warn(`[ErrorTracker] Slow operation: ${name} took ${duration}ms`);
+      } else {
+        console.log(`[ErrorTracker] Performance: ${name} - ${duration}ms`);
+      }
     }
   }
 
@@ -685,14 +690,14 @@ class ErrorTracker {
   updateAdaptiveSettings(settings: Partial<AdaptiveSettings>) {
     this.adaptiveSettings = { ...this.adaptiveSettings, ...settings };
     this.saveAdaptiveSettings();
-    console.log('[ErrorTracker] Adaptive settings updated:', this.adaptiveSettings);
+    if (__DEV__) console.log('[ErrorTracker] Adaptive settings updated:', this.adaptiveSettings);
   }
 
   reportMemoryWarning() {
     this.memoryWarningCount++;
     this.deviceInfo.memoryWarnings = this.memoryWarningCount;
     
-    console.warn('[ErrorTracker] Memory warning #', this.memoryWarningCount);
+    if (__DEV__) console.warn('[ErrorTracker] Memory warning #', this.memoryWarningCount);
     
     if (this.memoryWarningCount >= 2) {
       this.adaptiveSettings.preloadCount = Math.max(4, this.adaptiveSettings.preloadCount - 2);
@@ -722,7 +727,7 @@ class ErrorTracker {
     this.glitchReports.push(report);
     await this.saveGlitchReports();
     
-    console.log('[ErrorTracker] Glitch report submitted:', report.id);
+    if (__DEV__) console.log('[ErrorTracker] Glitch report submitted:', report.id);
     this.captureMessage(`Glitch Report: ${description}`, 'warning', {
       tags: { category, reportId: report.id },
     });
@@ -767,7 +772,7 @@ class ErrorTracker {
         }
       : DEFAULT_ADAPTIVE_SETTINGS;
     this.saveAdaptiveSettings();
-    console.log('[ErrorTracker] Adaptive settings reset');
+    if (__DEV__) console.log('[ErrorTracker] Adaptive settings reset');
   }
 
   measureAsync<T>(name: string, fn: () => Promise<T>, tags?: Record<string, string>): Promise<T> {
@@ -973,7 +978,7 @@ const analyticsBuffer: PuzzleAnalytics[] = [];
 const MAX_ANALYTICS_BUFFER = 20;
 
 export async function trackPuzzleCompletion(analytics: PuzzleAnalytics): Promise<void> {
-  console.log('[Analytics] Tracking puzzle completion:', analytics.melodyName, 'won:', analytics.won);
+  if (__DEV__) console.log('[Analytics] Tracking puzzle completion:', analytics.melodyName, 'won:', analytics.won);
   
   analyticsBuffer.push(analytics);
   if (analyticsBuffer.length > MAX_ANALYTICS_BUFFER) {
@@ -983,7 +988,7 @@ export async function trackPuzzleCompletion(analytics: PuzzleAnalytics): Promise
   try {
     await AsyncStorage.setItem(ANALYTICS_BUFFER_KEY, JSON.stringify(analyticsBuffer));
   } catch (error) {
-    console.log('[Analytics] Failed to save analytics buffer:', error);
+    if (__DEV__) console.log('[Analytics] Failed to save analytics buffer:', error);
   }
   
   await sendAnalyticsToServer('puzzle_completion', {
@@ -999,7 +1004,7 @@ export async function trackPuzzleCompletion(analytics: PuzzleAnalytics): Promise
 }
 
 export async function trackStreakUpdate(streak: StreakAnalytics): Promise<void> {
-  console.log('[Analytics] Tracking streak update:', streak.currentStreak, 'longest:', streak.longestStreak);
+  if (__DEV__) console.log('[Analytics] Tracking streak update:', streak.currentStreak, 'longest:', streak.longestStreak);
   
   await sendAnalyticsToServer('streak_update', {
     current_streak: streak.currentStreak,
@@ -1017,7 +1022,7 @@ export async function trackGameEvent(
   eventName: string, 
   eventData: Record<string, unknown>
 ): Promise<void> {
-  console.log('[Analytics] Tracking event:', eventName, eventData);
+  if (__DEV__) console.log('[Analytics] Tracking event:', eventName, eventData);
   
   await sendAnalyticsToServer(eventName, eventData);
 }
@@ -1042,13 +1047,13 @@ async function sendAnalyticsToServer(
   try {
     const endpoint = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
     if (!endpoint) {
-      console.log('[Analytics] No endpoint configured, skipping send');
+      if (__DEV__) console.log('[Analytics] No endpoint configured, skipping send');
       return;
     }
     
-    console.log('[Analytics] Sending to endpoint:', endpoint);
+    if (__DEV__) console.log('[Analytics] Sending to endpoint:', endpoint);
   } catch (error) {
-    console.log('[Analytics] Failed to send analytics:', error);
+    if (__DEV__) console.log('[Analytics] Failed to send analytics:', error);
   }
 }
 
@@ -1059,7 +1064,7 @@ export async function loadAnalyticsBuffer(): Promise<PuzzleAnalytics[]> {
       return JSON.parse(stored);
     }
   } catch (error) {
-    console.log('[Analytics] Failed to load analytics buffer:', error);
+    if (__DEV__) console.log('[Analytics] Failed to load analytics buffer:', error);
   }
   return [];
 }
@@ -1162,7 +1167,7 @@ export function startSession(): void {
     totalTimeMs: 0,
     deviceInfo: errorTracker.getDeviceInfo(),
   };
-  console.log('[Analytics] Session started:', currentSession.sessionId);
+  if (__DEV__) console.log('[Analytics] Session started:', currentSession.sessionId);
 }
 
 export function endSession(): void {
@@ -1173,7 +1178,7 @@ export function endSession(): void {
     new Date(currentSession.startTime).getTime();
   
   saveSessionMetrics(currentSession);
-  console.log('[Analytics] Session ended:', currentSession.sessionId, 
+  if (__DEV__) console.log('[Analytics] Session ended:', currentSession.sessionId, 
     'Duration:', currentSession.totalTimeMs, 'ms');
   
   currentSession = null;
@@ -1199,7 +1204,7 @@ export function trackScreenView(screenName: string): void {
   currentScreen = screenName;
   screenViewStart = now;
   
-  console.log('[Analytics] Screen view:', screenName);
+  if (__DEV__) console.log('[Analytics] Screen view:', screenName);
 }
 
 export function trackInteraction(
@@ -1216,7 +1221,7 @@ export function trackInteraction(
     metadata,
   });
   
-  console.log('[Analytics] Interaction:', type, target);
+  if (__DEV__) console.log('[Analytics] Interaction:', type, target);
 }
 
 export function trackPuzzleAttempt(): void {
@@ -1249,7 +1254,7 @@ async function saveSessionMetrics(session: SessionMetrics): Promise<void> {
       puzzles_completed: session.puzzlesCompleted,
     });
   } catch (error) {
-    console.log('[Analytics] Failed to save session:', error);
+    if (__DEV__) console.log('[Analytics] Failed to save session:', error);
   }
 }
 
@@ -1276,7 +1281,7 @@ export async function calculateEngagementMetrics(): Promise<Partial<EngagementMe
 }
 
 export async function trackDropOff(screen: string, reason?: string): Promise<void> {
-  console.log('[Analytics] Drop-off tracked:', screen, reason);
+  if (__DEV__) console.log('[Analytics] Drop-off tracked:', screen, reason);
   
   await sendAnalyticsToServer('drop_off', {
     screen,
@@ -1324,9 +1329,9 @@ export async function trackDifficultyFeedback(
     
     await AsyncStorage.setItem(DIFFICULTY_KEY, JSON.stringify(metrics));
     
-    console.log('[Analytics] Difficulty tracked:', melodyName, 'Score:', m.difficultyScore);
+    if (__DEV__) console.log('[Analytics] Difficulty tracked:', melodyName, 'Score:', m.difficultyScore);
   } catch (error) {
-    console.log('[Analytics] Failed to track difficulty:', error);
+    if (__DEV__) console.log('[Analytics] Failed to track difficulty:', error);
   }
 }
 
