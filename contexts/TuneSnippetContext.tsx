@@ -70,25 +70,37 @@ interface CachedSnippet {
 }
 
 let audioInitialized = false;
+let audioInitPromise: Promise<boolean> | null = null;
 
 async function initAudioMode(): Promise<boolean> {
   if (audioInitialized || Platform.OS === 'web') return true;
   
-  try {
-    await Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: false,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false,
-    });
-    audioInitialized = true;
-    console.log('[TuneSnippet] Audio mode initialized');
-    return true;
-  } catch (error) {
-    console.error('[TuneSnippet] Failed to initialize audio mode:', error);
-    captureError(error, { tags: { component: 'TuneSnippet', action: 'initAudioMode' } });
-    return false;
+  if (audioInitPromise) {
+    return audioInitPromise;
   }
+  
+  audioInitPromise = (async () => {
+    try {
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+        allowsRecordingIOS: false,
+      });
+      audioInitialized = true;
+      console.log('[TuneSnippet] Audio mode initialized');
+      return true;
+    } catch (error) {
+      console.error('[TuneSnippet] Failed to initialize audio mode:', error);
+      captureError(error, { tags: { component: 'TuneSnippet', action: 'initAudioMode' } });
+      return false;
+    } finally {
+      audioInitPromise = null;
+    }
+  })();
+  
+  return audioInitPromise;
 }
 
 export const [TuneSnippetProvider, useTuneSnippet] = createContextHook(() => {
@@ -244,7 +256,7 @@ export const [TuneSnippetProvider, useTuneSnippet] = createContextHook(() => {
       } catch (error) {
         console.log('[TuneSnippet] Progress tracking error:', error);
       }
-    }, 100);
+    }, 300);
   }, []);
 
   const playSnippet = useCallback(async (
@@ -279,8 +291,9 @@ export const [TuneSnippetProvider, useTuneSnippet] = createContextHook(() => {
           shouldPlay: true,
           volume: initialVolume,
           rate: playbackState.playbackSpeed,
+          shouldCorrectPitch: false,
           isLooping: playbackState.isLooping,
-          progressUpdateIntervalMillis: 100,
+          progressUpdateIntervalMillis: 500,
           positionMillis: options?.startPosition || 0,
         },
         (status: AVPlaybackStatus) => {
@@ -458,7 +471,7 @@ export const [TuneSnippetProvider, useTuneSnippet] = createContextHook(() => {
     
     if (soundRef.current) {
       try {
-        await soundRef.current.setRateAsync(clampedSpeed, true);
+        await soundRef.current.setRateAsync(clampedSpeed, false);
       } catch (error) {
         console.log('[TuneSnippet] Error setting speed:', error);
       }

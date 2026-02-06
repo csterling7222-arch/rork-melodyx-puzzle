@@ -34,26 +34,39 @@ class AudioSnippetManager {
   private isInitialized = false;
   private currentSound: Audio.Sound | null = null;
 
+  private initPromise: Promise<void> | null = null;
+
   async init(): Promise<void> {
     if (this.isInitialized) return;
     
-    console.log('[AudioSnippetManager] Initializing...');
-    
-    try {
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-      });
-      
-      await this.loadConfig();
-      await this.loadCachedMetadata();
-      
-      this.isInitialized = true;
-      console.log('[AudioSnippetManager] Initialized successfully');
-    } catch (error) {
-      console.error('[AudioSnippetManager] Initialization failed:', error);
+    if (this.initPromise) {
+      return this.initPromise;
     }
+    
+    this.initPromise = (async () => {
+      console.log('[AudioSnippetManager] Initializing...');
+      
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+          shouldDuckAndroid: true,
+          allowsRecordingIOS: false,
+        });
+        
+        await this.loadConfig();
+        await this.loadCachedMetadata();
+        
+        this.isInitialized = true;
+        console.log('[AudioSnippetManager] Initialized successfully');
+      } catch (error) {
+        console.error('[AudioSnippetManager] Initialization failed:', error);
+      } finally {
+        this.initPromise = null;
+      }
+    })();
+    
+    return this.initPromise;
   }
 
   private async loadConfig(): Promise<void> {
@@ -149,7 +162,7 @@ class AudioSnippetManager {
       
       const { sound, status } = await Audio.Sound.createAsync(
         source,
-        { shouldPlay: false, volume: 1.0 },
+        { shouldPlay: false, volume: 1.0, shouldCorrectPitch: false, progressUpdateIntervalMillis: 500 },
         this.onPlaybackStatusUpdate
       );
 

@@ -112,6 +112,9 @@ const activeSounds = new Map<string, { sound: Audio.Sound; startTime: number }>(
 const SOUND_CLEANUP_INTERVAL = 2000;
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 
+const NOTE_DEBOUNCE_MS = 50;
+const lastPlayedNote = new Map<string, number>();
+
 const offlineCache = new Map<string, boolean>();
 let isOfflineMode = false;
 const AUDIO_CACHE_KEY = 'melodyx_audio_cache_status';
@@ -292,32 +295,45 @@ export function unlockWebAudio(): void {
   }
 }
 
+let nativeAudioInitPromise: Promise<boolean> | null = null;
+
 async function initNativeAudio() {
   if (audioInitialized || Platform.OS === 'web') return true;
   
-  try {
-    console.log('[Audio] Initializing native audio...');
-    await Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: false,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false,
-    });
-    audioInitialized = true;
-    console.log('[Audio] Native audio initialized successfully');
-    addBreadcrumb({ category: 'audio', message: 'Native audio initialized', level: 'info' });
-    logAudioEvent('native_audio_initialized', { platform: Platform.OS });
-    
-    await loadCacheStatus();
-    startSoundCleanup();
-    
-    return true;
-  } catch (error) {
-    console.log('[Audio] Failed to initialize native audio:', error);
-    captureError(error, { tags: { component: 'Audio', action: 'initNativeAudio' } });
-    logAudioEvent('native_audio_init_failed', { error: String(error) });
-    return false;
+  if (nativeAudioInitPromise) {
+    return nativeAudioInitPromise;
   }
+  
+  nativeAudioInitPromise = (async () => {
+    try {
+      console.log('[Audio] Initializing native audio...');
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+        allowsRecordingIOS: false,
+      });
+      audioInitialized = true;
+      console.log('[Audio] Native audio initialized successfully');
+      addBreadcrumb({ category: 'audio', message: 'Native audio initialized', level: 'info' });
+      logAudioEvent('native_audio_initialized', { platform: Platform.OS });
+      
+      await loadCacheStatus();
+      startSoundCleanup();
+      
+      return true;
+    } catch (error) {
+      console.log('[Audio] Failed to initialize native audio:', error);
+      captureError(error, { tags: { component: 'Audio', action: 'initNativeAudio' } });
+      logAudioEvent('native_audio_init_failed', { error: String(error) });
+      return false;
+    } finally {
+      nativeAudioInitPromise = null;
+    }
+  })();
+  
+  return nativeAudioInitPromise;
 }
 
 const NOTE_TO_FILE: Record<string, string> = {
@@ -359,7 +375,7 @@ async function preloadSound(note: string, instrumentId: string = currentInstrume
     
     const { sound } = await Audio.Sound.createAsync(
       { uri: url },
-      { shouldPlay: false, volume: 1.0, progressUpdateIntervalMillis: 100 },
+      { shouldPlay: false, volume: 1.0, progressUpdateIntervalMillis: 500, shouldCorrectPitch: false },
       null,
       true
     );
@@ -557,6 +573,14 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
   const playNoteNative = useCallback(async (note: string) => {
     if (Platform.OS === 'web') return;
     
+    const now = Date.now();
+    const lastPlayed = lastPlayedNote.get(note) || 0;
+    if (now - lastPlayed < NOTE_DEBOUNCE_MS) {
+      console.log(`[Audio] Debouncing note ${note}`);
+      return;
+    }
+    lastPlayedNote.set(note, now);
+    
     try {
       if (!audioInitialized) {
         await initNativeAudio();
@@ -583,6 +607,9 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
         try {
           const status = await sound.getStatusAsync();
           if (status.isLoaded) {
+            if (status.isPlaying) {
+              await sound.stopAsync();
+            }
             await sound.setPositionAsync(0);
             await sound.setVolumeAsync(audioSettingsRef.current.volume);
             await sound.playAsync();
@@ -592,6 +619,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
             const newSound = await preloadSound(note, instId);
             if (newSound) {
               await newSound.setPositionAsync(0);
+              await newSound.setVolumeAsync(audioSettingsRef.current.volume);
               await newSound.playAsync();
             }
           }
