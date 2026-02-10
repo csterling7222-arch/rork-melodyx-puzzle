@@ -94,7 +94,7 @@ export const ENTITLEMENTS = {
 
 export type EntitlementKey = keyof typeof ENTITLEMENTS;
 
-const DEMO_MODE_ENABLED = true;
+const DEMO_MODE_ENABLED = __DEV__ || Platform.OS === 'web';
 const TRIAL_STORAGE_KEY = 'melodyx_premium_trial';
 const TRIAL_DURATION_DAYS = 7;
 
@@ -933,7 +933,7 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     console.log('[RevenueCat] Demo premium disabled');
   }, []);
 
-  const isDemoMode = useMemo(() => !isConfigured && DEMO_MODE_ENABLED, []);
+  const isDemoMode = useMemo(() => !isConfigured && DEMO_MODE_ENABLED, [isConfigured]);
   
   const purchaseDemoProduct = useCallback(async (packageId: string, rewardType?: 'coins' | 'hints', rewardAmount?: number) => {
     console.log('[RevenueCat] Demo purchase:', packageId);

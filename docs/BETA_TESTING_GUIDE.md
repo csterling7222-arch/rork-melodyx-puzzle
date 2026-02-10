@@ -126,7 +126,6 @@ eas build --platform android --profile preview
 - iPhone 12 (baseline)
 - iPhone 13/14/15 Pro
 - iPhone SE (3rd gen)
-- iPad Air/Pro
 
 ### Android Devices
 - Pixel 6/7/8

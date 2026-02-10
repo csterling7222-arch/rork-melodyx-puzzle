@@ -235,6 +235,9 @@ const skinStyles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
   },
+  buyButtonDisabled: {
+    opacity: 0.5,
+  },
   buyButtonText: {
     fontSize: 14,
     fontWeight: '700' as const,
@@ -522,6 +525,9 @@ const powerUpStyles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
   },
+  buyButtonDisabled: {
+    opacity: 0.5,
+  },
   buyButtonText: {
     fontSize: 13,
     fontWeight: '700' as const,
@@ -529,10 +535,12 @@ const powerUpStyles = StyleSheet.create({
   },
 });
 
-function LearningPackCard({ pack, isOwned, onBuy }: {
+function LearningPackCard({ pack, isOwned, onBuy, priceLabel, disabled }: {
   pack: LearningPack;
   isOwned: boolean;
   onBuy: () => void;
+  priceLabel: string;
+  disabled?: boolean;
 }) {
   return (
     <View style={learningStyles.card}>
@@ -558,8 +566,14 @@ function LearningPackCard({ pack, isOwned, onBuy }: {
         ))}
       </View>
       {!isOwned ? (
-        <TouchableOpacity style={learningStyles.buyButton} onPress={onBuy}>
-          <Text style={learningStyles.buyButtonText}>${pack.price.toFixed(2)}</Text>
+        <TouchableOpacity
+          style={[learningStyles.buyButton, disabled && learningStyles.buyButtonDisabled]}
+          onPress={onBuy}
+          disabled={disabled}
+        >
+          <Text style={learningStyles.buyButtonText}>
+            {disabled ? 'Unavailable' : priceLabel}
+          </Text>
         </TouchableOpacity>
       ) : (
         <View style={learningStyles.ownedBadge}>
@@ -644,6 +658,9 @@ const learningStyles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
+  buyButtonDisabled: {
+    opacity: 0.5,
+  },
   buyButtonText: {
     fontSize: 15,
     fontWeight: '700' as const,
@@ -665,10 +682,12 @@ const learningStyles = StyleSheet.create({
   },
 });
 
-function BundleCard({ bundle, isOwned, onBuy }: {
+function BundleCard({ bundle, isOwned, onBuy, priceLabel, disabled }: {
   bundle: ShopBundle;
   isOwned: boolean;
   onBuy: () => void;
+  priceLabel: string;
+  disabled?: boolean;
 }) {
   return (
     <View style={[bundleStyles.card, bundle.featured && bundleStyles.cardFeatured]}>
@@ -681,9 +700,13 @@ function BundleCard({ bundle, isOwned, onBuy }: {
       <Text style={bundleStyles.icon}>{bundle.icon}</Text>
       <Text style={bundleStyles.name}>{bundle.name}</Text>
       <Text style={bundleStyles.description}>{bundle.description}</Text>
-      <Text style={bundleStyles.bundlePrice}>${bundle.bundlePrice.toFixed(2)}</Text>
+      <Text style={bundleStyles.bundlePrice}>{disabled ? 'Unavailable' : priceLabel}</Text>
       {!isOwned ? (
-        <TouchableOpacity style={bundleStyles.buyButton} onPress={onBuy}>
+        <TouchableOpacity
+          style={[bundleStyles.buyButton, disabled && bundleStyles.buyButtonDisabled]}
+          onPress={onBuy}
+          disabled={disabled}
+        >
           <Text style={bundleStyles.buyButtonText}>Get Bundle</Text>
         </TouchableOpacity>
       ) : (
@@ -778,10 +801,12 @@ const bundleStyles = StyleSheet.create({
   },
 });
 
-function InstrumentAddonCard({ addon, isOwned, onBuy }: {
+function InstrumentAddonCard({ addon, isOwned, onBuy, priceLabel, disabled }: {
   addon: InstrumentAddon;
   isOwned: boolean;
   onBuy: () => void;
+  priceLabel?: string;
+  disabled?: boolean;
 }) {
   return (
     <View style={addonStyles.card}>
@@ -808,12 +833,16 @@ function InstrumentAddonCard({ addon, isOwned, onBuy }: {
         </View>
       )}
       {!isOwned ? (
-        <TouchableOpacity style={addonStyles.buyButton} onPress={onBuy}>
+        <TouchableOpacity
+          style={[addonStyles.buyButton, disabled && addonStyles.buyButtonDisabled]}
+          onPress={onBuy}
+          disabled={disabled}
+        >
           {addon.currency === 'coins' ? (
             <Coins size={14} color="#FFD700" />
           ) : null}
           <Text style={addonStyles.buyButtonText}>
-            {addon.currency === 'coins' ? addon.price : `$${addon.price.toFixed(2)}`}
+            {addon.currency === 'coins' ? addon.price : (disabled ? 'Unavailable' : (priceLabel ?? `$${addon.price.toFixed(2)}`))}
           </Text>
         </TouchableOpacity>
       ) : (
@@ -946,6 +975,11 @@ export default function ShopScreen() {
   const [selectedTab, setSelectedTab] = useState<ShopTab>('featured');
   const [purchasingPackage, setPurchasingPackage] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
+  const isDemoAllowed = __DEV__ || Platform.OS === 'web';
+  const canPurchasePackage = useCallback((identifier: string): boolean => {
+    if (isDemoAllowed) return true;
+    return isConfigured && !!getPackageByIdentifier(identifier);
+  }, [isDemoAllowed, isConfigured, getPackageByIdentifier]);
 
   const handleBuySkin = useCallback((skinId: string, price: number) => {
     if (inventory.coins < price) {
@@ -1021,6 +1055,11 @@ export default function ShopScreen() {
     console.log('[Shop] Purchase attempt:', { packageId, isConfigured, hasPkg: !!pkg });
     
     if (!isConfigured || !pkg) {
+      if (!isDemoAllowed) {
+        Alert.alert('Purchase Unavailable', 'This product is not available right now. Please try again later.');
+        return;
+      }
+
       console.log('[Shop] Store not configured or package not found, using demo mode for:', packageId);
       
       setPurchasingPackage(packageId);
@@ -1038,20 +1077,27 @@ export default function ShopScreen() {
         console.log('[Shop] Adding hints:', rewardAmount);
         addHints(rewardAmount);
         Alert.alert('💡 Hints Added!', `You received ${rewardAmount} hints! Your hints have been credited.`);
-      } else if (packageId.includes('monthly') || packageId.includes('annual') || packageId.includes('yearly')) {
+      } else if ([
+        PACKAGE_IDENTIFIERS.MONTHLY,
+        PACKAGE_IDENTIFIERS.YEARLY,
+        PACKAGE_IDENTIFIERS.LIFETIME,
+        PACKAGE_IDENTIFIERS.FAMILY_MONTHLY,
+        PACKAGE_IDENTIFIERS.FAMILY_YEARLY,
+      ].includes(packageId)) {
         enableDemoPremium();
         Alert.alert('👑 Demo Premium Activated!', 'Premium features enabled for testing.');
-      } else if (packageId.startsWith('bundle_')) {
-        const bundleId = packageId.replace('bundle_', '');
-        const bundle = SHOP_BUNDLES.find(b => b.id === bundleId);
+      } else if (SHOP_BUNDLES.some(b => b.id === packageId)) {
+        const bundle = SHOP_BUNDLES.find(b => b.id === packageId);
         if (bundle) {
-          purchaseBundle(bundleId, bundle.items);
+          purchaseBundle(bundle.id, bundle.items);
           Alert.alert('🎁 Bundle Purchased!', `${bundle.name} unlocked!`);
         }
-      } else if (packageId.startsWith('learning_')) {
-        const packId = packageId.replace('learning_', '');
-        purchaseLearningPack(packId);
+      } else if (LEARNING_PACKS.some(p => p.id === packageId)) {
+        purchaseLearningPack(packageId);
         Alert.alert('📚 Learning Pack Unlocked!', 'Your new lessons are ready!');
+      } else if (INSTRUMENT_ADDONS.some(a => a.id === packageId)) {
+        purchaseInstrumentAddon(packageId);
+        Alert.alert('🎸 Add-on Unlocked!', 'Your new add-on is ready!');
       } else {
         Alert.alert('🎁 Demo Mode', 'Demo purchase successful!');
       }
@@ -1086,7 +1132,7 @@ export default function ShopScreen() {
     } finally {
       setPurchasingPackage(null);
     }
-  }, [getPackageByIdentifier, purchasePackage, addCoins, addHints, isConfigured, enableDemoPremium, purchaseBundle, purchaseLearningPack]);
+  }, [getPackageByIdentifier, purchasePackage, addCoins, addHints, isConfigured, enableDemoPremium, purchaseBundle, purchaseLearningPack, purchaseInstrumentAddon, isDemoAllowed]);
 
   const handleBuyPowerUp = useCallback((powerUp: PowerUp) => {
     if (inventory.coins < powerUp.price) {
@@ -1116,7 +1162,7 @@ export default function ShopScreen() {
   }, [inventory.coins, spendCoins, purchasePowerUp]);
 
   const handleBuyLearningPack = useCallback((pack: LearningPack) => {
-    handleIAPPurchase(`learning_${pack.id}`);
+    handleIAPPurchase(pack.id);
   }, [handleIAPPurchase]);
 
   const handleBuyInstrumentAddon = useCallback((addon: InstrumentAddon) => {
@@ -1146,12 +1192,12 @@ export default function ShopScreen() {
         ]
       );
     } else {
-      handleIAPPurchase(`addon_${addon.id}`);
+      handleIAPPurchase(addon.id);
     }
   }, [inventory.coins, spendCoins, purchaseInstrumentAddon, handleIAPPurchase]);
 
   const handleBuyBundle = useCallback((bundle: ShopBundle) => {
-    handleIAPPurchase(`bundle_${bundle.id}`);
+    handleIAPPurchase(bundle.id);
   }, [handleIAPPurchase]);
 
   const handleRestorePurchases = useCallback(async () => {
@@ -1182,7 +1228,8 @@ export default function ShopScreen() {
   const getPackagePrice = (identifier: string): string => {
     const pkg = getPackageByIdentifier(identifier);
     if (pkg?.product.priceString) return pkg.product.priceString;
-    return getMockPrice(identifier);
+    if (isDemoAllowed) return getMockPrice(identifier);
+    return 'Unavailable';
   };
 
   const featuredBundles = useMemo(() => getFeaturedBundles(), []);
@@ -1190,6 +1237,8 @@ export default function ShopScreen() {
   const monthlyPrice = 4.99;
   const yearlyPrice = 39.99;
   const savings = calculateSavings(monthlyPrice, yearlyPrice);
+  const monthlyPriceLabel = getPackagePrice(PACKAGE_IDENTIFIERS.MONTHLY);
+  const yearlyPriceLabel = getPackagePrice(PACKAGE_IDENTIFIERS.YEARLY);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -1259,24 +1308,36 @@ export default function ShopScreen() {
               <Text style={styles.sectionTitle}>🔥 Featured Bundles</Text>
               <Text style={styles.sectionSubtitle}>Best value packs with exclusive savings</Text>
               
-              {featuredBundles.map(bundle => (
-                <BundleCard
-                  key={bundle.id}
-                  bundle={bundle}
-                  isOwned={inventory.ownedBundles?.includes(bundle.id) || false}
-                  onBuy={() => handleBuyBundle(bundle)}
-                />
-              ))}
+              {featuredBundles.map(bundle => {
+                const priceLabel = getPackagePrice(bundle.id);
+                const disabled = !canPurchasePackage(bundle.id);
+                return (
+                  <BundleCard
+                    key={bundle.id}
+                    bundle={bundle}
+                    isOwned={inventory.ownedBundles?.includes(bundle.id) || false}
+                    onBuy={() => handleBuyBundle(bundle)}
+                    priceLabel={priceLabel}
+                    disabled={disabled}
+                  />
+                );
+              })}
 
               <Text style={[styles.sectionTitle, { marginTop: 24 }]}>🎁 All Bundles</Text>
-              {SHOP_BUNDLES.filter(b => !b.featured).map(bundle => (
-                <BundleCard
-                  key={bundle.id}
-                  bundle={bundle}
-                  isOwned={inventory.ownedBundles?.includes(bundle.id) || false}
-                  onBuy={() => handleBuyBundle(bundle)}
-                />
-              ))}
+              {SHOP_BUNDLES.filter(b => !b.featured).map(bundle => {
+                const priceLabel = getPackagePrice(bundle.id);
+                const disabled = !canPurchasePackage(bundle.id);
+                return (
+                  <BundleCard
+                    key={bundle.id}
+                    bundle={bundle}
+                    isOwned={inventory.ownedBundles?.includes(bundle.id) || false}
+                    onBuy={() => handleBuyBundle(bundle)}
+                    priceLabel={priceLabel}
+                    disabled={disabled}
+                  />
+                );
+              })}
             </View>
           )}
 
@@ -1337,14 +1398,20 @@ export default function ShopScreen() {
               <Text style={styles.sectionTitle}>📚 Learning Packs</Text>
               <Text style={styles.sectionSubtitle}>Master music with AI-powered lessons</Text>
               
-              {LEARNING_PACKS.map(pack => (
-                <LearningPackCard
-                  key={pack.id}
-                  pack={pack}
-                  isOwned={inventory.ownedLearningPacks?.includes(pack.id) || false}
-                  onBuy={() => handleBuyLearningPack(pack)}
-                />
-              ))}
+              {LEARNING_PACKS.map(pack => {
+                const priceLabel = getPackagePrice(pack.id);
+                const disabled = !canPurchasePackage(pack.id);
+                return (
+                  <LearningPackCard
+                    key={pack.id}
+                    pack={pack}
+                    isOwned={inventory.ownedLearningPacks?.includes(pack.id) || false}
+                    onBuy={() => handleBuyLearningPack(pack)}
+                    priceLabel={priceLabel}
+                    disabled={disabled}
+                  />
+                );
+              })}
             </View>
           )}
 
@@ -1353,14 +1420,20 @@ export default function ShopScreen() {
               <Text style={styles.sectionTitle}>🎸 Instrument Add-ons</Text>
               <Text style={styles.sectionSubtitle}>Sound packs & visual effects</Text>
               
-              {INSTRUMENT_ADDONS.map(addon => (
-                <InstrumentAddonCard
-                  key={addon.id}
-                  addon={addon}
-                  isOwned={inventory.ownedInstrumentAddons?.includes(addon.id) || false}
-                  onBuy={() => handleBuyInstrumentAddon(addon)}
-                />
-              ))}
+              {INSTRUMENT_ADDONS.map(addon => {
+                const priceLabel = addon.currency === 'coins' ? undefined : getPackagePrice(addon.id);
+                const disabled = addon.currency === 'coins' ? false : !canPurchasePackage(addon.id);
+                return (
+                  <InstrumentAddonCard
+                    key={addon.id}
+                    addon={addon}
+                    isOwned={inventory.ownedInstrumentAddons?.includes(addon.id) || false}
+                    onBuy={() => handleBuyInstrumentAddon(addon)}
+                    priceLabel={priceLabel}
+                    disabled={disabled}
+                  />
+                );
+              })}
             </View>
           )}
 
@@ -1373,7 +1446,7 @@ export default function ShopScreen() {
                 <TouchableOpacity 
                   style={styles.coinCard}
                   onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.COINS_500, 'coins', 500)}
-                  disabled={isPurchasing}
+                  disabled={isPurchasing || !canPurchasePackage(PACKAGE_IDENTIFIERS.COINS_500)}
                 >
                   <Text style={styles.coinIcon}>💰</Text>
                   <Text style={styles.coinAmount}>500</Text>
@@ -1384,7 +1457,7 @@ export default function ShopScreen() {
                 <TouchableOpacity 
                   style={[styles.coinCard, styles.coinCardPopular]}
                   onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.COINS_1500, 'coins', 1500)}
-                  disabled={isPurchasing}
+                  disabled={isPurchasing || !canPurchasePackage(PACKAGE_IDENTIFIERS.COINS_1500)}
                 >
                   <View style={styles.coinCardBadge}>
                     <Text style={styles.coinCardBadgeText}>+20%</Text>
@@ -1398,7 +1471,7 @@ export default function ShopScreen() {
                 <TouchableOpacity 
                   style={[styles.coinCard, styles.coinCardBest]}
                   onPress={() => handleIAPPurchase(PACKAGE_IDENTIFIERS.COINS_5000, 'coins', 5000)}
-                  disabled={isPurchasing}
+                  disabled={isPurchasing || !canPurchasePackage(PACKAGE_IDENTIFIERS.COINS_5000)}
                 >
                   <View style={[styles.coinCardBadge, styles.coinCardBadgeBest]}>
                     <Text style={styles.coinCardBadgeText}>+50%</Text>
@@ -1420,7 +1493,7 @@ export default function ShopScreen() {
                     console.log('[Shop] Hint purchase tapped: 5 hints');
                     handleIAPPurchase(PACKAGE_IDENTIFIERS.HINTS_SMALL, 'hints', 5);
                   }}
-                  disabled={purchasingPackage === PACKAGE_IDENTIFIERS.HINTS_SMALL}
+                  disabled={purchasingPackage === PACKAGE_IDENTIFIERS.HINTS_SMALL || !canPurchasePackage(PACKAGE_IDENTIFIERS.HINTS_SMALL)}
                 >
                   {purchasingPackage === PACKAGE_IDENTIFIERS.HINTS_SMALL ? (
                     <ActivityIndicator size="small" color={Colors.accent} style={{ marginBottom: 8 }} />
@@ -1438,7 +1511,7 @@ export default function ShopScreen() {
                     console.log('[Shop] Hint purchase tapped: 50 hints');
                     handleIAPPurchase(PACKAGE_IDENTIFIERS.HINTS_LARGE, 'hints', 50);
                   }}
-                  disabled={purchasingPackage === PACKAGE_IDENTIFIERS.HINTS_LARGE}
+                  disabled={purchasingPackage === PACKAGE_IDENTIFIERS.HINTS_LARGE || !canPurchasePackage(PACKAGE_IDENTIFIERS.HINTS_LARGE)}
                 >
                   <View style={styles.hintCardBadge}>
                     <Text style={styles.hintCardBadgeText}>BEST VALUE</Text>
@@ -1491,7 +1564,9 @@ export default function ShopScreen() {
                       onPress={() => setSelectedPlan('monthly')}
                     >
                       <Text style={[styles.planOptionTitle, selectedPlan === 'monthly' && styles.planOptionTitleActive]}>Monthly</Text>
-                      <Text style={[styles.planOptionPrice, selectedPlan === 'monthly' && styles.planOptionPriceActive]}>{getPackagePrice(PACKAGE_IDENTIFIERS.MONTHLY)}/mo</Text>
+                      <Text style={[styles.planOptionPrice, selectedPlan === 'monthly' && styles.planOptionPriceActive]}>
+                        {monthlyPriceLabel === 'Unavailable' ? monthlyPriceLabel : `${monthlyPriceLabel}/mo`}
+                      </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.planOption, selectedPlan === 'yearly' && styles.planOptionActive]}
@@ -1501,8 +1576,12 @@ export default function ShopScreen() {
                         <Text style={styles.savingsBadgeText}>Save {savings}%</Text>
                       </View>
                       <Text style={[styles.planOptionTitle, selectedPlan === 'yearly' && styles.planOptionTitleActive]}>Yearly</Text>
-                      <Text style={[styles.planOptionPrice, selectedPlan === 'yearly' && styles.planOptionPriceActive]}>{getPackagePrice(PACKAGE_IDENTIFIERS.YEARLY)}/yr</Text>
-                      <Text style={styles.planPerMonth}>${(yearlyPrice / 12).toFixed(2)}/mo</Text>
+                      <Text style={[styles.planOptionPrice, selectedPlan === 'yearly' && styles.planOptionPriceActive]}>
+                        {yearlyPriceLabel === 'Unavailable' ? yearlyPriceLabel : `${yearlyPriceLabel}/yr`}
+                      </Text>
+                      {yearlyPriceLabel === 'Unavailable' ? null : (
+                        <Text style={styles.planPerMonth}>${(yearlyPrice / 12).toFixed(2)}/mo</Text>
+                      )}
                     </TouchableOpacity>
                   </View>
                   
@@ -1516,9 +1595,9 @@ export default function ShopScreen() {
                   </View>
 
                   <TouchableOpacity 
-                    style={[styles.premiumButton, isPurchasing && styles.premiumButtonDisabled]} 
+                    style={[styles.premiumButton, (isPurchasing || !canPurchasePackage(selectedPlan === 'yearly' ? PACKAGE_IDENTIFIERS.YEARLY : PACKAGE_IDENTIFIERS.MONTHLY)) && styles.premiumButtonDisabled]} 
                     onPress={() => handleIAPPurchase(selectedPlan === 'yearly' ? PACKAGE_IDENTIFIERS.YEARLY : PACKAGE_IDENTIFIERS.MONTHLY)}
-                    disabled={isPurchasing}
+                    disabled={isPurchasing || !canPurchasePackage(selectedPlan === 'yearly' ? PACKAGE_IDENTIFIERS.YEARLY : PACKAGE_IDENTIFIERS.MONTHLY)}
                   >
                     {(purchasingPackage === PACKAGE_IDENTIFIERS.MONTHLY || purchasingPackage === PACKAGE_IDENTIFIERS.YEARLY) ? (
                       <ActivityIndicator size="small" color="#000" />

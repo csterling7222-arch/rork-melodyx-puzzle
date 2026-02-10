@@ -88,7 +88,7 @@
 ```json
 {
   "ios": {
-    "bundleIdentifier": "app.rork.melodyx-puzzle",
+    "bundleIdentifier": "app.christophersterling.melodyx",
     "buildNumber": "1",
     "supportsTablet": false,
     "config": {
@@ -125,7 +125,7 @@
 ```json
 {
   "android": {
-    "package": "app.rork.melodyx_puzzle",
+    "package": "app.christophersterling.melodyx",
     "versionCode": 1,
     "permissions": [
       "android.permission.VIBRATE"

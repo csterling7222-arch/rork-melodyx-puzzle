@@ -17,7 +17,7 @@ This audit focuses on manifest/permission accuracy, metadata consistency, and co
 
 ## High‑Risk Review Blockers (Verify)
 1. Bundle ID / Package Name mismatch
-   - `app.json` uses `app.rork.melodyx-puzzle` (iOS) and `app.rork.melodyx_puzzle` (Android).
+   - `app.json` uses `app.christophersterling.melodyx` (iOS/Android).
    - Some docs previously referenced `app.melodyx.puzzle`.
    - Confirm App Store Connect / Play Console use the same identifiers as `app.json`.
 
