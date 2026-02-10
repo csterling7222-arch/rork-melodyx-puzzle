@@ -18,13 +18,11 @@
 
 ### 3. RevenueCat Setup
 1. Create app in RevenueCat dashboard
-2. Configure products:
-   - `premium_monthly` - $4.99/month subscription
-   - `hints_5_pack` - $0.99 consumable
-   - `hints_15_pack` - $2.99 consumable
-   - `hints_50_pack` - $4.99 consumable
-   - Keyboard skins - $1.99-$3.99 non-consumable
-3. Set up entitlements: `premium`, `ad_free`
+2. Configure products to match `contexts/PurchasesContext.tsx` identifiers
+   - Example subscription IDs: `melodyx_premium_monthly`, `melodyx_premium_yearly`
+   - Example consumables: `melodyx_hints_5`, `melodyx_hints_50`, `melodyx_hint_single`
+   - Example non-consumables: `melodyx_skin_collector`, `melodyx_guitar_glow`
+3. Set up entitlements to match `ENTITLEMENTS` in `contexts/PurchasesContext.tsx` (e.g., `premium`)
 4. Add API keys to environment variables
 
 ### 4. Environment Variables
@@ -40,7 +38,7 @@ EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY=your_android_key
 ### Step 1: Apple Developer Setup
 1. Enroll in Apple Developer Program ($99/year)
 2. Create App ID in Certificates, Identifiers & Profiles
-3. Bundle ID: `app.melodyx.puzzle`
+3. Bundle ID: match `app.json` and App Store Connect (currently `app.rork.melodyx-puzzle`)
 
 ### Step 2: App Store Connect
 1. Create new app in App Store Connect
@@ -95,7 +93,7 @@ Include in App Store Connect:
 ### Step 1: Google Play Console Setup
 1. Create developer account ($25 one-time)
 2. Create new application
-3. Package name: `app.melodyx.puzzle`
+3. Package name: match `app.json` (currently `app.rork.melodyx_puzzle`)
 
 ### Step 2: Store Listing
 1. Fill in store listing:

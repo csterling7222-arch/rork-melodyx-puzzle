@@ -378,9 +378,8 @@ No login required for core gameplay. All features accessible without account.
 - No chat feature (safe for all ages)
 
 5. CARBON OFFSET DONATIONS
-- Optional donations processed via RevenueCat/App Store
-- Funds go to certified carbon offset programs
-- Clear disclosure before purchase
+- Carbon offsetting is an in-game feature using earned eco points
+- No real-money donations are processed in-app
 
 6. ACCESSIBILITY
 - VoiceOver/TalkBack support
@@ -393,19 +392,13 @@ No login required for core gameplay. All features accessible without account.
 - Optional in-app purchases (parental controls respected)
 - No user-to-user communication
 
-8. HEALTH INTEGRATION (iOS only)
-- Optional Apple Health integration for wellness mode
-- Read-only: mindfulness minutes
-- Clear permission prompts
-
-9. TESTING NOTES
+8. TESTING NOTES
 - Daily puzzle resets at midnight UTC
 - Sound Fever mode is endless until failure
 - Campaign mode works fully offline
 
-10. KNOWN LIMITATIONS
-- AR mode requires ARKit-compatible device
-- Voice input requires microphone permission
+9. KNOWN LIMITATIONS
+- No special hardware permissions are required beyond standard audio playback
 `;
 
 export const SCREENSHOT_SPECIFICATIONS = {

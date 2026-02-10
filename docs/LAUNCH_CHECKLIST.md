@@ -90,12 +90,9 @@
   "ios": {
     "bundleIdentifier": "app.rork.melodyx-puzzle",
     "buildNumber": "1",
-    "supportsTablet": true,
-    "infoPlist": {
-      "NSMicrophoneUsageDescription": "Melodyx uses your microphone for voice-based melody input and pitch detection in learning mode.",
-      "NSCameraUsageDescription": "Melodyx uses your camera for AR music visualizations and sharing features.",
-      "NSHealthShareUsageDescription": "Melodyx reads mindfulness minutes to sync with your wellness goals.",
-      "ITSAppUsesNonExemptEncryption": false
+    "supportsTablet": false,
+    "config": {
+      "usesNonExemptEncryption": false
     }
   }
 }
@@ -131,9 +128,7 @@
     "package": "app.rork.melodyx_puzzle",
     "versionCode": 1,
     "permissions": [
-      "android.permission.VIBRATE",
-      "android.permission.RECORD_AUDIO",
-      "android.permission.INTERNET"
+      "android.permission.VIBRATE"
     ]
   }
 }
