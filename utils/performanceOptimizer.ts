@@ -61,30 +61,9 @@ class PerformanceOptimizer {
   }
 
   private startMonitoring(): void {
-    if (this.isMonitoring || Platform.OS === 'web') return;
-    
+    // FPS monitoring disabled - use errorTracking's single FPS monitor instead
+    // Multiple requestAnimationFrame loops cause significant performance overhead
     this.isMonitoring = true;
-    
-    const measureFPS = () => {
-      if (!this.isMonitoring) return;
-      
-      const now = Date.now();
-      this.frameTimestamps.push(now);
-      
-      while (this.frameTimestamps.length > 0 && this.frameTimestamps[0] < now - 1000) {
-        this.frameTimestamps.shift();
-      }
-      
-      this.currentFPS = this.frameTimestamps.length;
-      
-      if (this.currentFPS < 30 && this.config.enableThrottling) {
-        this.applyLowPerformanceOptimizations();
-      }
-      
-      requestAnimationFrame(measureFPS);
-    };
-    
-    requestAnimationFrame(measureFPS);
   }
 
   private applyLowPerformanceOptimizations(): void {

@@ -162,7 +162,7 @@ class AudioSnippetManager {
       
       const { sound, status } = await Audio.Sound.createAsync(
         source,
-        { shouldPlay: false, volume: 1.0, shouldCorrectPitch: false, progressUpdateIntervalMillis: 500 },
+        { shouldPlay: false, volume: 1.0, shouldCorrectPitch: true, progressUpdateIntervalMillis: 500 },
         this.onPlaybackStatusUpdate
       );
 
@@ -202,10 +202,7 @@ class AudioSnippetManager {
     await this.stopCurrentPlayback();
 
     const sound = await this.loadSnippet(melodyName);
-    if (!sound) {
-      console.log('[AudioSnippetManager] No snippet to play, using fallback');
-      return false;
-    }
+    if (!sound) return false;
 
     try {
       this.currentSound = sound;
@@ -219,10 +216,9 @@ class AudioSnippetManager {
       });
       
       await sound.playAsync();
-      console.log('[AudioSnippetManager] Playing snippet for:', melodyName);
       return true;
     } catch (error) {
-      console.error('[AudioSnippetManager] Failed to play snippet:', error);
+      if (__DEV__) console.error('[AudioSnippetManager] Failed to play snippet:', error);
       this.currentSound = null;
       return false;
     }
@@ -232,9 +228,7 @@ class AudioSnippetManager {
     await this.stopCurrentPlayback();
 
     const sound = await this.loadSnippet(melodyName);
-    if (!sound) {
-      return false;
-    }
+    if (!sound) return false;
 
     try {
       this.currentSound = sound;
@@ -249,10 +243,9 @@ class AudioSnippetManager {
         }
       }, durationMs);
       
-      console.log('[AudioSnippetManager] Playing hint snippet for:', melodyName, 'duration:', durationMs);
       return true;
     } catch (error) {
-      console.error('[AudioSnippetManager] Failed to play hint snippet:', error);
+      if (__DEV__) console.error('[AudioSnippetManager] Failed to play hint snippet:', error);
       this.currentSound = null;
       return false;
     }

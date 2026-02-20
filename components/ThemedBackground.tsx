@@ -867,20 +867,15 @@ export default function ThemedBackground({
         {renderPattern()}
       </View>
       {showParticles && shouldAnimate && themeConfig.hasGlow && (
-        <GlowPulse color={colors.glow} intensity={intensity * 0.8} />
+        <GlowPulse color={colors.glow} intensity={intensity * 0.5} />
       )}
       {showParticles && shouldAnimate && (
-        <>
-          <ParticleField 
-            type={themeConfig.particleType} 
-            colors={particleColors} 
-            count={12} 
-            intensity={intensity * 0.7} 
-          />
-          {themeConfig.pattern === 'notes' && (
-            <FloatingNotes colors={particleColors} count={6} />
-          )}
-        </>
+        <ParticleField 
+          type={themeConfig.particleType} 
+          colors={particleColors} 
+          count={5} 
+          intensity={intensity * 0.5} 
+        />
       )}
       {children}
     </View>

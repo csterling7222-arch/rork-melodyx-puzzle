@@ -229,25 +229,27 @@ class ErrorTracker {
   private startFPSMonitoring() {
     if (Platform.OS === 'web') return;
     
-    const measureFPS = () => {
+    // Use a throttled interval instead of requestAnimationFrame to avoid
+    // adding overhead to every single frame
+    let lastSample = Date.now();
+    let frameCount = 0;
+    
+    const sampleFPS = () => {
+      frameCount++;
       const now = Date.now();
-      this.frameTimestamps.push(now);
-      
-      while (this.frameTimestamps.length > 0 && this.frameTimestamps[0] < now - 1000) {
-        this.frameTimestamps.shift();
+      if (now - lastSample >= 2000) {
+        this.currentFPS = Math.round(frameCount / ((now - lastSample) / 1000));
+        frameCount = 0;
+        lastSample = now;
+        
+        if (this.currentFPS < 25) {
+          this.autoOptimize();
+        }
       }
-      
-      this.currentFPS = this.frameTimestamps.length;
-      
-      if (this.currentFPS < 30 && this.frameTimestamps.length > 10) {
-        if (__DEV__) console.warn('[ErrorTracker] Low FPS detected:', this.currentFPS);
-        this.autoOptimize();
-      }
-      
-      requestAnimationFrame(measureFPS);
+      requestAnimationFrame(sampleFPS);
     };
     
-    requestAnimationFrame(measureFPS);
+    requestAnimationFrame(sampleFPS);
   }
 
   private autoOptimize() {
@@ -266,43 +268,8 @@ class ErrorTracker {
 
   // === ANR DETECTION ===
   private startANRDetection() {
-    if (Platform.OS === 'web') return;
-    
-    const heartbeat = () => {
-      this.anrDetection.lastHeartbeat = Date.now();
-    };
-    
-    // Update heartbeat on each frame
-    const frameCallback = () => {
-      heartbeat();
-      requestAnimationFrame(frameCallback);
-    };
-    requestAnimationFrame(frameCallback);
-    
-    // Check for ANR periodically
-    this.anrCheckInterval = setInterval(() => {
-      const timeSinceHeartbeat = Date.now() - this.anrDetection.lastHeartbeat;
-      
-      if (timeSinceHeartbeat > ANR_THRESHOLD_MS && this.anrDetection.isResponsive) {
-        this.anrDetection.isResponsive = false;
-        this.anrDetection.anrCount++;
-        
-        if (__DEV__) console.error('[ErrorTracker] ANR detected! UI unresponsive for', timeSinceHeartbeat, 'ms');
-        
-        this.reportCrash({
-          type: 'anr',
-          message: `App Not Responding - UI blocked for ${timeSinceHeartbeat}ms`,
-          isFatal: false,
-          metadata: {
-            blockedDuration: timeSinceHeartbeat,
-            anrCount: this.anrDetection.anrCount,
-            fps: this.currentFPS,
-          },
-        });
-      } else if (timeSinceHeartbeat < 1000) {
-        this.anrDetection.isResponsive = true;
-      }
-    }, 1000);
+    // ANR detection disabled - the extra requestAnimationFrame loop was causing
+    // significant FPS drops. Use crash reporting for actual freezes instead.
   }
 
   // === NETWORK MONITORING ===
@@ -601,8 +568,6 @@ class ErrorTracker {
     if (this.breadcrumbBuffer.length > this.maxBreadcrumbs) {
       this.breadcrumbBuffer.shift();
     }
-    
-    if (__DEV__) console.log(`[ErrorTracker] Breadcrumb [${breadcrumb.category}]:`, breadcrumb.message);
   }
 
   getBreadcrumbs(): BreadcrumbData[] {

@@ -327,34 +327,8 @@ class GlitchFreeEngine {
   }
 
   private startFPSMonitoring(): void {
-    if (Platform.OS === 'web') return;
-    
-    const measureFPS = () => {
-      const now = Date.now();
-      this.frameTimestamps.push(now);
-      
-      while (this.frameTimestamps.length > 0 && this.frameTimestamps[0] < now - 1000) {
-        this.frameTimestamps.shift();
-      }
-      
-      this.currentFPS = this.frameTimestamps.length;
-      this.fpsHistory.push(this.currentFPS);
-      
-      if (this.fpsHistory.length > 20) {
-        this.fpsHistory.shift();
-      }
-      
-      if (this.currentFPS < 30 && this.fpsHistory.length >= 5) {
-        const avgFPS = this.fpsHistory.slice(-5).reduce((a, b) => a + b, 0) / 5;
-        if (avgFPS < 30) {
-          this.handleLowFPS(avgFPS);
-        }
-      }
-      
-      requestAnimationFrame(measureFPS);
-    };
-    
-    requestAnimationFrame(measureFPS);
+    // FPS monitoring disabled - use errorTracking's single FPS monitor instead
+    // Having multiple requestAnimationFrame loops causes significant FPS drops
   }
 
   private handleLowFPS(avgFPS: number): void {

@@ -142,10 +142,6 @@ function startSoundCleanup() {
     toRemove.forEach(key => {
       activeSounds.delete(key);
     });
-    
-    if (toRemove.length > 0) {
-      console.log('[Audio] Cleaned up', toRemove.length, 'finished sounds');
-    }
   }, SOUND_CLEANUP_INTERVAL);
 }
 
@@ -375,7 +371,7 @@ async function preloadSound(note: string, instrumentId: string = currentInstrume
     
     const { sound } = await Audio.Sound.createAsync(
       { uri: url },
-      { shouldPlay: false, volume: 1.0, progressUpdateIntervalMillis: 500, shouldCorrectPitch: false },
+      { shouldPlay: false, volume: 1.0, progressUpdateIntervalMillis: 500, shouldCorrectPitch: true },
       null,
       true
     );
@@ -479,8 +475,6 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     } else {
       preloadWebSamples(instId);
     }
-    
-    console.log(`Audio hook using instrument: ${instId}`);
   }, [instrumentId]);
 
   useEffect(() => {
@@ -493,10 +487,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
   const playNoteWeb = useCallback(async (note: string, duration: number = 0.35) => {
     try {
       const ctx = getWebAudioContext();
-      if (!ctx) {
-        console.log('[Audio] No web audio context available');
-        return;
-      }
+      if (!ctx) return;
 
       if (ctx.state === 'suspended') {
         await ctx.resume();
@@ -504,10 +495,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       }
 
       const frequency = NOTE_FREQUENCIES[note];
-      if (!frequency) {
-        console.log('[Audio] Unknown note:', note);
-        return;
-      }
+      if (!frequency) return;
 
       const instrument = currentInstrumentRef.current;
       const { volume: vol } = audioSettingsRef.current;
@@ -530,14 +518,14 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
         gainNode.gain.setValueAtTime(vol, ctx.currentTime);
         
         source.start(0);
-        console.log(`[Audio] Web: Playing sample ${note} on ${instrument.name} (vol: ${vol})`);
       } else {
         const oscillator = ctx.createOscillator();
         const gainNode = ctx.createGain();
         const filterNode = ctx.createBiquadFilter();
 
         filterNode.type = 'lowpass';
-        filterNode.frequency.setValueAtTime(instrument.id === 'synth' ? 4000 : 2000, ctx.currentTime);
+        filterNode.frequency.setValueAtTime(instrument.id === 'synth' ? 6000 : 4000, ctx.currentTime);
+        filterNode.Q.setValueAtTime(0.7, ctx.currentTime);
 
         oscillator.connect(filterNode);
         filterNode.connect(gainNode);
@@ -552,21 +540,19 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
         oscillator.frequency.setValueAtTime(adjustedFreq, ctx.currentTime);
 
         const { attackTime, sustainLevel, releaseTime } = instrument;
-        const maxGain = 0.5 * vol;
-        const sustainGain = Math.max(0.01, sustainLevel * 0.5 * vol);
+        const maxGain = 0.4 * vol;
+        const sustainGain = Math.max(0.01, sustainLevel * 0.4 * vol);
         
-        gainNode.gain.setValueAtTime(0, ctx.currentTime);
-        gainNode.gain.linearRampToValueAtTime(maxGain, ctx.currentTime + attackTime);
-        gainNode.gain.exponentialRampToValueAtTime(sustainGain, ctx.currentTime + duration * 0.7);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration + releaseTime);
+        gainNode.gain.setValueAtTime(0.001, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(maxGain, ctx.currentTime + Math.max(0.005, attackTime));
+        gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainGain), ctx.currentTime + duration * 0.6);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration + releaseTime);
 
         oscillator.start(ctx.currentTime);
         oscillator.stop(ctx.currentTime + duration + releaseTime + 0.15);
-
-        console.log(`[Audio] Web: Playing oscillator ${note} on ${instrument.name} (vol: ${vol})`);
       }
     } catch (error) {
-      console.log('[Audio] Web audio error:', error);
+      if (__DEV__) console.log('[Audio] Web audio error:', error);
     }
   }, []);
 
@@ -575,10 +561,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     
     const now = Date.now();
     const lastPlayed = lastPlayedNote.get(note) || 0;
-    if (now - lastPlayed < NOTE_DEBOUNCE_MS) {
-      console.log(`[Audio] Debouncing note ${note}`);
-      return;
-    }
+    if (now - lastPlayed < NOTE_DEBOUNCE_MS) return;
     lastPlayedNote.set(note, now);
     
     try {
@@ -614,7 +597,6 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
             await sound.setVolumeAsync(audioSettingsRef.current.volume);
             await sound.playAsync();
           } else {
-            console.log(`[Audio] Sound not loaded for ${note}, reloading...`);
             cache.delete(note);
             const newSound = await preloadSound(note, instId);
             if (newSound) {
@@ -624,19 +606,16 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
             }
           }
         } catch (playError) {
-          console.log(`[Audio] Play error for ${note}:`, playError);
           cache.delete(note);
-          captureError(playError, { tags: { component: 'Audio', action: 'playNote', note } });
+          if (__DEV__) console.log(`[Audio] Play error for ${note}:`, playError);
         }
       }
     } catch (error) {
-      console.log(`[Audio] Native audio error for ${note}:`, error);
-      captureError(error, { tags: { component: 'Audio', action: 'playNoteNative' } });
+      if (__DEV__) console.log(`[Audio] Native audio error for ${note}:`, error);
     }
   }, []);
 
   const playNote = useCallback((note: string) => {
-    console.log(`[Audio] playNote: ${note} on ${Platform.OS}`);
     try {
       if (Platform.OS === 'web') {
         playNoteWeb(note);
@@ -644,7 +623,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
         playNoteNative(note);
       }
     } catch (error) {
-      console.log('[Audio] Error playing note:', error);
+      if (__DEV__) console.log('[Audio] Error playing note:', error);
     }
   }, [playNoteWeb, playNoteNative]);
 
@@ -726,9 +705,6 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     lastPlayedTempoRef.current = tempo;
     const adjustedTempo = tempo / audioSettingsRef.current.playbackSpeed;
     const noteDurations = getDurationsOrDefault(notes, durations);
-    const hasVariableDurations = durations && durations.length === notes.length;
-    
-    console.log(`[Audio] Playing ${mode}: ${notes.join(', ')} at speed ${audioSettingsRef.current.playbackSpeed}x${hasVariableDurations ? ' with variable durations' : ''}`);
     
     setPlaybackState({
       isPlaying: true,

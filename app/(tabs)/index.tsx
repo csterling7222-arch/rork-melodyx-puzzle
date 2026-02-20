@@ -679,7 +679,7 @@ export default function HomeScreen() {
 
   return (
     <ThemedBackground theme={theme} isDark={isDarkMode} animated={animationsEnabled}>
-      <Confetti isActive={showConfetti} count={100} />
+      <Confetti isActive={showConfetti} count={40} />
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <Animated.View
           style={[

@@ -73,7 +73,7 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
-  const [showPerfMonitor, setShowPerfMonitor] = useState(__DEV__);
+  const [showPerfMonitor, setShowPerfMonitor] = useState(false);
 
   useEffect(() => {
     const verifyDataIntegrity = async () => {
@@ -188,12 +188,14 @@ export default function RootLayout() {
                                 <UserMelodiesProvider>
                                   <StatusBar style="light" />
                                   <RootLayoutNav />
-                                  <PerformanceMonitor 
-                                    visible={showPerfMonitor} 
-                                    position="top-right"
-                                    compact={true}
-                                    onToggle={() => setShowPerfMonitor(prev => !prev)}
-                                  />
+                                  {__DEV__ && showPerfMonitor && (
+                                    <PerformanceMonitor 
+                                      visible={showPerfMonitor} 
+                                      position="top-right"
+                                      compact={true}
+                                      onToggle={() => setShowPerfMonitor(prev => !prev)}
+                                    />
+                                  )}
                                 </UserMelodiesProvider>
                               </TuneSnippetProvider>
                             </SocialShareProvider>
