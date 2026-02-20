@@ -93,6 +93,7 @@ const DEFAULT_PLAYBACK_STATE: PlaybackState = {
 
 let audioContextInstance: AudioContext | null = null;
 let audioInitialized = false;
+let nativeAudioInitPromise: Promise<boolean> | null = null;
 let webAudioUnlocked = false;
 
 const webSampleCache = new Map<string, Map<string, AudioBuffer>>();
@@ -111,8 +112,9 @@ const RETRY_DELAY_MS = 200;
 const activeSounds = new Map<string, { sound: Audio.Sound; startTime: number }>();
 const SOUND_CLEANUP_INTERVAL = 2000;
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
+let cleanupRefCount = 0;
 
-const NOTE_DEBOUNCE_MS = 50;
+const NOTE_DEBOUNCE_MS = 30;
 const lastPlayedNote = new Map<string, number>();
 
 const offlineCache = new Map<string, boolean>();
@@ -127,6 +129,7 @@ export function setOfflineMode(offline: boolean) {
 }
 
 function startSoundCleanup() {
+  cleanupRefCount++;
   if (cleanupInterval) return;
   
   cleanupInterval = setInterval(() => {
@@ -146,7 +149,8 @@ function startSoundCleanup() {
 }
 
 export function stopSoundCleanup() {
-  if (cleanupInterval) {
+  cleanupRefCount = Math.max(0, cleanupRefCount - 1);
+  if (cleanupRefCount === 0 && cleanupInterval) {
     clearInterval(cleanupInterval);
     cleanupInterval = null;
   }
@@ -291,9 +295,7 @@ export function unlockWebAudio(): void {
   }
 }
 
-let nativeAudioInitPromise: Promise<boolean> | null = null;
-
-async function initNativeAudio() {
+export async function initNativeAudio(): Promise<boolean> {
   if (audioInitialized || Platform.OS === 'web') return true;
   
   if (nativeAudioInitPromise) {
@@ -324,12 +326,14 @@ async function initNativeAudio() {
       captureError(error, { tags: { component: 'Audio', action: 'initNativeAudio' } });
       logAudioEvent('native_audio_init_failed', { error: String(error) });
       return false;
-    } finally {
-      nativeAudioInitPromise = null;
     }
   })();
   
   return nativeAudioInitPromise;
+}
+
+export function isAudioInitialized(): boolean {
+  return audioInitialized;
 }
 
 const NOTE_TO_FILE: Record<string, string> = {
@@ -420,26 +424,32 @@ async function preloadAllSounds(instrumentId: string = currentInstrumentId) {
   isPreloading = false;
 }
 
-function cleanupOldCaches(currentInstrumentId: string) {
+async function cleanupOldCaches(activeInstrumentId: string) {
   let totalCached = 0;
   soundCache.forEach((cache) => {
     totalCached += cache.size;
   });
   
   if (totalCached > MAX_CACHE_SIZE) {
+    const cleanupPromises: Promise<void>[] = [];
+    
     soundCache.forEach((cache, instId) => {
-      if (instId !== currentInstrumentId && cache.size > 0) {
+      if (instId !== activeInstrumentId && cache.size > 0) {
         console.log(`[Audio] Cleaning up cache for ${instId}`);
-        cache.forEach(async (sound) => {
-          try {
-            await sound.unloadAsync();
-          } catch (e) {
-            console.log('[Audio] Error unloading sound:', e);
-          }
-        });
+        const sounds = Array.from(cache.values());
         cache.clear();
+        
+        for (const sound of sounds) {
+          cleanupPromises.push(
+            sound.unloadAsync().then(() => {}).catch(e => {
+              console.log('[Audio] Error unloading sound:', e);
+            })
+          );
+        }
       }
     });
+    
+    await Promise.all(cleanupPromises);
   }
 }
 
@@ -478,9 +488,10 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
   }, [instrumentId]);
 
   useEffect(() => {
-    const timeouts = playbackTimeoutsRef.current;
     return () => {
-      timeouts.forEach(clearTimeout);
+      playbackTimeoutsRef.current.forEach(clearTimeout);
+      playbackTimeoutsRef.current = [];
+      stopSoundCleanup();
     };
   }, []);
 
@@ -588,26 +599,25 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
 
       if (sound) {
         try {
-          const status = await sound.getStatusAsync();
-          if (status.isLoaded) {
-            if (status.isPlaying) {
-              await sound.stopAsync();
-            }
-            await sound.setPositionAsync(0);
-            await sound.setVolumeAsync(audioSettingsRef.current.volume);
-            await sound.playAsync();
-          } else {
-            cache.delete(note);
-            const newSound = await preloadSound(note, instId);
-            if (newSound) {
-              await newSound.setPositionAsync(0);
-              await newSound.setVolumeAsync(audioSettingsRef.current.volume);
-              await newSound.playAsync();
-            }
-          }
+          await sound.setStatusAsync({
+            shouldPlay: true,
+            positionMillis: 0,
+            volume: audioSettingsRef.current.volume,
+          });
         } catch (playError) {
           cache.delete(note);
-          if (__DEV__) console.log(`[Audio] Play error for ${note}:`, playError);
+          try {
+            const newSound = await preloadSound(note, instId);
+            if (newSound) {
+              await newSound.setStatusAsync({
+                shouldPlay: true,
+                positionMillis: 0,
+                volume: audioSettingsRef.current.volume,
+              });
+            }
+          } catch (retryError) {
+            if (__DEV__) console.log(`[Audio] Retry play error for ${note}:`, retryError);
+          }
         }
       }
     } catch (error) {
@@ -998,10 +1008,11 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     const volumeStep = (targetVolume - startVolume) / steps;
     
     for (let i = 1; i <= steps; i++) {
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         const newVol = startVolume + (volumeStep * i);
         setVolume(Math.max(0, Math.min(1, newVol)));
       }, stepDuration * i);
+      playbackTimeoutsRef.current.push(timeout);
     }
   }, [volume]);
 

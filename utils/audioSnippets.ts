@@ -1,5 +1,6 @@
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { initNativeAudio } from '@/hooks/useAudio';
 
 export interface AudioSnippet {
   id: string;
@@ -47,12 +48,7 @@ class AudioSnippetManager {
       console.log('[AudioSnippetManager] Initializing...');
       
       try {
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: false,
-          shouldDuckAndroid: true,
-          allowsRecordingIOS: false,
-        });
+        await initNativeAudio();
         
         await this.loadConfig();
         await this.loadCachedMetadata();

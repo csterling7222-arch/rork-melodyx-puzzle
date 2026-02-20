@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { captureError, addBreadcrumb } from '@/utils/errorTracking';
 import { usePurchases } from '@/contexts/PurchasesContext';
+import { initNativeAudio } from '@/hooks/useAudio';
 
 const SNIPPET_CACHE_KEY = 'melodyx_snippet_cache_v1';
 const MAX_CACHE_SIZE_MB = 100;
@@ -69,38 +70,8 @@ interface CachedSnippet {
   sizeBytes: number;
 }
 
-let audioInitialized = false;
-let audioInitPromise: Promise<boolean> | null = null;
-
 async function initAudioMode(): Promise<boolean> {
-  if (audioInitialized || Platform.OS === 'web') return true;
-  
-  if (audioInitPromise) {
-    return audioInitPromise;
-  }
-  
-  audioInitPromise = (async () => {
-    try {
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
-        allowsRecordingIOS: false,
-      });
-      audioInitialized = true;
-      console.log('[TuneSnippet] Audio mode initialized');
-      return true;
-    } catch (error) {
-      console.error('[TuneSnippet] Failed to initialize audio mode:', error);
-      captureError(error, { tags: { component: 'TuneSnippet', action: 'initAudioMode' } });
-      return false;
-    } finally {
-      audioInitPromise = null;
-    }
-  })();
-  
-  return audioInitPromise;
+  return initNativeAudio();
 }
 
 export const [TuneSnippetProvider, useTuneSnippet] = createContextHook(() => {
