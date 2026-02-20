@@ -41,11 +41,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
-    const inAuthGroup = segments[0] === 'auth';
+    const inAuthGroup = segments[0] === ('auth' as string);
 
     if (!isAuthenticated && !inAuthGroup) {
       if (__DEV__) console.log('[Auth] Not authenticated, redirecting to auth screen');
-      router.replace('/auth');
+      router.replace('/auth' as any);
     } else if (isAuthenticated && inAuthGroup) {
       if (__DEV__) console.log('[Auth] Already authenticated, redirecting to tabs');
       router.replace('/(tabs)');
