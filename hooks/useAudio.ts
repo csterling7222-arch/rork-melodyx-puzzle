@@ -114,8 +114,9 @@ const SOUND_CLEANUP_INTERVAL = 2000;
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 let cleanupRefCount = 0;
 
-const NOTE_DEBOUNCE_MS = 30;
+const NOTE_DEBOUNCE_MS = 50;
 const lastPlayedNote = new Map<string, number>();
+const activeSoundLocks = new Set<string>();
 
 const offlineCache = new Map<string, boolean>();
 let isOfflineMode = false;
@@ -123,7 +124,6 @@ const AUDIO_CACHE_KEY = 'melodyx_audio_cache_status';
 
 export function setOfflineMode(offline: boolean) {
   isOfflineMode = offline;
-  console.log('[Audio] Offline mode:', offline);
   addBreadcrumb({ category: 'audio', message: `Offline mode: ${offline}`, level: 'info' });
   logAudioEvent('offline_mode_changed', { offline });
 }
@@ -255,10 +255,10 @@ async function loadWebSample(note: string, instrumentId: string): Promise<AudioB
       const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
       
       cache.set(note, audioBuffer);
-      console.log(`[Audio] Web: Loaded sample for ${instrumentId} ${note}`);
+
       return audioBuffer;
     } catch (error) {
-      console.log(`[Audio] Web: Failed to load sample for ${note}:`, error);
+      if (__DEV__) console.log(`[Audio] Web: Failed to load sample for ${note}:`, error);
       return null;
     } finally {
       webSampleLoadingPromises.delete(cacheKey);
@@ -271,7 +271,7 @@ async function loadWebSample(note: string, instrumentId: string): Promise<AudioB
 
 async function preloadWebSamples(instrumentId: string): Promise<void> {
   const notes = Object.keys(NOTE_FREQUENCIES);
-  console.log(`[Audio] Web: Preloading samples for ${instrumentId}...`);
+
   
   const batchSize = 3;
   for (let i = 0; i < notes.length; i += batchSize) {
@@ -280,7 +280,7 @@ async function preloadWebSamples(instrumentId: string): Promise<void> {
     await new Promise(resolve => setTimeout(resolve, 50));
   }
   
-  console.log(`[Audio] Web: Preload complete for ${instrumentId}`);
+
 }
 
 export function unlockWebAudio(): void {
@@ -383,11 +383,10 @@ async function preloadSound(note: string, instrumentId: string = currentInstrume
     cache.set(note, sound);
     offlineCache.set(cacheKey, true);
     saveCacheStatus();
-    console.log(`[Audio] Preloaded ${instrumentId} sound for ${note}`);
     addBreadcrumb({ category: 'audio', message: `Preloaded ${note}`, level: 'debug' });
     return sound;
   } catch (error) {
-    console.log(`[Audio] Failed to preload ${instrumentId} ${note} (attempt ${retryCount + 1}):`, error);
+    if (__DEV__ && retryCount >= MAX_RETRY_ATTEMPTS) console.log(`[Audio] Failed to preload ${instrumentId} ${note} after ${retryCount + 1} attempts`);
     
     if (retryCount < MAX_RETRY_ATTEMPTS) {
       preloadQueue.delete(cacheKey);
@@ -409,7 +408,7 @@ async function preloadAllSounds(instrumentId: string = currentInstrumentId) {
   
   const notes = Object.keys(NOTE_FREQUENCIES);
   const cache = getInstrumentCache(instrumentId);
-  console.log(`[Audio] Starting preload for ${instrumentId}...`);
+  if (__DEV__) console.log(`[Audio] Starting preload for ${instrumentId}...`);
   
   const notesToLoad = notes.filter(note => !cache.has(note));
   
@@ -420,7 +419,7 @@ async function preloadAllSounds(instrumentId: string = currentInstrumentId) {
   }
   
   cleanupOldCaches(instrumentId);
-  console.log(`[Audio] Preload complete for ${instrumentId} (${cache.size} sounds cached)`);
+  if (__DEV__) console.log(`[Audio] Preload complete for ${instrumentId} (${cache.size} sounds cached)`);
   isPreloading = false;
 }
 
@@ -435,7 +434,7 @@ async function cleanupOldCaches(activeInstrumentId: string) {
     
     soundCache.forEach((cache, instId) => {
       if (instId !== activeInstrumentId && cache.size > 0) {
-        console.log(`[Audio] Cleaning up cache for ${instId}`);
+        if (__DEV__) console.log(`[Audio] Cleaning up cache for ${instId}`);
         const sounds = Array.from(cache.values());
         cache.clear();
         
@@ -508,6 +507,12 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       const frequency = NOTE_FREQUENCIES[note];
       if (!frequency) return;
 
+      const now = Date.now();
+      const debounceKey = `web_${note}`;
+      const lastPlayed = lastPlayedNote.get(debounceKey) ?? 0;
+      if (now - lastPlayed < NOTE_DEBOUNCE_MS) return;
+      lastPlayedNote.set(debounceKey, now);
+
       const instrument = currentInstrumentRef.current;
       const { volume: vol } = audioSettingsRef.current;
       
@@ -562,8 +567,8 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
         oscillator.start(ctx.currentTime);
         oscillator.stop(ctx.currentTime + duration + releaseTime + 0.15);
       }
-    } catch (error) {
-      if (__DEV__) console.log('[Audio] Web audio error:', error);
+    } catch (_error) {
+      // Silent - avoid console spam
     }
   }, []);
 
@@ -576,52 +581,62 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       }
 
       const frequency = NOTE_FREQUENCIES[note];
-      if (!frequency) {
-        console.log('[Audio] Unknown note:', note);
-        return;
-      }
+      if (!frequency) return;
 
       const instId = currentInstrumentRef.current.id;
-      const cache = getInstrumentCache(instId);
-      let sound = cache.get(note);
+      const lockKey = `${instId}_${note}`;
       
-      const loadKey = `${instId}_${note}`;
-      if (!sound && !isLoadingRef.current.has(loadKey)) {
-        isLoadingRef.current.add(loadKey);
-        sound = await preloadSound(note, instId) || undefined;
-        isLoadingRef.current.delete(loadKey);
-      }
+      const now = Date.now();
+      const lastPlayed = lastPlayedNote.get(lockKey) ?? 0;
+      if (now - lastPlayed < NOTE_DEBOUNCE_MS) return;
+      lastPlayedNote.set(lockKey, now);
 
-      if (sound) {
-        try {
-          const status = await sound.getStatusAsync();
-          if (status.isLoaded && status.isPlaying) {
-            await sound.stopAsync();
-            await new Promise(resolve => setTimeout(resolve, 10));
-          }
-          await sound.setStatusAsync({
-            shouldPlay: true,
-            positionMillis: 0,
-            volume: audioSettingsRef.current.volume,
-          });
-        } catch (playError) {
-          cache.delete(note);
+      if (activeSoundLocks.has(lockKey)) return;
+      activeSoundLocks.add(lockKey);
+
+      try {
+        const cache = getInstrumentCache(instId);
+        let sound = cache.get(note);
+        
+        const loadKey = `${instId}_${note}`;
+        if (!sound && !isLoadingRef.current.has(loadKey)) {
+          isLoadingRef.current.add(loadKey);
+          sound = await preloadSound(note, instId) || undefined;
+          isLoadingRef.current.delete(loadKey);
+        }
+
+        if (sound) {
           try {
-            const newSound = await preloadSound(note, instId);
-            if (newSound) {
-              await newSound.setStatusAsync({
-                shouldPlay: true,
-                positionMillis: 0,
-                volume: audioSettingsRef.current.volume,
-              });
+            const status = await sound.getStatusAsync();
+            if (status.isLoaded && status.isPlaying) {
+              await sound.stopAsync();
             }
-          } catch (retryError) {
-            if (__DEV__) console.log(`[Audio] Retry play error for ${note}:`, retryError);
+            await sound.setStatusAsync({
+              shouldPlay: true,
+              positionMillis: 0,
+              volume: audioSettingsRef.current.volume,
+            });
+          } catch (playError) {
+            cache.delete(note);
+            try {
+              const newSound = await preloadSound(note, instId);
+              if (newSound) {
+                await newSound.setStatusAsync({
+                  shouldPlay: true,
+                  positionMillis: 0,
+                  volume: audioSettingsRef.current.volume,
+                });
+              }
+            } catch (_retryError) {
+              // Silent retry failure
+            }
           }
         }
+      } finally {
+        activeSoundLocks.delete(lockKey);
       }
-    } catch (error) {
-      if (__DEV__) console.log(`[Audio] Native audio error for ${note}:`, error);
+    } catch (_error) {
+      // Silent error - avoid console spam on native
     }
   }, []);
 
@@ -632,14 +647,15 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       } else {
         playNoteNative(note);
       }
-    } catch (error) {
-      if (__DEV__) console.log('[Audio] Error playing note:', error);
+    } catch (_error) {
+      // Silent - avoid console spam
     }
   }, [playNoteWeb, playNoteNative]);
 
   const stopPlayback = useCallback(() => {
     playbackTimeoutsRef.current.forEach(clearTimeout);
     playbackTimeoutsRef.current = [];
+    lastPlayedNote.clear();
     setIsPaused(false);
     pausedAtIndexRef.current = -1;
     setPlaybackState(DEFAULT_PLAYBACK_STATE);
@@ -657,7 +673,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       isPlaying: false,
       isPaused: true,
     }));
-    console.log('[Audio] Playback paused at index:', pausedAtIndexRef.current);
+
   }, [playbackState.isPlaying, playbackState.isPaused, playbackState.currentNoteIndex]);
 
   const resumePlayback = useCallback(() => {
@@ -697,20 +713,20 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     }, remainingNotes.length * tempo + 300);
     playbackTimeoutsRef.current.push(endTimeout);
     
-    console.log('[Audio] Playback resumed from index:', startIndex);
+
   }, [playbackState.isPaused, stopPlayback, playNote]);
 
   const toggleLoop = useCallback(() => {
-    setIsLooping(prev => {
-      console.log('[Audio] Loop toggled:', !prev);
-      return !prev;
-    });
+    setIsLooping(prev => !prev);
   }, []);
 
   const replayFromStartRef = useRef<() => void>(() => {});
 
   const playMelodyInternal = useCallback((notes: string[], tempo: number = 400, mode: PlaybackState['mode'] = 'melody', durations?: number[]) => {
     stopPlayback();
+    
+    lastPlayedNote.clear();
+    
     lastPlayedNotesRef.current = notes;
     lastPlayedTempoRef.current = tempo;
     const adjustedTempo = tempo / audioSettingsRef.current.playbackSpeed;
@@ -761,7 +777,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       setTimeout(() => {
         playMelodyInternal(notes, tempo, mode);
       }, 100);
-      console.log('[Audio] Replaying from start');
+
     }
   }, [playbackState.mode, stopPlayback, playMelodyInternal]);
 
@@ -775,7 +791,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
   }, [playMelodyInternal]);
 
   const playMelodyWithDurations = useCallback((notes: string[], durations: number[], baseTempo: number = 400) => {
-    console.log(`[Audio] Playing melody with variable durations: ${durations.join(', ')} beats`);
+
     playMelodyInternal(notes, baseTempo, 'melody', durations);
   }, [playMelodyInternal]);
 
@@ -787,7 +803,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     const noteDurations = getDurationsOrDefault(notes, durations);
     const hasVariableDurations = durations && durations.length === notes.length;
     
-    console.log(`[Audio] Playing full melody (${notes.length} notes) at tempo ${tempo}ms${hasVariableDurations ? ' with variable durations' : ''}`);
+
     
     setPlaybackState({
       isPlaying: true,
@@ -836,7 +852,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     const snippetTempo = Math.max(350, 500 - notes.length * 8);
     lastPlayedTempoRef.current = snippetTempo;
     
-    console.log(`[Audio] Playing snippet (${notes.length} notes, tempo ${snippetTempo}ms): ${notes.slice(0, 5).join(', ')}...${hasVariableDurations ? ' with variable durations' : ''}`);
+
     
     setPlaybackState({
       isPlaying: true,
@@ -879,7 +895,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
 
   const playHintNotes = useCallback((notes: string[], count: number = 3) => {
     const hintNotes = notes.slice(0, Math.min(count, notes.length));
-    console.log(`[Audio] Playing hint notes: ${hintNotes.join(', ')}`);
+
     
     stopPlayback();
     lastPlayedNotesRef.current = hintNotes;
@@ -918,7 +934,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
   const playTeaser = useCallback((notes: string[], duration: number = 5) => {
     const teaserCount = Math.min(Math.ceil(notes.length * 0.4), Math.floor(duration / 0.5));
     const teaserNotes = notes.slice(0, Math.max(3, teaserCount));
-    console.log(`[Audio] Playing teaser (${duration}s): ${teaserNotes.join(', ')}`);
+
     
     stopPlayback();
     lastPlayedNotesRef.current = teaserNotes;
@@ -955,7 +971,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
   }, [playNote, stopPlayback]);
 
   const playNotePreview = useCallback((note: string) => {
-    console.log(`[Audio] Playing note preview: ${note}`);
+
     playNote(note);
     
     setPlaybackState(prev => ({
@@ -976,7 +992,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
   const preloadNotes = useCallback(async (notes: string[]) => {
     if (Platform.OS === 'web') return;
     const instId = currentInstrumentRef.current.id;
-    console.log(`[Audio] Preloading ${notes.length} notes for ${instId}`);
+
     await Promise.all(notes.map(note => preloadSound(note, instId)));
   }, []);
 
@@ -997,13 +1013,13 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
   const updateVolume = useCallback((newVolume: number) => {
     const clampedVolume = Math.max(0, Math.min(1, newVolume));
     setVolume(clampedVolume);
-    console.log(`[Audio] Volume set to ${clampedVolume}`);
+
   }, []);
 
   const updatePlaybackSpeed = useCallback((speed: number) => {
     const clampedSpeed = Math.max(0.5, Math.min(2, speed));
     setPlaybackSpeed(clampedSpeed);
-    console.log(`[Audio] Playback speed set to ${clampedSpeed}x`);
+
   }, []);
 
   const fadeToVolume = useCallback((targetVolume: number, durationMs: number = 500) => {

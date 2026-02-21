@@ -74,7 +74,7 @@ export async function initAudioOnce(initFn: () => Promise<void>): Promise<void> 
         await initNativeAudio();
         await initFn();
         isInitialized = true;
-        console.log('[AudioMutex] Audio initialized successfully');
+
       }
     } finally {
       release();

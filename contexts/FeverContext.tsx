@@ -171,7 +171,7 @@ export const [FeverProvider, useFever] = createContextHook(() => {
   const { mutate: saveStats } = useMutation({
     mutationFn: async (stats: FeverStats) => {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
-      console.log('[Fever] Saved stats - High score:', stats.highScore, 'Total games:', stats.totalGames);
+
       return stats;
     },
     onSuccess: (savedStats) => {
@@ -238,7 +238,7 @@ export const [FeverProvider, useFever] = createContextHook(() => {
     setShowSolvedPopup(false);
     setIsPaused(false);
     feverStartTimeRef.current = null;
-    console.log('[Fever] Game started with melody:', melody.name, 'filter:', filter);
+    if (__DEV__) console.log('[Fever] Game started with melody:', melody.name);
   }, [genreFilter, playHistory]);
 
   const nextMelody = useCallback(() => {
@@ -253,7 +253,7 @@ export const [FeverProvider, useFever] = createContextHook(() => {
     setPlayHistory(prev => [...prev.slice(-50), melody.name]);
     setCurrentGuess([]);
     setGuesses([]);
-    console.log('[Fever] Next melody:', melody.name, 'chain:', chain);
+
   }, [recentMelodies, genreFilter, playHistory, chain]);
 
   const addNote = useCallback((note: string) => {
@@ -316,26 +316,26 @@ export const [FeverProvider, useFever] = createContextHook(() => {
         const newMultiplier = Math.min(3, MAX_MULTIPLIER);
         setMultiplier(newMultiplier);
         feverStartTimeRef.current = Date.now();
-        console.log('[Fever] FEVER MODE ACTIVATED! Multiplier:', newMultiplier);
+
       } else if (newChain >= 20 && isFeverActive) {
         const newMultiplier = Math.min(5, MAX_MULTIPLIER);
         setMultiplier(newMultiplier);
-        console.log('[Fever] Chain 20+, boosted multiplier:', newMultiplier);
+
       } else if (newChain >= 50 && isFeverActive) {
         const newMultiplier = Math.min(8, MAX_MULTIPLIER);
         setMultiplier(newMultiplier);
-        console.log('[Fever] Chain 50+, max multiplier:', newMultiplier);
+
       } else if (newChain >= 5 && newChain < 10) {
         setMultiplier(Math.min(2, MAX_MULTIPLIER));
       }
       
-      console.log(`[Fever] Solved! +${earnedPoints} pts, +${earnedCoins} coins, chain: ${newChain}`);
+
       setTimeout(() => {
         setShowSolvedPopup(false);
         nextMelody();
       }, 1800);
     } else if (newGuesses.length >= MISS_RESET_THRESHOLD) {
-      console.log('[Fever] Max misses reached, resetting multipliers');
+
       setChain(0);
       setMultiplier(1);
       setIsFeverActive(false);
@@ -353,7 +353,7 @@ export const [FeverProvider, useFever] = createContextHook(() => {
         longestFeverDuration: Math.max(currentStats.longestFeverDuration, feverDuration),
       };
       saveStats(newStats);
-      console.log('[Fever] Game Over! Final stats:', newStats);
+
     }
 
     setCurrentGuess([]);
@@ -373,7 +373,7 @@ export const [FeverProvider, useFever] = createContextHook(() => {
     
     setIsPlaying(false);
     setGameOver(true);
-    console.log('[Fever] Game ended manually. Earned:', { coins: coinsEarned, hints: hintsEarned });
+
   }, [score, chain, solvedCount, coinsEarned, hintsEarned, feverDuration, statsQuery.data, saveStats]);
 
   const dismissRewardPopup = useCallback(() => {
@@ -382,7 +382,7 @@ export const [FeverProvider, useFever] = createContextHook(() => {
 
   const changeGenreFilter = useCallback((filter: FeverGenreFilter) => {
     setGenreFilter(filter);
-    console.log('[Fever] Genre filter changed to:', filter);
+
   }, []);
 
   const usePowerUp = useCallback((type: 'timeFreeze' | 'doublePoints' | 'skipSong') => {
@@ -405,7 +405,7 @@ export const [FeverProvider, useFever] = createContextHook(() => {
         break;
     }
     
-    console.log('[Fever] Power-up used:', type);
+
     return true;
   }, [powerUps, isFeverActive, nextMelody]);
 

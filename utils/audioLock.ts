@@ -83,7 +83,7 @@ export function canStartPlayback(id: string): boolean {
   const now = Date.now();
   
   if (now - lastTime < PLAYBACK_DEBOUNCE_MS) {
-    console.log(`[AudioLock] Debounced playback for ${id}`);
+
     return false;
   }
   
@@ -106,13 +106,13 @@ export function markWebAudioGestureReceived(): void {
   if (webAudioUserGestureReceived) return;
   
   webAudioUserGestureReceived = true;
-  console.log('[AudioLock] Web audio user gesture received');
+
   
   webAudioUnlockCallbacks.forEach(cb => {
     try {
       cb();
     } catch (e) {
-      console.log('[AudioLock] Unlock callback error:', e);
+
     }
   });
   webAudioUnlockCallbacks = [];

@@ -45,7 +45,7 @@ class AudioSnippetManager {
     }
     
     this.initPromise = (async () => {
-      console.log('[AudioSnippetManager] Initializing...');
+
       
       try {
         await initNativeAudio();
@@ -54,7 +54,7 @@ class AudioSnippetManager {
         await this.loadCachedMetadata();
         
         this.isInitialized = true;
-        console.log('[AudioSnippetManager] Initialized successfully');
+
       } catch (error) {
         console.error('[AudioSnippetManager] Initialization failed:', error);
         this.initPromise = null;
@@ -72,7 +72,7 @@ class AudioSnippetManager {
         this.config = { ...DEFAULT_CONFIG, ...JSON.parse(stored) };
       }
     } catch (error) {
-      console.log('[AudioSnippetManager] Failed to load config:', error);
+
     }
   }
 
@@ -80,9 +80,9 @@ class AudioSnippetManager {
     this.config = { ...this.config, ...config };
     try {
       await AsyncStorage.setItem(SNIPPET_CONFIG_KEY, JSON.stringify(this.config));
-      console.log('[AudioSnippetManager] Config updated:', this.config);
+
     } catch (error) {
-      console.log('[AudioSnippetManager] Failed to save config:', error);
+
     }
   }
 
@@ -94,10 +94,10 @@ class AudioSnippetManager {
         data.forEach(snippet => {
           this.snippetMetadata.set(snippet.melodyName, snippet);
         });
-        console.log('[AudioSnippetManager] Loaded', data.length, 'cached snippet metadata');
+
       }
     } catch (error) {
-      console.log('[AudioSnippetManager] Failed to load cached metadata:', error);
+
     }
   }
 
@@ -106,7 +106,7 @@ class AudioSnippetManager {
       const data = Array.from(this.snippetMetadata.values());
       await AsyncStorage.setItem(SNIPPET_CACHE_KEY, JSON.stringify(data.slice(-this.config.maxCacheSize)));
     } catch (error) {
-      console.log('[AudioSnippetManager] Failed to save cached metadata:', error);
+
     }
   }
 
@@ -122,23 +122,23 @@ class AudioSnippetManager {
     
     this.snippetMetadata.set(melodyName, snippet);
     await this.saveCachedMetadata();
-    console.log('[AudioSnippetManager] Registered snippet for:', melodyName);
+
   }
 
   async loadSnippet(melodyName: string): Promise<Audio.Sound | null> {
     if (!this.config.enableRealSnippets) {
-      console.log('[AudioSnippetManager] Real snippets disabled, falling back to synthesized');
+
       return null;
     }
 
     if (this.loadedSnippets.has(melodyName)) {
-      console.log('[AudioSnippetManager] Using cached sound for:', melodyName);
+
       return this.loadedSnippets.get(melodyName)!;
     }
 
     const metadata = this.snippetMetadata.get(melodyName);
     if (!metadata || !metadata.isAvailable) {
-      console.log('[AudioSnippetManager] No snippet available for:', melodyName);
+
       return null;
     }
 
@@ -150,11 +150,11 @@ class AudioSnippetManager {
           : null;
 
       if (!source) {
-        console.log('[AudioSnippetManager] No valid source for:', melodyName);
+
         return null;
       }
 
-      console.log('[AudioSnippetManager] Loading snippet from:', source.uri);
+
       
       const { sound, status } = await Audio.Sound.createAsync(
         source,
@@ -177,7 +177,7 @@ class AudioSnippetManager {
       }
 
       this.loadedSnippets.set(melodyName, sound);
-      console.log('[AudioSnippetManager] Loaded snippet for:', melodyName);
+
       
       return sound;
     } catch (error) {
@@ -285,7 +285,7 @@ class AudioSnippetManager {
 
   async preloadSnippets(melodyNames: string[]): Promise<void> {
     const toLoad = melodyNames.slice(0, this.config.preloadCount);
-    console.log('[AudioSnippetManager] Preloading', toLoad.length, 'snippets');
+
     
     for (const name of toLoad) {
       if (!this.loadedSnippets.has(name)) {
@@ -295,7 +295,7 @@ class AudioSnippetManager {
   }
 
   async cleanup(): Promise<void> {
-    console.log('[AudioSnippetManager] Cleaning up...');
+
     
     await this.stopCurrentPlayback();
     
@@ -303,19 +303,19 @@ class AudioSnippetManager {
       try {
         await sound.unloadAsync();
       } catch (error) {
-        console.log('[AudioSnippetManager] Error unloading sound:', name, error);
+
       }
     }
     
     this.loadedSnippets.clear();
-    console.log('[AudioSnippetManager] Cleanup complete');
+
   }
 
   async clearCache(): Promise<void> {
     await this.cleanup();
     this.snippetMetadata.clear();
     await AsyncStorage.removeItem(SNIPPET_CACHE_KEY);
-    console.log('[AudioSnippetManager] Cache cleared');
+
   }
 }
 

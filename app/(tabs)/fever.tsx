@@ -549,13 +549,16 @@ export default function FeverScreen() {
       prevGuessLength.current = currentGuess.length;
       return;
     }
+    if (playbackState.isPlaying) {
+      prevGuessLength.current = currentGuess.length;
+      return;
+    }
     if (currentGuess.length > prevGuessLength.current && currentGuess.length > 0) {
       const lastNote = currentGuess[currentGuess.length - 1];
       playNote(lastNote);
-      console.log(`[Fever] Playing note ${lastNote} (${currentGuess.length}/${melodyLength})`);
     }
     prevGuessLength.current = currentGuess.length;
-  }, [currentGuess, playNote, melodyLength]);
+  }, [currentGuess, playNote, melodyLength, playbackState.isPlaying]);
 
   useEffect(() => {
     if (chain > 0 && guesses.length > 0) {
@@ -701,53 +704,59 @@ export default function FeverScreen() {
   }, [addNote, isFeverActive, multiplier]);
 
   const handlePlayMelodyHint = useCallback(() => {
-    if (currentMelody && guesses.length >= 2 && !isMelodyPlayingRef.current) {
+    if (currentMelody && guesses.length >= 2 && !isMelodyPlayingRef.current && !playbackState.isPlaying) {
       isMelodyPlayingRef.current = true;
       const hintNotes = currentMelody.notes.slice(0, 3);
       stopPlayback();
-      playMelody(hintNotes, 500);
-      setShowMelodyHint(true);
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
       setTimeout(() => {
-        isMelodyPlayingRef.current = false;
-      }, hintNotes.length * 500 + 600);
+        playMelody(hintNotes, 500);
+        setShowMelodyHint(true);
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+        setTimeout(() => {
+          isMelodyPlayingRef.current = false;
+        }, hintNotes.length * 500 + 600);
+      }, 50);
     }
-  }, [currentMelody, guesses.length, playMelody, stopPlayback]);
+  }, [currentMelody, guesses.length, playMelody, stopPlayback, playbackState.isPlaying]);
 
   const handlePlayBuildingMelody = useCallback(() => {
-    if (currentGuess.length > 0 && !isMelodyPlayingRef.current) {
+    if (currentGuess.length > 0 && !isMelodyPlayingRef.current && !playbackState.isPlaying) {
       isMelodyPlayingRef.current = true;
       stopPlayback();
-      playMelody(currentGuess, 400);
-      setShowBuildingMelody(true);
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
-      const duration = currentGuess.length * 400 + 600;
       setTimeout(() => {
-        setShowBuildingMelody(false);
-        isMelodyPlayingRef.current = false;
-      }, duration);
+        playMelody(currentGuess, 400);
+        setShowBuildingMelody(true);
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+        const duration = currentGuess.length * 400 + 600;
+        setTimeout(() => {
+          setShowBuildingMelody(false);
+          isMelodyPlayingRef.current = false;
+        }, duration);
+      }, 50);
     }
-  }, [currentGuess, playMelody, stopPlayback]);
+  }, [currentGuess, playMelody, stopPlayback, playbackState.isPlaying]);
 
   const handleSubmitWithSound = useCallback(() => {
-    if (canSubmit && !submitInProgressRef.current) {
+    if (canSubmit && !submitInProgressRef.current && !isMelodyPlayingRef.current) {
       submitInProgressRef.current = true;
       isMelodyPlayingRef.current = true;
       stopPlayback();
-      playMelody(currentGuess, 400);
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
-      const playbackDuration = currentGuess.length * 400 + 300;
       setTimeout(() => {
-        isMelodyPlayingRef.current = false;
-        submitInProgressRef.current = false;
-        submitGuess();
-      }, playbackDuration);
+        playMelody(currentGuess, 400);
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+        const playbackDuration = currentGuess.length * 400 + 300;
+        setTimeout(() => {
+          isMelodyPlayingRef.current = false;
+          submitInProgressRef.current = false;
+          submitGuess();
+        }, playbackDuration);
+      }, 50);
     }
   }, [canSubmit, currentGuess, playMelody, submitGuess, stopPlayback]);
 
