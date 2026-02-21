@@ -55,12 +55,12 @@ const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
 };
 
 const BASE_TEMPO = 400;
-const MIN_TEMPO = 250;
+const MIN_TEMPO = 300;
 
 export function getProportionalTempo(noteCount: number): number {
-  if (noteCount <= 6) return BASE_TEMPO;
-  if (noteCount <= 10) return Math.max(MIN_TEMPO, BASE_TEMPO - (noteCount - 6) * 25);
-  if (noteCount <= 20) return Math.max(MIN_TEMPO, 300 - (noteCount - 10) * 5);
+  if (noteCount <= 8) return BASE_TEMPO;
+  if (noteCount <= 14) return Math.max(MIN_TEMPO, BASE_TEMPO - (noteCount - 8) * 12);
+  if (noteCount <= 20) return Math.max(MIN_TEMPO, BASE_TEMPO - 72 - (noteCount - 14) * 5);
   return MIN_TEMPO;
 }
 
@@ -500,7 +500,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     };
   }, []);
 
-  const playNoteWeb = useCallback(async (note: string, duration: number = 0.35, isSequence: boolean = false) => {
+  const playNoteWeb = useCallback(async (note: string, duration: number = 0.4, isSequence: boolean = false) => {
     try {
       const ctx = getWebAudioContext();
       if (!ctx) return;
@@ -527,16 +527,16 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
           lastSequenceWebSource.gain.gain.setValueAtTime(
             lastSequenceWebSource.gain.gain.value, ctx.currentTime
           );
-          lastSequenceWebSource.gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
+          lastSequenceWebSource.gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
           const oldSource = lastSequenceWebSource.source;
-          setTimeout(() => { try { oldSource.stop(); } catch (_e) {} }, 50);
+          setTimeout(() => { try { oldSource.stop(); } catch (_e) {} }, 80);
         } catch (_e) {}
         lastSequenceWebSource = null;
       }
 
       const instrument = currentInstrumentRef.current;
       const { volume: vol } = audioSettingsRef.current;
-      const noteDur = isSequence ? Math.min(duration, 0.38) : duration;
+      const noteDur = isSequence ? Math.min(duration, 1.5) : duration;
       
       const cache = getWebSampleCache(instrument.id);
       let audioBuffer = cache.get(note);
@@ -553,8 +553,10 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
         source.connect(gainNode);
         gainNode.connect(ctx.destination);
         
-        const maxPlayDuration = isSequence ? Math.min(noteDur + 0.05, 0.4) : Math.max(0.3, Math.min(instrument.attackTime + instrument.decayTime + instrument.releaseTime, 0.8));
-        const fadeOutStart = maxPlayDuration * 0.65;
+        const maxPlayDuration = isSequence
+          ? Math.max(0.2, Math.min(noteDur + 0.1, 1.6))
+          : Math.max(0.3, Math.min(instrument.attackTime + instrument.decayTime + instrument.releaseTime, 1.2));
+        const fadeOutStart = maxPlayDuration * 0.7;
         
         gainNode.gain.setValueAtTime(vol, ctx.currentTime);
         gainNode.gain.setValueAtTime(vol, ctx.currentTime + fadeOutStart);
@@ -588,13 +590,13 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
         oscillator.frequency.setValueAtTime(adjustedFreq, ctx.currentTime);
 
         const { attackTime, sustainLevel, releaseTime } = instrument;
-        const effectiveRelease = isSequence ? Math.min(releaseTime, 0.1) : releaseTime;
+        const effectiveRelease = isSequence ? Math.min(releaseTime, 0.15) : releaseTime;
         const maxGain = 0.4 * vol;
         const sustainGain = Math.max(0.01, sustainLevel * 0.4 * vol);
         
         gainNode.gain.setValueAtTime(0.001, ctx.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(maxGain, ctx.currentTime + Math.max(0.005, attackTime));
-        gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainGain), ctx.currentTime + noteDur * 0.6);
+        gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainGain), ctx.currentTime + noteDur * 0.65);
         gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + noteDur + effectiveRelease);
 
         oscillator.start(ctx.currentTime);
@@ -634,8 +636,8 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
         (instrument.attackTime + instrument.decayTime + instrument.releaseTime) * 1000
       );
       const maxDurationMs = isSequence
-        ? Math.max(200, Math.min(noteDurationMs, 350))
-        : Math.max(300, Math.min(noteDurationMs, 800));
+        ? Math.max(250, Math.min(noteDurationMs, 1200))
+        : Math.max(300, Math.min(noteDurationMs, 1200));
 
       try {
         if (isSequence && lastSequenceSound) {
@@ -687,8 +689,8 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
               try {
                 const currentStatus = await sound!.getStatusAsync();
                 if (currentStatus.isLoaded && currentStatus.isPlaying) {
-                  const fadeSteps = isSequence ? 3 : 5;
-                  const fadeInterval = isSequence ? 25 : 40;
+                  const fadeSteps = isSequence ? 4 : 5;
+                  const fadeInterval = isSequence ? 35 : 40;
                   const startVol = audioSettingsRef.current.volume;
                   for (let i = 1; i <= fadeSteps; i++) {
                     const fadeTimeout = setTimeout(async () => {

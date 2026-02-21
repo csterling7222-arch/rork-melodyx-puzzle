@@ -16,7 +16,7 @@ export interface Melody {
   extendedDurations?: number[];
 }
 
-export const DEFAULT_NOTE_DURATION = 0.5;
+export const DEFAULT_NOTE_DURATION = 1.0;
 
 export const THEMES = [
   'upbeat',
@@ -60,8 +60,8 @@ export const MELODIES: Melody[] = [
     genre: "Classic",
     era: "Traditional",
     mood: "upbeat",
-    durations: [0.25, 0.25, 0.5, 0.5, 0.5, 1.0],
-    extendedDurations: [0.25, 0.25, 0.5, 0.5, 0.5, 1.0, 0.25, 0.25, 0.5, 0.5, 0.5, 1.0]
+    durations: [0.5, 0.5, 1.0, 1.0, 1.0, 2.0],
+    extendedDurations: [0.5, 0.5, 1.0, 1.0, 1.0, 2.0, 0.5, 0.5, 1.0, 1.0, 1.0, 2.0]
   },
   { 
     name: "Twinkle Twinkle", 
@@ -72,8 +72,8 @@ export const MELODIES: Melody[] = [
     genre: "Nursery",
     era: "Traditional",
     mood: "peaceful",
-    durations: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0],
-    extendedDurations: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0]
+    durations: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0],
+    extendedDurations: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0]
   },
   { 
     name: "Mary Had a Little Lamb", 
@@ -83,7 +83,9 @@ export const MELODIES: Melody[] = [
     category: "Nursery",
     genre: "Nursery",
     era: "Traditional",
-    mood: "playful"
+    mood: "playful",
+    durations: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0],
+    extendedDurations: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 2.0, 1.0, 1.0, 2.0]
   },
   { 
     name: "Jingle Bells", 
@@ -93,7 +95,9 @@ export const MELODIES: Melody[] = [
     category: "Holiday",
     genre: "Holiday",
     era: "Traditional",
-    mood: "upbeat"
+    mood: "upbeat",
+    durations: [1.0, 1.0, 2.0, 1.0, 1.0, 2.0, 1.0],
+    extendedDurations: [1.0, 1.0, 2.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 2.0]
   },
   { 
     name: "Row Row Row", 
@@ -103,7 +107,9 @@ export const MELODIES: Melody[] = [
     category: "Nursery",
     genre: "Nursery",
     era: "Traditional",
-    mood: "peaceful"
+    mood: "peaceful",
+    durations: [1.0, 1.0, 0.75, 0.25, 1.0, 2.0],
+    extendedDurations: [1.0, 1.0, 0.75, 0.25, 1.0, 2.0, 0.75, 0.25, 1.0, 2.0, 0.5, 0.5, 1.0]
   },
   { 
     name: "London Bridge", 
@@ -114,8 +120,8 @@ export const MELODIES: Melody[] = [
     genre: "Nursery",
     era: "Traditional",
     mood: "playful",
-    durations: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0],
-    extendedDurations: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0]
+    durations: [1.5, 0.5, 1.0, 1.0, 1.0, 1.0, 2.0],
+    extendedDurations: [1.5, 0.5, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0]
   },
 
   // Video Games
@@ -128,8 +134,8 @@ export const MELODIES: Melody[] = [
     genre: "Video Game",
     era: "80s",
     mood: "playful",
-    durations: [0.25, 0.25, 0.25, 0.25, 0.5, 1.0],
-    extendedDurations: [0.25, 0.25, 0.25, 0.25, 0.5, 1.0, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+    durations: [0.5, 0.5, 0.5, 0.5, 1.0, 2.0],
+    extendedDurations: [0.5, 0.5, 0.5, 0.5, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
   },
   { 
     name: "Tetris Theme", 
@@ -140,8 +146,8 @@ export const MELODIES: Melody[] = [
     genre: "Video Game",
     era: "80s",
     mood: "energetic",
-    durations: [0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5],
-    extendedDurations: [0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5]
+    durations: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0],
+    extendedDurations: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0]
   },
   { 
     name: "Zelda Theme", 
@@ -151,7 +157,9 @@ export const MELODIES: Melody[] = [
     category: "Video Game",
     genre: "Video Game",
     era: "80s",
-    mood: "epic"
+    mood: "epic",
+    durations: [1.5, 0.5, 1.0, 0.5, 0.5, 2.0],
+    extendedDurations: [1.5, 0.5, 1.0, 0.5, 0.5, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
   },
   { 
     name: "Pac-Man Start", 
@@ -193,7 +201,9 @@ export const MELODIES: Melody[] = [
     category: "Classical",
     genre: "Classical",
     era: "Classical",
-    mood: "epic"
+    mood: "epic",
+    durations: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0],
+    extendedDurations: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0]
   },
   { 
     name: "Fur Elise", 
@@ -203,7 +213,9 @@ export const MELODIES: Melody[] = [
     category: "Classical",
     genre: "Classical",
     era: "Classical",
-    mood: "nostalgic"
+    mood: "nostalgic",
+    durations: [0.5, 0.5, 0.5, 0.5, 0.5, 2.0],
+    extendedDurations: [0.5, 0.5, 0.5, 0.5, 0.5, 2.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 2.0]
   },
   { 
     name: "Beethoven's 5th", 
@@ -213,7 +225,9 @@ export const MELODIES: Melody[] = [
     category: "Classical",
     genre: "Classical",
     era: "Classical",
-    mood: "dramatic"
+    mood: "dramatic",
+    durations: [0.5, 0.5, 0.5, 3.0, 0.5, 3.0],
+    extendedDurations: [0.5, 0.5, 0.5, 3.0, 0.5, 0.5, 0.5, 3.0, 0.5, 0.5, 0.5, 3.0]
   },
   { 
     name: "Moonlight Sonata", 
@@ -223,7 +237,9 @@ export const MELODIES: Melody[] = [
     category: "Classical",
     genre: "Classical",
     era: "Classical",
-    mood: "peaceful"
+    mood: "peaceful",
+    durations: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+    extendedDurations: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
   },
   { 
     name: "Canon in D", 
@@ -275,7 +291,9 @@ export const MELODIES: Melody[] = [
     category: "Movie",
     genre: "Movie",
     era: "70s",
-    mood: "epic"
+    mood: "epic",
+    durations: [0.5, 0.5, 0.5, 2.0, 1.0, 2.0],
+    extendedDurations: [0.5, 0.5, 0.5, 2.0, 1.0, 2.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 2.0]
   },
   { 
     name: "Pink Panther", 
@@ -295,7 +313,9 @@ export const MELODIES: Melody[] = [
     category: "Movie",
     genre: "Movie",
     era: "70s",
-    mood: "dramatic"
+    mood: "dramatic",
+    durations: [1.0, 1.0, 1.0, 0.75, 0.25, 2.0],
+    extendedDurations: [1.0, 1.0, 1.0, 0.75, 0.25, 2.0, 0.75, 0.25, 2.0, 1.0, 1.0, 1.0, 2.0]
   },
   { 
     name: "Mission Impossible", 
@@ -315,7 +335,9 @@ export const MELODIES: Melody[] = [
     category: "Movie",
     genre: "Movie",
     era: "70s",
-    mood: "dramatic"
+    mood: "dramatic",
+    durations: [1.5, 1.5, 1.0, 1.0, 0.5, 0.5],
+    extendedDurations: [1.5, 1.5, 1.0, 1.0, 0.5, 0.5, 0.5, 0.5, 1.0, 1.0, 1.0, 1.0]
   },
   { 
     name: "Hedwig's Theme", 
@@ -325,7 +347,9 @@ export const MELODIES: Melody[] = [
     category: "Movie",
     genre: "Movie",
     era: "2000s",
-    mood: "mysterious"
+    mood: "mysterious",
+    durations: [1.0, 1.5, 0.5, 1.0, 1.0, 2.0],
+    extendedDurations: [1.0, 1.5, 0.5, 1.0, 1.0, 2.0, 2.0, 2.0, 1.5, 0.5, 1.0, 1.0, 2.0]
   },
   { 
     name: "Pirates of Caribbean", 
@@ -335,7 +359,9 @@ export const MELODIES: Melody[] = [
     category: "Movie",
     genre: "Movie",
     era: "2000s",
-    mood: "epic"
+    mood: "epic",
+    durations: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0],
+    extendedDurations: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0, 1.0, 1.0, 1.0, 0.5, 0.5, 0.5, 1.0]
   },
   { 
     name: "Jurassic Park", 
@@ -429,7 +455,9 @@ export const MELODIES: Melody[] = [
     category: "Rock",
     genre: "Rock",
     era: "70s",
-    mood: "energetic"
+    mood: "energetic",
+    durations: [1.0, 1.0, 1.5, 1.0, 1.0, 1.5],
+    extendedDurations: [1.0, 1.0, 1.5, 1.0, 1.0, 1.5, 1.5, 1.0, 1.0, 1.5, 1.0, 1.0]
   },
   { 
     name: "Seven Nation Army", 
@@ -439,7 +467,9 @@ export const MELODIES: Melody[] = [
     category: "Rock",
     genre: "Rock",
     era: "2000s",
-    mood: "energetic"
+    mood: "energetic",
+    durations: [1.5, 0.5, 1.0, 1.0, 0.5, 1.5],
+    extendedDurations: [1.5, 0.5, 1.0, 1.0, 0.5, 1.5, 2.0, 1.5, 0.5, 1.0, 1.0, 0.5, 1.0, 1.0, 1.5]
   },
   { 
     name: "Bohemian Rhapsody", 
@@ -499,7 +529,9 @@ export const MELODIES: Melody[] = [
     category: "80s",
     genre: "80s",
     era: "80s",
-    mood: "energetic"
+    mood: "energetic",
+    durations: [0.5, 0.5, 1.0, 0.5, 0.5, 2.0],
+    extendedDurations: [0.5, 0.5, 1.0, 0.5, 0.5, 2.0, 1.0, 1.0, 0.5, 0.5, 0.5, 0.5, 1.0]
   },
 
   // Modern Pop
@@ -551,7 +583,9 @@ export const MELODIES: Melody[] = [
     category: "Pop",
     genre: "Pop",
     era: "2020s",
-    mood: "nostalgic"
+    mood: "nostalgic",
+    durations: [1.0, 0.5, 0.5, 1.0, 1.0, 2.0],
+    extendedDurations: [1.0, 0.5, 0.5, 1.0, 1.0, 2.0, 1.0, 0.5, 0.5, 1.0, 1.0, 2.0]
   },
   { 
     name: "Dance Monkey", 
@@ -573,7 +607,9 @@ export const MELODIES: Melody[] = [
     category: "Meme",
     genre: "Meme",
     era: "2020s",
-    mood: "playful"
+    mood: "playful",
+    durations: [0.5, 0.5, 1.0, 0.5, 0.5, 2.0],
+    extendedDurations: [0.5, 0.5, 1.0, 0.5, 0.5, 2.0, 1.0, 0.5, 0.5, 1.0, 0.5, 1.0, 2.0]
   },
   { 
     name: "Never Gonna Give", 
