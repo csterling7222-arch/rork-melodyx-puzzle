@@ -454,6 +454,7 @@ async function cleanupOldCaches(activeInstrumentId: string) {
 
 export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings>) {
   const playbackTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const noteStopTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const isLoadingRef = useRef<Set<string>>(new Set());
   const currentInstrumentRef = useRef<Instrument>(getInstrumentById(instrumentId || DEFAULT_INSTRUMENT_ID));
   const audioSettingsRef = useRef<AudioSettings>({ ...DEFAULT_AUDIO_SETTINGS, ...settings });
@@ -490,6 +491,8 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     return () => {
       playbackTimeoutsRef.current.forEach(clearTimeout);
       playbackTimeoutsRef.current = [];
+      noteStopTimeouts.current.forEach(clearTimeout);
+      noteStopTimeouts.current.clear();
       stopSoundCleanup();
     };
   }, []);
@@ -531,9 +534,16 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
         source.connect(gainNode);
         gainNode.connect(ctx.destination);
         
+        const envDuration = instrument.attackTime + instrument.decayTime + instrument.releaseTime;
+        const maxPlayDuration = Math.max(0.3, Math.min(envDuration, 0.8));
+        const fadeOutStart = maxPlayDuration * 0.7;
+        
         gainNode.gain.setValueAtTime(vol, ctx.currentTime);
+        gainNode.gain.setValueAtTime(vol, ctx.currentTime + fadeOutStart);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + maxPlayDuration);
         
         source.start(0);
+        source.stop(ctx.currentTime + maxPlayDuration + 0.05);
       } else {
         const oscillator = ctx.createOscillator();
         const gainNode = ctx.createGain();
@@ -583,7 +593,8 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       const frequency = NOTE_FREQUENCIES[note];
       if (!frequency) return;
 
-      const instId = currentInstrumentRef.current.id;
+      const instrument = currentInstrumentRef.current;
+      const instId = instrument.id;
       const lockKey = `${instId}_${note}`;
       
       const now = Date.now();
@@ -593,6 +604,11 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
 
       if (activeSoundLocks.has(lockKey)) return;
       activeSoundLocks.add(lockKey);
+
+      const noteDurationMs = Math.round(
+        (instrument.attackTime + instrument.decayTime + instrument.releaseTime) * 1000
+      );
+      const maxDurationMs = Math.max(300, Math.min(noteDurationMs, 800));
 
       try {
         const cache = getInstrumentCache(instId);
@@ -616,6 +632,32 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
               positionMillis: 0,
               volume: audioSettingsRef.current.volume,
             });
+
+            const fadeKey = `fade_${lockKey}_${now}`;
+            noteStopTimeouts.current.set(fadeKey, setTimeout(async () => {
+              try {
+                const currentStatus = await sound!.getStatusAsync();
+                if (currentStatus.isLoaded && currentStatus.isPlaying) {
+                  const fadeSteps = 5;
+                  const fadeInterval = 40;
+                  const startVol = audioSettingsRef.current.volume;
+                  for (let i = 1; i <= fadeSteps; i++) {
+                    const fadeTimeout = setTimeout(async () => {
+                      try {
+                        const vol = startVol * (1 - i / fadeSteps);
+                        await sound!.setVolumeAsync(Math.max(0, vol));
+                        if (i === fadeSteps) {
+                          await sound!.stopAsync();
+                          await sound!.setVolumeAsync(startVol);
+                        }
+                      } catch (_e) {}
+                    }, i * fadeInterval);
+                    noteStopTimeouts.current.set(`${fadeKey}_${i}`, fadeTimeout);
+                  }
+                }
+              } catch (_e) {}
+              noteStopTimeouts.current.delete(fadeKey);
+            }, maxDurationMs));
           } catch (playError) {
             cache.delete(note);
             try {
@@ -626,6 +668,11 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
                   positionMillis: 0,
                   volume: audioSettingsRef.current.volume,
                 });
+                setTimeout(async () => {
+                  try {
+                    await newSound.stopAsync();
+                  } catch (_e) {}
+                }, maxDurationMs + 200);
               }
             } catch (_retryError) {
               // Silent retry failure
