@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Lightbulb, Headphones, Sparkles, Flame, Trophy, Clock, RotateCcw, Play, Square } from 'lucide-react-native';
+import { Lightbulb, Headphones, Sparkles, Flame, Trophy, Clock, RotateCcw, Play, Square, Music } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useGame } from '@/contexts/GameContext';
@@ -134,6 +134,7 @@ export default function DailyPuzzleScreen() {
     playNotePreview,
     playSnippet,
     playHintNotes, 
+    playMelody,
     playbackState,
     stopPlayback,
     initAudio,
@@ -144,6 +145,8 @@ export default function DailyPuzzleScreen() {
   const [isNavigating, setIsNavigating] = useState(false);
   const [revealedNotes, setRevealedNotes] = useState<number[]>([]);
   const [showWebAudioPrompt, setShowWebAudioPrompt] = useState(false);
+  const [showBuildingMelody, setShowBuildingMelody] = useState(false);
+  const isMelodyPlayingRef = useRef(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const hasNavigatedRef = useRef(false);
   const audioInitRef = useRef(false);
@@ -233,6 +236,25 @@ export default function DailyPuzzleScreen() {
       }
     }
   }, [gameStatus, melody.name, melody.extendedNotes, playSnippet, playbackState.isPlaying, stopPlayback, initAudio, hasRealAudioSnippet]);
+
+  const handlePlayBuildingMelody = useCallback(() => {
+    if (currentGuess.length > 0 && !isMelodyPlayingRef.current && !playbackState.isPlaying) {
+      isMelodyPlayingRef.current = true;
+      stopPlayback();
+      setTimeout(() => {
+        playMelody(currentGuess, 400);
+        setShowBuildingMelody(true);
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+        const duration = currentGuess.length * 400 + 600;
+        setTimeout(() => {
+          setShowBuildingMelody(false);
+          isMelodyPlayingRef.current = false;
+        }, duration);
+      }, 50);
+    }
+  }, [currentGuess, playMelody, stopPlayback, playbackState.isPlaying]);
 
   const handleNotePreview = useCallback((note: string) => {
     initAudio();
@@ -427,6 +449,27 @@ export default function DailyPuzzleScreen() {
             <Text style={styles.audioHintText}>
               First 3 notes played! Listen carefully...
             </Text>
+          </View>
+        )}
+
+        {gameStatus === 'playing' && currentGuess.length > 0 && (
+          <View style={styles.playGuessSection}>
+            <TouchableOpacity 
+              style={[
+                styles.playGuessButton,
+                showBuildingMelody && styles.playGuessButtonActive
+              ]}
+              onPress={handlePlayBuildingMelody}
+              disabled={playbackState.isPlaying}
+            >
+              <Music size={18} color={showBuildingMelody ? Colors.text : Colors.accent} />
+              <Text style={[
+                styles.playGuessText,
+                showBuildingMelody && styles.playGuessTextActive
+              ]}>
+                {showBuildingMelody ? 'Playing...' : `Play My Notes (${currentGuess.length})`}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -666,6 +709,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.accent,
     flex: 1,
+  },
+  playGuessSection: {
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  playGuessButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.accent + '20',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.accent + '40',
+  },
+  playGuessButtonActive: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  playGuessText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.accent,
+  },
+  playGuessTextActive: {
+    color: Colors.text,
   },
   melodyPlaybackSection: {
     flexDirection: 'row',
