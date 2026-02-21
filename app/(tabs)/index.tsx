@@ -555,17 +555,13 @@ export default function HomeScreen() {
     };
     checkOnboarding();
 
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
   const handleOnboardingComplete = async () => {
     try {
       await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.log('Error saving onboarding status:', error);
     }
@@ -582,9 +578,7 @@ export default function HomeScreen() {
     if (gameStatus === 'won' && !hasShownWinConfetti) {
       setShowConfetti(true);
       setHasShownWinConfetti(true);
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(() => setShowConfetti(false), 4000);
     }
   }, [gameStatus, headerAnim, hasShownWinConfetti]);
@@ -603,9 +597,7 @@ export default function HomeScreen() {
     if (reward) {
       setClaimedReward(reward);
       setShowRewardModal(true);
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   }, [claimDailyReward]);
 
@@ -666,9 +658,7 @@ export default function HomeScreen() {
   }, [gameStatus, guesses, puzzleNumber, melodyLength, stats.currentStreak]);
 
   const navigateTo = useCallback((route: string) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(route as any);
   }, [router]);
 

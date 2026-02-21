@@ -2,7 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { Platform, AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { getDailyMelody, getDailyPuzzleNumber } from '@/utils/melodies';
 import { getFeedback, isWin, GuessResult } from '@/utils/gameLogic';
@@ -86,18 +86,15 @@ export const [GameProvider, useGame] = createContextHook(() => {
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
       if (nextAppState === 'background' || nextAppState === 'inactive') {
-        console.log('[Game] App going to background, force saving pending data...');
         try {
           if (pendingSaveRef.current.stats) {
             await AsyncStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(pendingSaveRef.current.stats));
-            console.log('[Game] Force saved stats on background');
           }
           if (pendingSaveRef.current.dailyGame) {
             await AsyncStorage.setItem(STORAGE_KEYS.DAILY_GAME, JSON.stringify(pendingSaveRef.current.dailyGame));
-            console.log('[Game] Force saved daily game on background');
           }
         } catch (error) {
-          console.error('[Game] Error force saving on background:', error);
+          if (__DEV__) console.error('[Game] Error force saving on background:', error);
         }
       }
     };
@@ -112,19 +109,14 @@ export const [GameProvider, useGame] = createContextHook(() => {
     queryKey: ['stats'],
     queryFn: async (): Promise<GameStats> => {
       try {
-        console.log('[Game] Loading stats from AsyncStorage...');
         const stored = await asyncStorageRetry(() => AsyncStorage.getItem(STORAGE_KEYS.STATS));
         if (stored) {
-          const parsed = JSON.parse(stored);
-          console.log('[Game] Loaded stats:', JSON.stringify(parsed));
-          console.log('[Game] Games played:', parsed.gamesPlayed, 'Games won:', parsed.gamesWon, 'Current streak:', parsed.currentStreak);
-          return parsed;
+          return JSON.parse(stored);
         }
-        console.log('[Game] No stats found, creating defaults and saving...');
         await asyncStorageRetry(() => AsyncStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(DEFAULT_STATS)));
         return DEFAULT_STATS;
       } catch (error) {
-        console.error('[Game] Error loading stats:', error);
+        if (__DEV__) console.error('[Game] Error loading stats:', error);
         return DEFAULT_STATS;
       }
     },
@@ -141,23 +133,16 @@ export const [GameProvider, useGame] = createContextHook(() => {
     queryKey: ['dailyGame'],
     queryFn: async (): Promise<DailyGameState | null> => {
       try {
-        console.log('[Game] Loading daily game from AsyncStorage...');
         const stored = await asyncStorageRetry(() => AsyncStorage.getItem(STORAGE_KEYS.DAILY_GAME));
         if (stored) {
           const parsed = JSON.parse(stored) as DailyGameState;
           const today = getTodayString();
-          console.log('[Game] Stored date:', parsed.date, 'Today:', today);
           if (parsed.date === today) {
-            console.log('[Game] Loaded daily game:', JSON.stringify(parsed));
-            console.log('[Game] Game status:', parsed.gameStatus, 'Guesses:', parsed.guesses.length);
             return parsed;
           }
-          console.log('[Game] Daily game is from a different day, resetting');
-        } else {
-          console.log('[Game] No daily game found in storage');
         }
       } catch (error) {
-        console.error('[Game] Error loading daily game:', error);
+        if (__DEV__) console.error('[Game] Error loading daily game:', error);
       }
       return null;
     },
@@ -176,27 +161,21 @@ export const [GameProvider, useGame] = createContextHook(() => {
         pendingSaveRef.current.stats = stats;
         const serialized = JSON.stringify(stats);
         await asyncStorageRetry(() => AsyncStorage.setItem(STORAGE_KEYS.STATS, serialized));
-        console.log('[Game] Saved stats - Games played:', stats.gamesPlayed, 'Won:', stats.gamesWon, 'Streak:', stats.currentStreak);
-        
+
         const verification = await AsyncStorage.getItem(STORAGE_KEYS.STATS);
         if (verification !== serialized) {
-          console.error('[Game] STATS SAVE VERIFICATION FAILED! Retrying...');
           await asyncStorageRetry(() => AsyncStorage.setItem(STORAGE_KEYS.STATS, serialized));
         } else {
-          console.log('[Game] Stats save verification passed');
           pendingSaveRef.current.stats = null;
         }
         return stats;
       } catch (error) {
-        console.error('[Game] Error saving stats:', error);
+        if (__DEV__) console.error('[Game] Error saving stats:', error);
         throw error;
       }
     },
     onSuccess: (savedStats) => {
       queryClient.setQueryData(['stats'], savedStats);
-    },
-    onError: (error) => {
-      console.error('[Game] Stats mutation error:', error);
     },
     retry: 3,
   });
@@ -207,27 +186,21 @@ export const [GameProvider, useGame] = createContextHook(() => {
         pendingSaveRef.current.dailyGame = gameState;
         const serialized = JSON.stringify(gameState);
         await asyncStorageRetry(() => AsyncStorage.setItem(STORAGE_KEYS.DAILY_GAME, serialized));
-        console.log('[Game] Saved daily game - Status:', gameState.gameStatus, 'Guesses:', gameState.guesses.length);
-        
+
         const verification = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_GAME);
         if (verification !== serialized) {
-          console.error('[Game] DAILY GAME SAVE VERIFICATION FAILED! Retrying...');
           await asyncStorageRetry(() => AsyncStorage.setItem(STORAGE_KEYS.DAILY_GAME, serialized));
         } else {
-          console.log('[Game] Daily game save verification passed');
           pendingSaveRef.current.dailyGame = null;
         }
         return gameState;
       } catch (error) {
-        console.error('[Game] Error saving daily game:', error);
+        if (__DEV__) console.error('[Game] Error saving daily game:', error);
         throw error;
       }
     },
     onSuccess: (savedGame) => {
       queryClient.setQueryData(['dailyGame'], savedGame);
-    },
-    onError: (error) => {
-      console.error('[Game] Daily game mutation error:', error);
     },
     retry: 3,
   });
@@ -295,12 +268,10 @@ export const [GameProvider, useGame] = createContextHook(() => {
       saveStats(newStats);
       setGameEndTime(Date.now());
       
-      if (Platform.OS !== 'web') {
-        if (won) {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } else {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        }
+      if (won) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
       
       setTimeout(() => {

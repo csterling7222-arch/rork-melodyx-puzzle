@@ -42,27 +42,15 @@ const AUTH_TOKEN_KEY = 'melodyx_auth_token';
 const USERS_STORAGE_KEY = 'melodyx_users_db';
 
 async function secureSet(key: string, value: string): Promise<void> {
-  if (Platform.OS === 'web') {
-    await AsyncStorage.setItem(key, value);
-  } else {
-    await SecureStore.setItemAsync(key, value);
-  }
+  await SecureStore.setItemAsync(key, value);
 }
 
 async function secureGet(key: string): Promise<string | null> {
-  if (Platform.OS === 'web') {
-    return AsyncStorage.getItem(key);
-  } else {
-    return SecureStore.getItemAsync(key);
-  }
+  return SecureStore.getItemAsync(key);
 }
 
 async function secureDelete(key: string): Promise<void> {
-  if (Platform.OS === 'web') {
-    await AsyncStorage.removeItem(key);
-  } else {
-    await SecureStore.deleteItemAsync(key);
-  }
+  await SecureStore.deleteItemAsync(key);
 }
 
 const ERROR_MESSAGES = {
@@ -407,19 +395,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       addBreadcrumb({ category: 'auth', message: `User signed up: ${username}`, level: 'info' });
       console.log('[Auth] User signed up successfully:', username, 'uid:', uid);
       
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
       return authUser;
     },
     onError: (error: Error) => {
       setAuthError(error.message);
       captureError(error, { tags: { component: 'Auth', action: 'signUp' } });
-      console.log('[Auth] Sign up error:', error.message);
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     },
   });
 
@@ -483,19 +466,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       addBreadcrumb({ category: 'auth', message: `User signed in: ${user.username}`, level: 'info' });
       console.log('[Auth] User signed in successfully:', user.username, 'uid:', user.uid);
       
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
       return authUser;
     },
     onError: (error: Error) => {
       setAuthError(error.message);
       captureError(error, { tags: { component: 'Auth', action: 'signIn' } });
-      console.log('[Auth] Sign in error:', error.message);
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     },
   });
 
