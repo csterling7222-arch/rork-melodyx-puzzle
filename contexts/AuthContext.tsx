@@ -72,6 +72,25 @@ const ERROR_MESSAGES = {
   PASSWORD_NO_NUMBER: 'Password must contain at least one number.',
 } as const;
 
+const EXPECTED_AUTH_ERRORS = new Set([
+  ...Object.values(ERROR_MESSAGES),
+  'Username is required',
+  'This username is already taken. Please choose another.',
+  'No account found with this username.',
+  'Please enter your username or email',
+  'Please enter your password',
+  'No anonymous account to link',
+  'You must be signed in to change your password',
+  'Current password is incorrect',
+  'New password must be different from current password',
+  'Invalid or expired reset token',
+  'User not found',
+]);
+
+function isExpectedAuthError(error: Error): boolean {
+  return EXPECTED_AUTH_ERRORS.has(error.message);
+}
+
 interface StoredUser {
   uid: string;
   username: string;
@@ -393,7 +412,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     },
     onError: (error: Error) => {
       setAuthError(error.message);
-      captureError(error, { tags: { component: 'Auth', action: 'signUp' } });
+      if (!isExpectedAuthError(error)) {
+        captureError(error, { tags: { component: 'Auth', action: 'signUp' } });
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     },
   });
@@ -464,7 +485,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     },
     onError: (error: Error) => {
       setAuthError(error.message);
-      captureError(error, { tags: { component: 'Auth', action: 'signIn' } });
+      if (!isExpectedAuthError(error)) {
+        captureError(error, { tags: { component: 'Auth', action: 'signIn' } });
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     },
   });
