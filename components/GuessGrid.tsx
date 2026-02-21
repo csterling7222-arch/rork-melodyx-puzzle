@@ -125,34 +125,40 @@ function Cell({ note, feedback, index, isCurrentRow, isRevealing, cellSize, cell
 
   return (
     <Animated.View
-      style={[
-        styles.cell,
-        {
-          width: widthAnim,
-          height: cellSize + 6,
-          backgroundColor: isRevealing ? backgroundColor : getBackgroundColor(),
-          borderColor: getBorderColor(),
-          transform: [
-            { scale: scaleAnim },
-            { perspective: 1000 },
-            ...(isRevealing ? [{ rotateY }] : []),
-          ],
-        },
-      ]}
-      accessible={true}
-      accessibilityRole="text"
-      accessibilityLabel={getAccessibilityLabel()}
+      style={{
+        width: widthAnim,
+      }}
     >
-      {showDurationIndicator && (
-        <Text style={styles.durationIndicator}>{getDurationLabel()}</Text>
-      )}
-      <Text style={[
-        styles.cellText,
-        { fontSize },
-        feedback !== 'empty' && styles.cellTextRevealed,
-      ]}>
-        {note}
-      </Text>
+      <Animated.View
+        style={[
+          styles.cell,
+          {
+            width: '100%',
+            height: cellSize + 6,
+            backgroundColor: isRevealing ? backgroundColor : getBackgroundColor(),
+            borderColor: getBorderColor(),
+            transform: [
+              { scale: scaleAnim },
+              { perspective: 1000 },
+              ...(isRevealing ? [{ rotateY }] : []),
+            ],
+          },
+        ]}
+        accessible={true}
+        accessibilityRole="text"
+        accessibilityLabel={getAccessibilityLabel()}
+      >
+        {showDurationIndicator && (
+          <Text style={styles.durationIndicator}>{getDurationLabel()}</Text>
+        )}
+        <Text style={[
+          styles.cellText,
+          { fontSize },
+          feedback !== 'empty' && styles.cellTextRevealed,
+        ]}>
+          {note}
+        </Text>
+      </Animated.View>
     </Animated.View>
   );
 }
