@@ -503,15 +503,15 @@ export default function GameModal() {
         playSnippet(melody.extendedNotes, () => {
           setHasPlayedSnippet(true);
           console.log('[GameModal] Win snippet playback complete');
-        });
+        }, melody.extendedDurations);
         setShouldAutoPlaySnippet(false);
         if (Platform.OS !== 'web') {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
-      }, 600);
+      }, 1000);
       return () => clearTimeout(autoPlayTimeout);
     }
-  }, [showModal, shouldAutoPlaySnippet, gameStatus, hasPlayedSnippet, melody.extendedNotes, playSnippet, setShouldAutoPlaySnippet, initAudio]);
+  }, [showModal, shouldAutoPlaySnippet, gameStatus, hasPlayedSnippet, melody.extendedNotes, melody.extendedDurations, playSnippet, setShouldAutoPlaySnippet, initAudio]);
 
   useEffect(() => {
     if (showModal && gameStatus === 'lost' && !hasPlayedLossReveal) {
@@ -711,7 +711,7 @@ export default function GameModal() {
       console.log(`[GameModal] Playing snippet manually on ${instrumentName}:`, melody.extendedNotes);
       playSnippet(melody.extendedNotes, () => {
         setHasPlayedSnippet(true);
-      });
+      }, melody.extendedDurations);
       if (Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }

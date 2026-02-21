@@ -570,11 +570,6 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
   const playNoteNative = useCallback(async (note: string) => {
     if (Platform.OS === 'web') return;
     
-    const now = Date.now();
-    const lastPlayed = lastPlayedNote.get(note) || 0;
-    if (now - lastPlayed < NOTE_DEBOUNCE_MS) return;
-    lastPlayedNote.set(note, now);
-    
     try {
       if (!audioInitialized) {
         await initNativeAudio();
@@ -599,6 +594,11 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
 
       if (sound) {
         try {
+          const status = await sound.getStatusAsync();
+          if (status.isLoaded && status.isPlaying) {
+            await sound.stopAsync();
+            await new Promise(resolve => setTimeout(resolve, 10));
+          }
           await sound.setStatusAsync({
             shouldPlay: true,
             positionMillis: 0,
@@ -737,7 +737,8 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
         }));
       }, cumulativeTime);
       playbackTimeoutsRef.current.push(timeout);
-      cumulativeTime += noteDurations[index] * adjustedTempo * 2;
+      const durationBeat = noteDurations[index] || 0.5;
+      cumulativeTime += durationBeat * adjustedTempo * 1.4;
     });
 
     const endTimeout = setTimeout(() => {
@@ -746,7 +747,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       } else {
         setPlaybackState(DEFAULT_PLAYBACK_STATE);
       }
-    }, cumulativeTime + 300);
+    }, cumulativeTime + 500);
     playbackTimeoutsRef.current.push(endTimeout);
   }, [isLooping, stopPlayback, playNote]);
 
@@ -811,7 +812,8 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
         }));
       }, cumulativeTime);
       playbackTimeoutsRef.current.push(timeout);
-      cumulativeTime += noteDurations[index] * adjustedTempo * 2;
+      const durationBeat = noteDurations[index] || 0.5;
+      cumulativeTime += durationBeat * adjustedTempo * 1.4;
     });
 
     const endTimeout = setTimeout(() => {
@@ -821,19 +823,20 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
         setPlaybackState(DEFAULT_PLAYBACK_STATE);
         onComplete?.();
       }
-    }, cumulativeTime + 400);
+    }, cumulativeTime + 600);
     playbackTimeoutsRef.current.push(endTimeout);
   }, [playNote, stopPlayback, isLooping]);
 
   const playSnippet = useCallback((notes: string[], onComplete?: () => void, durations?: number[]) => {
     stopPlayback();
-    const baseTempo = getProportionalTempo(notes.length);
     lastPlayedNotesRef.current = notes;
-    lastPlayedTempoRef.current = baseTempo;
     const noteDurations = getDurationsOrDefault(notes, durations);
     const hasVariableDurations = durations && durations.length === notes.length;
+
+    const snippetTempo = Math.max(350, 500 - notes.length * 8);
+    lastPlayedTempoRef.current = snippetTempo;
     
-    console.log(`[Audio] Playing snippet (${notes.length} notes): ${notes.slice(0, 5).join(', ')}...${hasVariableDurations ? ' with variable durations' : ''}`);
+    console.log(`[Audio] Playing snippet (${notes.length} notes, tempo ${snippetTempo}ms): ${notes.slice(0, 5).join(', ')}...${hasVariableDurations ? ' with variable durations' : ''}`);
     
     setPlaybackState({
       isPlaying: true,
@@ -845,10 +848,11 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       mode: 'snippet',
     });
 
-    const adjustedTempo = baseTempo / audioSettingsRef.current.playbackSpeed;
+    const adjustedTempo = snippetTempo / audioSettingsRef.current.playbackSpeed;
     let cumulativeTime = 0;
     
     notes.forEach((note, index) => {
+      const noteDelay = cumulativeTime;
       const timeout = setTimeout(() => {
         playNote(note);
         setPlaybackState(prev => ({
@@ -856,9 +860,10 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
           currentNoteIndex: index,
           progress: (index + 1) / notes.length,
         }));
-      }, cumulativeTime);
+      }, noteDelay);
       playbackTimeoutsRef.current.push(timeout);
-      cumulativeTime += noteDurations[index] * adjustedTempo * 2;
+      const durationBeat = noteDurations[index] || 0.5;
+      cumulativeTime += durationBeat * adjustedTempo * 1.4;
     });
 
     const endTimeout = setTimeout(() => {
@@ -868,7 +873,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
         setPlaybackState(DEFAULT_PLAYBACK_STATE);
         onComplete?.();
       }
-    }, cumulativeTime + 400);
+    }, cumulativeTime + 600);
     playbackTimeoutsRef.current.push(endTimeout);
   }, [playNote, stopPlayback, isLooping]);
 
