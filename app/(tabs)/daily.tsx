@@ -247,7 +247,7 @@ export default function DailyPuzzleScreen() {
         if (Platform.OS !== 'web') {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
-        const duration = currentGuess.length * 400 + 600;
+        const duration = currentGuess.length * 0.5 * 400 + 500;
         setTimeout(() => {
           setShowBuildingMelody(false);
           isMelodyPlayingRef.current = false;

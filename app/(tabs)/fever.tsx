@@ -716,7 +716,7 @@ export default function FeverScreen() {
         }
         setTimeout(() => {
           isMelodyPlayingRef.current = false;
-        }, hintNotes.length * 500 + 600);
+        }, hintNotes.length * 0.5 * 500 + 500);
       }, 50);
     }
   }, [currentMelody, guesses.length, playMelody, stopPlayback, playbackState.isPlaying]);
@@ -731,7 +731,7 @@ export default function FeverScreen() {
         if (Platform.OS !== 'web') {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
-        const duration = currentGuess.length * 400 + 600;
+        const duration = currentGuess.length * 0.5 * 400 + 500;
         setTimeout(() => {
           setShowBuildingMelody(false);
           isMelodyPlayingRef.current = false;
@@ -750,7 +750,7 @@ export default function FeverScreen() {
         if (Platform.OS !== 'web') {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
-        const playbackDuration = currentGuess.length * 400 + 300;
+        const playbackDuration = currentGuess.length * 0.5 * 400 + 400;
         setTimeout(() => {
           isMelodyPlayingRef.current = false;
           submitInProgressRef.current = false;

@@ -114,9 +114,12 @@ const SOUND_CLEANUP_INTERVAL = 2000;
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 let cleanupRefCount = 0;
 
-const NOTE_DEBOUNCE_MS = 50;
+const NOTE_DEBOUNCE_MS = 30;
 const lastPlayedNote = new Map<string, number>();
 const activeSoundLocks = new Set<string>();
+
+let lastSequenceSound: Audio.Sound | null = null;
+let lastSequenceWebSource: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
 
 const offlineCache = new Map<string, boolean>();
 let isOfflineMode = false;
@@ -497,7 +500,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     };
   }, []);
 
-  const playNoteWeb = useCallback(async (note: string, duration: number = 0.35) => {
+  const playNoteWeb = useCallback(async (note: string, duration: number = 0.35, isSequence: boolean = false) => {
     try {
       const ctx = getWebAudioContext();
       if (!ctx) return;
@@ -511,13 +514,29 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       if (!frequency) return;
 
       const now = Date.now();
-      const debounceKey = `web_${note}`;
-      const lastPlayed = lastPlayedNote.get(debounceKey) ?? 0;
-      if (now - lastPlayed < NOTE_DEBOUNCE_MS) return;
-      lastPlayedNote.set(debounceKey, now);
+      if (!isSequence) {
+        const debounceKey = `web_${note}`;
+        const lastPlayed = lastPlayedNote.get(debounceKey) ?? 0;
+        if (now - lastPlayed < NOTE_DEBOUNCE_MS) return;
+        lastPlayedNote.set(debounceKey, now);
+      }
+
+      if (isSequence && lastSequenceWebSource) {
+        try {
+          lastSequenceWebSource.gain.gain.cancelScheduledValues(ctx.currentTime);
+          lastSequenceWebSource.gain.gain.setValueAtTime(
+            lastSequenceWebSource.gain.gain.value, ctx.currentTime
+          );
+          lastSequenceWebSource.gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
+          const oldSource = lastSequenceWebSource.source;
+          setTimeout(() => { try { oldSource.stop(); } catch (_e) {} }, 50);
+        } catch (_e) {}
+        lastSequenceWebSource = null;
+      }
 
       const instrument = currentInstrumentRef.current;
       const { volume: vol } = audioSettingsRef.current;
+      const noteDur = isSequence ? Math.min(duration, 0.38) : duration;
       
       const cache = getWebSampleCache(instrument.id);
       let audioBuffer = cache.get(note);
@@ -534,9 +553,8 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
         source.connect(gainNode);
         gainNode.connect(ctx.destination);
         
-        const envDuration = instrument.attackTime + instrument.decayTime + instrument.releaseTime;
-        const maxPlayDuration = Math.max(0.3, Math.min(envDuration, 0.8));
-        const fadeOutStart = maxPlayDuration * 0.7;
+        const maxPlayDuration = isSequence ? Math.min(noteDur + 0.05, 0.4) : Math.max(0.3, Math.min(instrument.attackTime + instrument.decayTime + instrument.releaseTime, 0.8));
+        const fadeOutStart = maxPlayDuration * 0.65;
         
         gainNode.gain.setValueAtTime(vol, ctx.currentTime);
         gainNode.gain.setValueAtTime(vol, ctx.currentTime + fadeOutStart);
@@ -544,6 +562,10 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
         
         source.start(0);
         source.stop(ctx.currentTime + maxPlayDuration + 0.05);
+
+        if (isSequence) {
+          lastSequenceWebSource = { source, gain: gainNode };
+        }
       } else {
         const oscillator = ctx.createOscillator();
         const gainNode = ctx.createGain();
@@ -566,23 +588,24 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
         oscillator.frequency.setValueAtTime(adjustedFreq, ctx.currentTime);
 
         const { attackTime, sustainLevel, releaseTime } = instrument;
+        const effectiveRelease = isSequence ? Math.min(releaseTime, 0.1) : releaseTime;
         const maxGain = 0.4 * vol;
         const sustainGain = Math.max(0.01, sustainLevel * 0.4 * vol);
         
         gainNode.gain.setValueAtTime(0.001, ctx.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(maxGain, ctx.currentTime + Math.max(0.005, attackTime));
-        gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainGain), ctx.currentTime + duration * 0.6);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration + releaseTime);
+        gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainGain), ctx.currentTime + noteDur * 0.6);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + noteDur + effectiveRelease);
 
         oscillator.start(ctx.currentTime);
-        oscillator.stop(ctx.currentTime + duration + releaseTime + 0.15);
+        oscillator.stop(ctx.currentTime + noteDur + effectiveRelease + 0.05);
       }
     } catch (_error) {
       // Silent - avoid console spam
     }
   }, []);
 
-  const playNoteNative = useCallback(async (note: string) => {
+  const playNoteNative = useCallback(async (note: string, isSequence: boolean = false) => {
     if (Platform.OS === 'web') return;
     
     try {
@@ -598,19 +621,41 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       const lockKey = `${instId}_${note}`;
       
       const now = Date.now();
-      const lastPlayed = lastPlayedNote.get(lockKey) ?? 0;
-      if (now - lastPlayed < NOTE_DEBOUNCE_MS) return;
+      if (!isSequence) {
+        const lastPlayed = lastPlayedNote.get(lockKey) ?? 0;
+        if (now - lastPlayed < NOTE_DEBOUNCE_MS) return;
+      }
       lastPlayedNote.set(lockKey, now);
 
-      if (activeSoundLocks.has(lockKey)) return;
+      if (activeSoundLocks.has(lockKey) && !isSequence) return;
       activeSoundLocks.add(lockKey);
 
       const noteDurationMs = Math.round(
         (instrument.attackTime + instrument.decayTime + instrument.releaseTime) * 1000
       );
-      const maxDurationMs = Math.max(300, Math.min(noteDurationMs, 800));
+      const maxDurationMs = isSequence
+        ? Math.max(200, Math.min(noteDurationMs, 350))
+        : Math.max(300, Math.min(noteDurationMs, 800));
 
       try {
+        if (isSequence && lastSequenceSound) {
+          try {
+            const prevStatus = await lastSequenceSound.getStatusAsync();
+            if (prevStatus.isLoaded && prevStatus.isPlaying) {
+              const startVol = audioSettingsRef.current.volume;
+              await lastSequenceSound.setVolumeAsync(startVol * 0.15);
+              const fadeSound = lastSequenceSound;
+              setTimeout(async () => {
+                try {
+                  await fadeSound.stopAsync();
+                  await fadeSound.setVolumeAsync(startVol);
+                } catch (_e) {}
+              }, 40);
+            }
+          } catch (_e) {}
+          lastSequenceSound = null;
+        }
+
         const cache = getInstrumentCache(instId);
         let sound = cache.get(note);
         
@@ -633,13 +678,17 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
               volume: audioSettingsRef.current.volume,
             });
 
+            if (isSequence) {
+              lastSequenceSound = sound;
+            }
+
             const fadeKey = `fade_${lockKey}_${now}`;
             noteStopTimeouts.current.set(fadeKey, setTimeout(async () => {
               try {
                 const currentStatus = await sound!.getStatusAsync();
                 if (currentStatus.isLoaded && currentStatus.isPlaying) {
-                  const fadeSteps = 5;
-                  const fadeInterval = 40;
+                  const fadeSteps = isSequence ? 3 : 5;
+                  const fadeInterval = isSequence ? 25 : 40;
                   const startVol = audioSettingsRef.current.volume;
                   for (let i = 1; i <= fadeSteps; i++) {
                     const fadeTimeout = setTimeout(async () => {
@@ -672,7 +721,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
                   try {
                     await newSound.stopAsync();
                   } catch (_e) {}
-                }, maxDurationMs + 200);
+                }, maxDurationMs + 100);
               }
             } catch (_retryError) {
               // Silent retry failure
@@ -699,10 +748,26 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     }
   }, [playNoteWeb, playNoteNative]);
 
+  const playSequenceNote = useCallback((note: string, duration: number = 0.35) => {
+    try {
+      if (Platform.OS === 'web') {
+        playNoteWeb(note, duration, true);
+      } else {
+        playNoteNative(note, true);
+      }
+    } catch (_error) {
+      // Silent - avoid console spam
+    }
+  }, [playNoteWeb, playNoteNative]);
+
   const stopPlayback = useCallback(() => {
     playbackTimeoutsRef.current.forEach(clearTimeout);
     playbackTimeoutsRef.current = [];
+    noteStopTimeouts.current.forEach(clearTimeout);
+    noteStopTimeouts.current.clear();
     lastPlayedNote.clear();
+    lastSequenceSound = null;
+    lastSequenceWebSource = null;
     setIsPaused(false);
     pausedAtIndexRef.current = -1;
     setPlaybackState(DEFAULT_PLAYBACK_STATE);
@@ -742,10 +807,12 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       isPaused: false,
     }));
     
+    lastSequenceSound = null;
+    lastSequenceWebSource = null;
     const remainingNotes = notes.slice(startIndex);
     remainingNotes.forEach((note, index) => {
       const timeout = setTimeout(() => {
-        playNote(note);
+        playSequenceNote(note, tempo / 1000);
         setPlaybackState(prev => ({
           ...prev,
           currentNoteIndex: startIndex + index,
@@ -756,12 +823,14 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     });
     
     const endTimeout = setTimeout(() => {
+      lastSequenceSound = null;
+      lastSequenceWebSource = null;
       setPlaybackState(DEFAULT_PLAYBACK_STATE);
     }, remainingNotes.length * tempo + 300);
     playbackTimeoutsRef.current.push(endTimeout);
     
 
-  }, [playbackState.isPaused, stopPlayback, playNote]);
+  }, [playbackState.isPaused, stopPlayback, playSequenceNote]);
 
   const toggleLoop = useCallback(() => {
     setIsLooping(prev => !prev);
@@ -773,6 +842,8 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     stopPlayback();
     
     lastPlayedNote.clear();
+    lastSequenceSound = null;
+    lastSequenceWebSource = null;
     
     lastPlayedNotesRef.current = notes;
     lastPlayedTempoRef.current = tempo;
@@ -792,7 +863,8 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     let cumulativeTime = 0;
     notes.forEach((note, index) => {
       const timeout = setTimeout(() => {
-        playNote(note);
+        const durationBeat = noteDurations[index] || 0.5;
+        playSequenceNote(note, durationBeat * adjustedTempo / 1000);
         setPlaybackState(prev => ({
           ...prev,
           currentNoteIndex: index,
@@ -801,18 +873,20 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       }, cumulativeTime);
       playbackTimeoutsRef.current.push(timeout);
       const durationBeat = noteDurations[index] || 0.5;
-      cumulativeTime += durationBeat * adjustedTempo * 1.4;
+      cumulativeTime += durationBeat * adjustedTempo;
     });
 
     const endTimeout = setTimeout(() => {
+      lastSequenceSound = null;
+      lastSequenceWebSource = null;
       if (isLooping) {
         replayFromStartRef.current();
       } else {
         setPlaybackState(DEFAULT_PLAYBACK_STATE);
       }
-    }, cumulativeTime + 500);
+    }, cumulativeTime + 400);
     playbackTimeoutsRef.current.push(endTimeout);
-  }, [isLooping, stopPlayback, playNote]);
+  }, [isLooping, stopPlayback, playSequenceNote]);
 
   const replayFromStart = useCallback(() => {
     const notes = lastPlayedNotesRef.current;
@@ -848,9 +922,9 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     lastPlayedNotesRef.current = notes;
     lastPlayedTempoRef.current = tempo;
     const noteDurations = getDurationsOrDefault(notes, durations);
-    const hasVariableDurations = durations && durations.length === notes.length;
     
-
+    lastSequenceSound = null;
+    lastSequenceWebSource = null;
     
     setPlaybackState({
       isPlaying: true,
@@ -867,7 +941,8 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     
     notes.forEach((note, index) => {
       const timeout = setTimeout(() => {
-        playNote(note);
+        const durationBeat = noteDurations[index] || 0.5;
+        playSequenceNote(note, durationBeat * adjustedTempo / 1000);
         setPlaybackState(prev => ({
           ...prev,
           currentNoteIndex: index,
@@ -876,30 +951,32 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       }, cumulativeTime);
       playbackTimeoutsRef.current.push(timeout);
       const durationBeat = noteDurations[index] || 0.5;
-      cumulativeTime += durationBeat * adjustedTempo * 1.4;
+      cumulativeTime += durationBeat * adjustedTempo;
     });
 
     const endTimeout = setTimeout(() => {
+      lastSequenceSound = null;
+      lastSequenceWebSource = null;
       if (isLooping) {
         playFullMelody(notes, onComplete, durations);
       } else {
         setPlaybackState(DEFAULT_PLAYBACK_STATE);
         onComplete?.();
       }
-    }, cumulativeTime + 600);
+    }, cumulativeTime + 400);
     playbackTimeoutsRef.current.push(endTimeout);
-  }, [playNote, stopPlayback, isLooping]);
+  }, [playSequenceNote, stopPlayback, isLooping]);
 
   const playSnippet = useCallback((notes: string[], onComplete?: () => void, durations?: number[]) => {
     stopPlayback();
     lastPlayedNotesRef.current = notes;
     const noteDurations = getDurationsOrDefault(notes, durations);
-    const hasVariableDurations = durations && durations.length === notes.length;
 
     const snippetTempo = Math.max(350, 500 - notes.length * 8);
     lastPlayedTempoRef.current = snippetTempo;
     
-
+    lastSequenceSound = null;
+    lastSequenceWebSource = null;
     
     setPlaybackState({
       isPlaying: true,
@@ -917,7 +994,8 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     notes.forEach((note, index) => {
       const noteDelay = cumulativeTime;
       const timeout = setTimeout(() => {
-        playNote(note);
+        const durationBeat = noteDurations[index] || 0.5;
+        playSequenceNote(note, durationBeat * adjustedTempo / 1000);
         setPlaybackState(prev => ({
           ...prev,
           currentNoteIndex: index,
@@ -926,27 +1004,30 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
       }, noteDelay);
       playbackTimeoutsRef.current.push(timeout);
       const durationBeat = noteDurations[index] || 0.5;
-      cumulativeTime += durationBeat * adjustedTempo * 1.4;
+      cumulativeTime += durationBeat * adjustedTempo;
     });
 
     const endTimeout = setTimeout(() => {
+      lastSequenceSound = null;
+      lastSequenceWebSource = null;
       if (isLooping) {
         playSnippet(notes, onComplete, durations);
       } else {
         setPlaybackState(DEFAULT_PLAYBACK_STATE);
         onComplete?.();
       }
-    }, cumulativeTime + 600);
+    }, cumulativeTime + 400);
     playbackTimeoutsRef.current.push(endTimeout);
-  }, [playNote, stopPlayback, isLooping]);
+  }, [playSequenceNote, stopPlayback, isLooping]);
 
   const playHintNotes = useCallback((notes: string[], count: number = 3) => {
     const hintNotes = notes.slice(0, Math.min(count, notes.length));
-
     
     stopPlayback();
     lastPlayedNotesRef.current = hintNotes;
     lastPlayedTempoRef.current = 500;
+    lastSequenceSound = null;
+    lastSequenceWebSource = null;
     
     setPlaybackState({
       isPlaying: true,
@@ -962,7 +1043,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     
     hintNotes.forEach((note, index) => {
       const timeout = setTimeout(() => {
-        playNote(note);
+        playSequenceNote(note, tempo / 1000);
         setPlaybackState(prev => ({
           ...prev,
           currentNoteIndex: index,
@@ -973,19 +1054,22 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     });
 
     const endTimeout = setTimeout(() => {
+      lastSequenceSound = null;
+      lastSequenceWebSource = null;
       setPlaybackState(DEFAULT_PLAYBACK_STATE);
-    }, hintNotes.length * tempo + 400);
+    }, hintNotes.length * tempo + 300);
     playbackTimeoutsRef.current.push(endTimeout);
-  }, [playNote, stopPlayback]);
+  }, [playSequenceNote, stopPlayback]);
 
   const playTeaser = useCallback((notes: string[], duration: number = 5) => {
     const teaserCount = Math.min(Math.ceil(notes.length * 0.4), Math.floor(duration / 0.5));
     const teaserNotes = notes.slice(0, Math.max(3, teaserCount));
-
     
     stopPlayback();
     lastPlayedNotesRef.current = teaserNotes;
     lastPlayedTempoRef.current = 450;
+    lastSequenceSound = null;
+    lastSequenceWebSource = null;
     
     setPlaybackState({
       isPlaying: true,
@@ -1001,7 +1085,7 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     
     teaserNotes.forEach((note, index) => {
       const timeout = setTimeout(() => {
-        playNote(note);
+        playSequenceNote(note, tempo / 1000);
         setPlaybackState(prev => ({
           ...prev,
           currentNoteIndex: index,
@@ -1012,10 +1096,12 @@ export function useAudio(instrumentId?: string, settings?: Partial<AudioSettings
     });
 
     const endTimeout = setTimeout(() => {
+      lastSequenceSound = null;
+      lastSequenceWebSource = null;
       setPlaybackState(DEFAULT_PLAYBACK_STATE);
-    }, teaserNotes.length * tempo + 400);
+    }, teaserNotes.length * tempo + 300);
     playbackTimeoutsRef.current.push(endTimeout);
-  }, [playNote, stopPlayback]);
+  }, [playSequenceNote, stopPlayback]);
 
   const playNotePreview = useCallback((note: string) => {
 
