@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { Home, Flame, User, Trophy, GraduationCap, PenTool } from 'lucide-react-native';
 import React from 'react';
 import { Colors } from '@/constants/colors';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
 
 function TabsContent() {
   return (
