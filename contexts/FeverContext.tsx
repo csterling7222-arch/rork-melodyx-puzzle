@@ -2,8 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { MELODIES, Melody, INTERNATIONAL_MELODIES } from '@/utils/melodies';
-import { EXPANDED_SONG_LIBRARY } from '@/constants/songLibrary';
+import { Melody, FULL_MELODY_POOL } from '@/utils/melodies';
 import { getFeedback, isWin, GuessResult } from '@/utils/gameLogic';
 
 export interface FeverStats {
@@ -53,55 +52,7 @@ const GENRE_MAPPING: Record<FeverGenreFilter, string[]> = {
   viral: ['Viral', 'Meme', 'Pop Culture'],
 };
 
-const EXPANDED_MELODY_POOL = [...MELODIES, ...INTERNATIONAL_MELODIES];
-
-const GENRE_TO_CATEGORY: Record<string, string> = {
-  'Pop': 'Pop',
-  'Rock': 'Rock',
-  'R&B': 'Pop',
-  'Hip-Hop': 'Pop',
-  'Electronic': 'Pop',
-  'Jazz': 'Classical',
-  'Classical': 'Classical',
-  'Country': 'Folk',
-  'Latin': 'International',
-  'K-pop': 'Pop',
-  'Indie': 'Rock',
-  'Alternative': 'Rock',
-  'Disco': '80s',
-  'Funk': '80s',
-  'Soundtrack': 'Movie',
-  'Video Game': 'Video Game',
-  'Musical': 'Movie',
-  'Folk': 'Folk',
-  'World': 'International',
-};
-
-const DIFFICULTY_MOOD: Record<string, string> = {
-  easy: 'playful',
-  medium: 'upbeat',
-  hard: 'energetic',
-  expert: 'epic',
-};
-
-const convertedSongLibrary: Melody[] = EXPANDED_SONG_LIBRARY.map(song => ({
-  name: song.name,
-  notes: song.notes,
-  extendedNotes: song.extendedNotes,
-  hint: song.hint,
-  category: GENRE_TO_CATEGORY[song.genre] ?? song.genre,
-  genre: song.genre,
-  era: song.era,
-  mood: DIFFICULTY_MOOD[song.difficulty] ?? 'upbeat',
-  artist: song.artist,
-}));
-
-const FULL_SONG_LIBRARY = [
-  ...EXPANDED_MELODY_POOL,
-  ...convertedSongLibrary,
-].filter((song, index, self) =>
-  self.findIndex(s => s.name === song.name && s.artist === song.artist) === index
-);
+const FULL_SONG_LIBRARY = FULL_MELODY_POOL;
 
 function getSmartRandomMelody(
   excludeNames: string[] = [],
@@ -122,7 +73,7 @@ function getSmartRandomMelody(
   const available = pool.filter(m => !excludeNames.includes(m.name));
   
   if (available.length === 0) {
-    pool = EXPANDED_MELODY_POOL;
+    pool = FULL_SONG_LIBRARY;
   } else {
     pool = available;
   }

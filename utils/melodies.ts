@@ -1,3 +1,5 @@
+import { EXPANDED_SONG_LIBRARY } from '@/constants/songLibrary';
+
 export interface Melody {
   name: string;
   notes: string[];
@@ -2969,6 +2971,54 @@ export const MELODIES: Melody[] = [
 
 export const INTERNATIONAL_MELODIES = MELODIES.filter(m => m.country && m.flag);
 
+const GENRE_TO_CATEGORY_MAP: Record<string, string> = {
+  'Pop': 'Pop',
+  'Rock': 'Rock',
+  'R&B': 'Pop',
+  'Hip-Hop': 'Pop',
+  'Electronic': 'Pop',
+  'Jazz': 'Classical',
+  'Classical': 'Classical',
+  'Country': 'Folk',
+  'Latin': 'International',
+  'K-pop': 'Pop',
+  'Indie': 'Rock',
+  'Alternative': 'Rock',
+  'Disco': '80s',
+  'Funk': '80s',
+  'Soundtrack': 'Movie',
+  'Video Game': 'Video Game',
+  'Musical': 'Movie',
+  'Folk': 'Folk',
+  'World': 'International',
+};
+
+const DIFFICULTY_TO_MOOD: Record<string, string> = {
+  easy: 'playful',
+  medium: 'upbeat',
+  hard: 'energetic',
+  expert: 'epic',
+};
+
+const convertedExpandedLibrary: Melody[] = EXPANDED_SONG_LIBRARY.map(song => ({
+  name: song.name,
+  notes: song.notes,
+  extendedNotes: song.extendedNotes,
+  hint: song.hint,
+  category: GENRE_TO_CATEGORY_MAP[song.genre] ?? song.genre,
+  genre: song.genre,
+  era: song.era,
+  mood: DIFFICULTY_TO_MOOD[song.difficulty] ?? 'upbeat',
+  artist: song.artist,
+}));
+
+export const FULL_MELODY_POOL: Melody[] = [
+  ...MELODIES,
+  ...convertedExpandedLibrary,
+].filter((song, index, self) =>
+  self.findIndex(s => s.name === song.name && s.artist === song.artist) === index
+);
+
 export const NOTE_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 export function getDailySeed(): number {
@@ -2990,8 +3040,8 @@ export function seededRandom(seed: number): number {
 
 export function getDailyMelody(): Melody {
   const seed = getDailySeed();
-  const index = Math.floor(seededRandom(seed) * MELODIES.length);
-  return MELODIES[index];
+  const index = Math.floor(seededRandom(seed) * FULL_MELODY_POOL.length);
+  return FULL_MELODY_POOL[index];
 }
 
 export function getDailyPuzzleNumber(): number {
