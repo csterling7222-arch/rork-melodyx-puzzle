@@ -33,6 +33,13 @@ import {
   X,
   Clock,
   BookOpen,
+  Music,
+  Megaphone,
+  Wind,
+  AudioLines,
+  Music2,
+  LayoutGrid,
+  Grid3x3,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
@@ -46,6 +53,14 @@ const ICON_MAP: Record<string, React.ComponentType<{ size: number; color: string
   Activity,
   Disc,
   Waves,
+  Music,
+  Megaphone,
+  Wind,
+  AudioLines,
+  Sparkles: Sparkles as React.ComponentType<{ size: number; color: string }>,
+  Music2,
+  LayoutGrid,
+  Grid3x3,
 };
 
 interface InstrumentSelectorProps {
