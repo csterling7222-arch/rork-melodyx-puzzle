@@ -80,7 +80,6 @@ export const [TuneSnippetProvider, useTuneSnippet] = createContextHook(() => {
   
   const soundRef = useRef<Audio.Sound | null>(null);
   const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const [playbackState, setPlaybackState] = useState<SnippetPlaybackState>(DEFAULT_PLAYBACK_STATE);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
@@ -120,15 +119,13 @@ export const [TuneSnippetProvider, useTuneSnippet] = createContextHook(() => {
       if (fadeIntervalRef.current) {
         clearInterval(fadeIntervalRef.current);
       }
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-      }
     };
   }, []);
 
   const cleanupSound = useCallback(async () => {
     try {
       if (soundRef.current) {
+        soundRef.current.setOnPlaybackStatusUpdate(null);
         await soundRef.current.stopAsync();
         await soundRef.current.unloadAsync();
         soundRef.current = null;
@@ -136,11 +133,6 @@ export const [TuneSnippetProvider, useTuneSnippet] = createContextHook(() => {
       }
     } catch (error) {
       console.log('[TuneSnippet] Error cleaning up sound:', error);
-    }
-    
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-      progressIntervalRef.current = null;
     }
   }, []);
 
@@ -185,49 +177,47 @@ export const [TuneSnippetProvider, useTuneSnippet] = createContextHook(() => {
     }, stepDuration);
   }, [playbackState.volume]);
 
-  const startProgressTracking = useCallback(() => {
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-    }
-    
-    progressIntervalRef.current = setInterval(async () => {
-      if (!soundRef.current) return;
-      
-      try {
-        const status = await soundRef.current.getStatusAsync();
-        if (status.isLoaded) {
-          const positionMs = status.positionMillis;
-          const durationMs = status.durationMillis || 0;
-          const progress = durationMs > 0 ? positionMs / durationMs : 0;
-          
-          setPlaybackState(prev => ({
-            ...prev,
-            progress: {
-              positionMs,
-              durationMs,
-              progress,
-              isBuffering: status.isBuffering,
-            },
-            isBuffering: status.isBuffering,
-          }));
-          
-          if (!status.isPlaying && !status.isBuffering) {
-            setPlaybackState(prev => {
-              if (prev.isPlaying) {
-                return {
-                  ...prev,
-                  isPlaying: false,
-                  mode: 'idle',
-                };
-              }
-              return prev;
-            });
-          }
-        }
-      } catch (error) {
-        console.log('[TuneSnippet] Progress tracking error:', error);
+  const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
+    if (!status.isLoaded) {
+      if (status.error) {
+        console.log('[TuneSnippet] Playback error:', status.error);
+        setPlaybackState(prev => ({
+          ...prev,
+          isPlaying: false,
+          isBuffering: false,
+          error: status.error ?? 'Playback error',
+        }));
       }
-    }, 300);
+      return;
+    }
+
+    const positionMs = status.positionMillis;
+    const durationMs = status.durationMillis || 0;
+    const progress = durationMs > 0 ? positionMs / durationMs : 0;
+
+    setPlaybackState(prev => ({
+      ...prev,
+      progress: {
+        positionMs,
+        durationMs,
+        progress,
+        isBuffering: status.isBuffering,
+      },
+      isBuffering: status.isBuffering,
+    }));
+
+    if (status.didJustFinish && !status.isLooping) {
+      console.log('[TuneSnippet] Playback finished (callback)');
+      setPlaybackState(prev => ({
+        ...prev,
+        isPlaying: false,
+        mode: 'idle',
+        progress: { ...prev.progress, progress: 1 },
+      }));
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    }
   }, []);
 
   const playSnippet = useCallback(async (
@@ -262,28 +252,12 @@ export const [TuneSnippetProvider, useTuneSnippet] = createContextHook(() => {
           shouldPlay: true,
           volume: initialVolume,
           rate: playbackState.playbackSpeed,
-          shouldCorrectPitch: false,
+          shouldCorrectPitch: true,
           isLooping: playbackState.isLooping,
-          progressUpdateIntervalMillis: 500,
+          progressUpdateIntervalMillis: 250,
           positionMillis: options?.startPosition || 0,
         },
-        (status: AVPlaybackStatus) => {
-          if (status.isLoaded) {
-            if (status.didJustFinish && !status.isLooping) {
-              console.log('[TuneSnippet] Playback finished');
-              setPlaybackState(prev => ({
-                ...prev,
-                isPlaying: false,
-                mode: 'idle',
-                progress: { ...prev.progress, progress: 1 },
-              }));
-              
-              if (Platform.OS !== 'web') {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }
-            }
-          }
-        }
+        onPlaybackStatusUpdate
       );
       
       soundRef.current = sound;
@@ -301,8 +275,6 @@ export const [TuneSnippetProvider, useTuneSnippet] = createContextHook(() => {
           isBuffering: false,
         },
       }));
-      
-      startProgressTracking();
       
       if (options?.fadeIn) {
         await fadeVolume(playbackState.volume, 300);
@@ -343,7 +315,7 @@ export const [TuneSnippetProvider, useTuneSnippet] = createContextHook(() => {
         error: error instanceof Error ? error.message : 'Failed to play audio',
       }));
     }
-  }, [cleanupSound, getAdaptiveUrl, playbackState.volume, playbackState.playbackSpeed, playbackState.isLooping, fadeVolume, startProgressTracking, isPremium]);
+  }, [cleanupSound, getAdaptiveUrl, playbackState.volume, playbackState.playbackSpeed, playbackState.isLooping, fadeVolume, onPlaybackStatusUpdate, isPremium]);
 
   const stopPlayback = useCallback(async () => {
     console.log('[TuneSnippet] Stopping playback');

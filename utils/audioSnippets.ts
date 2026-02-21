@@ -57,8 +57,8 @@ class AudioSnippetManager {
         console.log('[AudioSnippetManager] Initialized successfully');
       } catch (error) {
         console.error('[AudioSnippetManager] Initialization failed:', error);
-      } finally {
         this.initPromise = null;
+        throw error;
       }
     })();
     
@@ -203,15 +203,17 @@ class AudioSnippetManager {
     try {
       this.currentSound = sound;
       
-      await sound.setPositionAsync(0);
-      await sound.setOnPlaybackStatusUpdate((status) => {
+      sound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded && status.didJustFinish) {
           this.currentSound = null;
           onComplete?.();
         }
       });
       
-      await sound.playAsync();
+      await sound.setStatusAsync({
+        shouldPlay: true,
+        positionMillis: 0,
+      });
       return true;
     } catch (error) {
       if (__DEV__) console.error('[AudioSnippetManager] Failed to play snippet:', error);
@@ -229,8 +231,10 @@ class AudioSnippetManager {
     try {
       this.currentSound = sound;
       
-      await sound.setPositionAsync(0);
-      await sound.playAsync();
+      await sound.setStatusAsync({
+        shouldPlay: true,
+        positionMillis: 0,
+      });
       
       setTimeout(async () => {
         if (this.currentSound === sound) {
@@ -250,8 +254,11 @@ class AudioSnippetManager {
   async stopCurrentPlayback(): Promise<void> {
     if (this.currentSound) {
       try {
-        await this.currentSound.pauseAsync();
-        await this.currentSound.setPositionAsync(0);
+        this.currentSound.setOnPlaybackStatusUpdate(null);
+        await this.currentSound.setStatusAsync({
+          shouldPlay: false,
+          positionMillis: 0,
+        });
       } catch (error) {
         console.log('[AudioSnippetManager] Error stopping playback:', error);
       }
