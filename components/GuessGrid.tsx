@@ -391,7 +391,7 @@ export default function GuessGrid({
 
   if (needsScroll) {
     return (
-      <View style={styles.container}>
+      <View style={styles.scrollContainer}>
         <View style={styles.scrollIndicator}>
           <Text style={styles.scrollIndicatorText}>
             {melodyLength} notes{hasVariableDurations ? ' • Rhythm mode' : ''} • Swipe to scroll →
@@ -404,6 +404,8 @@ export default function GuessGrid({
           contentContainerStyle={styles.scrollContent}
           bounces={true}
           decelerationRate="fast"
+          nestedScrollEnabled={true}
+          scrollEventThrottle={16}
         >
           {gridContent}
         </ScrollView>
@@ -425,6 +427,11 @@ export default function GuessGrid({
 
 const styles = StyleSheet.create({
   container: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  scrollContainer: {
+    width: '100%',
     alignItems: 'center',
   },
   scrollIndicator: {

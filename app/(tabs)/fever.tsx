@@ -1342,7 +1342,7 @@ const styles = StyleSheet.create({
   gridContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    width: '100%',
   },
   bottomSection: {
     paddingBottom: 24,
