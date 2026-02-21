@@ -41,7 +41,7 @@ async function asyncStorageRetry<T>(
     try {
       return await operation();
     } catch (error) {
-      console.log(`[Game] AsyncStorage operation failed (attempt ${attempt}/${retries}):`, error);
+      if (__DEV__) console.log(`[Game] AsyncStorage operation failed (attempt ${attempt}/${retries}):`, error);
       if (attempt === retries) throw error;
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * attempt));
     }
@@ -125,8 +125,7 @@ export const [GameProvider, useGame] = createContextHook(() => {
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+    retry: false,
   });
 
   const dailyGameQuery = useQuery({
@@ -151,8 +150,7 @@ export const [GameProvider, useGame] = createContextHook(() => {
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+    retry: false,
   });
 
   const { mutate: saveStats } = useMutation({

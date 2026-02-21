@@ -188,7 +188,7 @@ async function getUsersDb(): Promise<StoredUser[]> {
     const stored = await AsyncStorage.getItem(USERS_STORAGE_KEY);
     return stored ? JSON.parse(stored) : [];
   } catch (error) {
-    console.log('Error reading users DB:', error);
+    if (__DEV__) console.log('Error reading users DB:', error);
     return [];
   }
 }
@@ -207,14 +207,13 @@ async function getSyncData(uid: string): Promise<SyncData | null> {
     const stored = await AsyncStorage.getItem(`${SYNC_DATA_KEY}_${uid}`);
     return stored ? JSON.parse(stored) : null;
   } catch (error) {
-    console.log('[Auth] Error reading sync data:', error);
+    if (__DEV__) console.log('[Auth] Error reading sync data:', error);
     return null;
   }
 }
 
 async function saveSyncData(uid: string, data: SyncData): Promise<void> {
   await AsyncStorage.setItem(`${SYNC_DATA_KEY}_${uid}`, JSON.stringify(data));
-  console.log('[Auth] Sync data saved for user:', uid);
 }
 
 async function queueSyncOperation(uid: string, operation: string, data: Record<string, unknown>): Promise<void> {
@@ -224,9 +223,8 @@ async function queueSyncOperation(uid: string, operation: string, data: Record<s
     const queue = existingQueue ? JSON.parse(existingQueue) : [];
     queue.push({ operation, data, timestamp: new Date().toISOString() });
     await AsyncStorage.setItem(queueKey, JSON.stringify(queue));
-    console.log('[Auth] Queued sync operation:', operation);
   } catch (error) {
-    console.log('[Auth] Error queueing sync operation:', error);
+    if (__DEV__) console.log('[Auth] Error queueing sync operation:', error);
   }
 }
 
@@ -239,7 +237,7 @@ async function getPasswordResets(): Promise<PasswordResetRequest[]> {
     const stored = await AsyncStorage.getItem(PASSWORD_RESET_STORAGE_KEY);
     return stored ? JSON.parse(stored) : [];
   } catch (error) {
-    console.log('Error reading password resets:', error);
+    if (__DEV__) console.log('Error reading password resets:', error);
     return [];
   }
 }
@@ -261,21 +259,17 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           const parsed = JSON.parse(stored) as AuthState;
           if (parsed.isAuthenticated && parsed.user) {
             if (parsed.isAnonymous) {
-              console.log('[Auth] Anonymous user restored, skipping token validation');
             } else {
               const token = await secureGet(AUTH_TOKEN_KEY);
               if (!token) {
-                console.log('[Auth] No session token found for non-anonymous user, clearing auth state');
                 return { user: null, isAuthenticated: false, isAnonymous: false };
               }
-              console.log('[Auth] Session token validated');
             }
           }
-          console.log('[Auth] Restored auth state:', parsed.user?.email || (parsed.isAnonymous ? 'anonymous' : 'guest'), 'uid:', parsed.user?.uid);
           return parsed;
         }
       } catch (error) {
-        console.log('[Auth] Error loading auth state:', error);
+        if (__DEV__) console.log('[Auth] Error loading auth state:', error);
       }
       return { user: null, isAuthenticated: false, isAnonymous: false };
     },
@@ -291,7 +285,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       if (state.user && state.isAuthenticated) {
         const token = `session_${state.user.uid}_${Date.now()}`;
         await secureSet(AUTH_TOKEN_KEY, token);
-        console.log('[Auth] Session token stored securely');
       } else {
         await secureDelete(AUTH_TOKEN_KEY);
       }
@@ -299,7 +292,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     },
     onSuccess: (state) => {
       queryClient.setQueryData(['authState'], state);
-      console.log('[Auth] Auth state updated in cache immediately');
     },
   });
 
@@ -393,7 +385,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       });
 
       addBreadcrumb({ category: 'auth', message: `User signed up: ${username}`, level: 'info' });
-      console.log('[Auth] User signed up successfully:', username, 'uid:', uid);
+
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
@@ -464,7 +456,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       await saveAuthState(newAuthState);
 
       addBreadcrumb({ category: 'auth', message: `User signed in: ${user.username}`, level: 'info' });
-      console.log('[Auth] User signed in successfully:', user.username, 'uid:', user.uid);
+
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
@@ -499,12 +491,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         isAnonymous: true,
       });
 
-      console.log('[Auth] Anonymous sign in');
+
       return authUser;
     },
     onError: (error: Error) => {
       setAuthError(error.message);
-      console.log('[Auth] Anonymous sign in error:', error.message);
     },
   });
 
@@ -515,7 +506,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         isAuthenticated: false,
         isAnonymous: false,
       });
-      console.log('[Auth] User signed out');
+
     },
   });
 
@@ -542,7 +533,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         await queueSyncOperation(authState.user.uid, 'profile_update', { displayName });
       }
 
-      console.log('[Auth] Profile updated:', displayName);
+
     },
   });
 
@@ -624,12 +615,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         lastModified: now,
       });
 
-      console.log('[Auth] Anonymous account linked:', username);
+
       return authUser;
     },
     onError: (error: Error) => {
       setAuthError(error.message);
-      console.log('[Auth] Link account error:', error.message);
     },
   });
 
@@ -659,8 +649,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const filteredResets = resets.filter(r => r.email !== email.toLowerCase());
       await savePasswordResets([...filteredResets, { email: email.toLowerCase(), token, expiresAt }]);
 
-      console.log('[Auth] Password reset requested for:', email);
-      console.log('[Auth] Reset token (dev only):', token);
+      if (__DEV__) console.log('[Auth] Reset token:', token);
       
       return { 
         success: true, 
@@ -669,7 +658,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     },
     onError: (error: Error) => {
       setAuthError(error.message);
-      console.log('[Auth] Password reset request error:', error.message);
     },
   });
 
@@ -702,12 +690,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const updatedResets = resets.filter(r => r.token !== token);
       await savePasswordResets(updatedResets);
 
-      console.log('[Auth] Password reset confirmed for:', resetRequest.email);
+
       return { success: true, message: 'Password successfully reset! You can now sign in.' };
     },
     onError: (error: Error) => {
       setAuthError(error.message);
-      console.log('[Auth] Password reset confirm error:', error.message);
     },
   });
 
@@ -742,11 +729,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       users[userIndex].passwordHash = simpleHash(newPassword);
       await saveUsersDb(users);
 
-      console.log('[Auth] Password changed for:', authState.user.email);
+
     },
     onError: (error: Error) => {
       setAuthError(error.message);
-      console.log('[Auth] Change password error:', error.message);
     },
   });
 
@@ -807,12 +793,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const syncUserData = useCallback(async () => {
     if (!authState.user || authState.isAnonymous) {
-      console.log('[Auth] Cannot sync - no authenticated user');
       return null;
     }
     
     try {
-      console.log('[Auth] Syncing user data for:', authState.user.username);
       const syncData = await getSyncData(authState.user.uid);
       
       const now = new Date().toISOString();
@@ -832,10 +816,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         user: updatedAuthUser,
       });
       
-      console.log('[Auth] Sync complete at:', now);
+
       return syncData;
     } catch (error) {
-      console.error('[Auth] Sync error:', error);
+      if (__DEV__) console.error('[Auth] Sync error:', error);
       return null;
     }
   }, [authState, saveAuthState]);
@@ -853,9 +837,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         lastModified: new Date().toISOString(),
       };
       await saveSyncData(authState.user.uid, updatedData);
-      console.log('[Auth] Updated sync data');
     } catch (error) {
-      console.error('[Auth] Error updating sync data:', error);
+      if (__DEV__) console.error('[Auth] Error updating sync data:', error);
     }
   }, [authState]);
 

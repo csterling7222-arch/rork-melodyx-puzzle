@@ -156,6 +156,7 @@ export const Colors = {
   },
 };
 
+/** @deprecated Use `Colors` directly instead. `DarkColors` is identical to `Colors`. */
 export const DarkColors = Colors;
 
 export const LightColors = {

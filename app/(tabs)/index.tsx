@@ -8,7 +8,6 @@ import {
   Animated,
   Share,
   Platform,
-  Dimensions,
   Modal,
   Image,
 } from 'react-native';
@@ -48,7 +47,6 @@ import Confetti from '@/components/Confetti';
 import OnboardingModal from '@/components/OnboardingModal';
 import { generateShareText } from '@/utils/gameLogic';
 
-const { width } = Dimensions.get('window');
 const ONBOARDING_KEY = 'melodyx_onboarding_completed';
 
 const AnimatedStatCard = React.memo(function AnimatedStatCard({ 
@@ -607,7 +605,7 @@ export default function HomeScreen() {
     if (gameStatus === 'playing') return;
 
     const shareText = generateShareText(guesses, puzzleNumber, gameStatus === 'won', melodyLength, stats.currentStreak);
-    console.log('[Share] Attempting to share:', shareText.substring(0, 50) + '...');
+
 
     try {
       if (Platform.OS === 'web') {
@@ -618,18 +616,16 @@ export default function HomeScreen() {
               text: shareText,
               title: `Melodyx #${puzzleNumber}`,
             });
-            console.log('[Share] Web share completed successfully');
             return;
           } catch (webShareError) {
             // User cancelled or share failed, fall back to clipboard
-            console.log('[Share] Web share cancelled or failed:', webShareError);
+
           }
         }
         
         // Fallback to clipboard for desktop browsers
         if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(shareText);
-          console.log('[Share] Copied to clipboard');
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
         }
@@ -639,19 +635,19 @@ export default function HomeScreen() {
           message: shareText,
           title: `Melodyx #${puzzleNumber}`,
         });
-        console.log('[Share] Native share result:', result);
+
         if (result.action === Share.sharedAction) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
       }
     } catch (error) {
-      console.error('[Share] Error sharing:', error);
+      if (__DEV__) console.error('[Share] Error sharing:', error);
       // Last resort fallback - try Share API again for native
       if (Platform.OS !== 'web') {
         try {
           await Share.share({ message: shareText });
         } catch (fallbackError) {
-          console.error('[Share] Fallback also failed:', fallbackError);
+          if (__DEV__) console.error('[Share] Fallback also failed:', fallbackError);
         }
       }
     }
@@ -1269,7 +1265,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   statCard: {
-    width: (width - 52) / 2,
+    flex: 1,
+    minWidth: '45%' as any,
     backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 16,

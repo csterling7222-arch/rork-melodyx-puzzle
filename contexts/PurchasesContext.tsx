@@ -19,12 +19,10 @@ function isExpoGo(): boolean {
 
 function getRCApiKey(): string {
   if (Platform.OS === 'web') {
-    console.log('[RevenueCat] Web: demo mode');
     return '';
   }
   
   if (isExpoGo()) {
-    console.log('[RevenueCat] Expo Go detected: demo mode (production keys not supported)');
     return '';
   }
   
@@ -34,7 +32,6 @@ function getRCApiKey(): string {
     default: '',
   }) || '';
   
-  console.log('[RevenueCat] Using API key for platform:', Platform.OS, key ? '(configured)' : '(missing)');
   return key;
 }
 
@@ -47,14 +44,12 @@ function configureRevenueCat(): boolean {
   configurationAttempted = true;
   
   if (isExpoGo()) {
-    console.log('[RevenueCat] Expo Go: skipping configuration, running in demo mode');
     configurationError = 'Expo Go - demo mode';
     return false;
   }
   
   const apiKey = getRCApiKey();
   if (!apiKey) {
-    console.log('[RevenueCat] No API key available, running in demo mode');
     configurationError = 'No API key configured';
     return false;
   }
@@ -64,12 +59,10 @@ function configureRevenueCat(): boolean {
     Purchases.configure({ apiKey });
     isConfigured = true;
     configurationError = null;
-    console.log('[RevenueCat] Configured successfully for', Platform.OS);
     addBreadcrumb({ category: 'purchases', message: 'RevenueCat configured', level: 'info' });
     return true;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[RevenueCat] Configuration error:', errorMsg);
     configurationError = errorMsg;
     return false;
   }
@@ -551,7 +544,7 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
           return { isActive: false, startedAt: parsed.startedAt, expiresAt: parsed.expiresAt };
         }
       } catch (error) {
-        console.log('[RevenueCat] Error loading trial state:', error);
+        if (__DEV__) console.log('[RevenueCat] Error loading trial state:', error);
       }
       return { isActive: false, startedAt: null, expiresAt: null };
     },
@@ -575,15 +568,10 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     queryKey: ['customerInfo'],
     queryFn: async (): Promise<CustomerInfo | null> => {
       if (!isConfigured) {
-        console.log('[RevenueCat] Not configured, skipping customer info fetch');
         return null;
       }
       try {
         const info = await Purchases.getCustomerInfo();
-        console.log('[RevenueCat] Customer info fetched:', {
-          activeSubscriptions: info.activeSubscriptions,
-          entitlements: Object.keys(info.entitlements.active),
-        });
         addBreadcrumb({ 
           category: 'purchases', 
           message: `Customer info: ${info.activeSubscriptions.length} active subs`, 
@@ -591,7 +579,6 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
         });
         return info;
       } catch (error) {
-        console.error('[RevenueCat] Error fetching customer info:', error);
         captureError(error, { tags: { component: 'RevenueCat', action: 'getCustomerInfo' } });
         return null;
       }
@@ -605,16 +592,12 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     queryKey: ['offerings'],
     queryFn: async (): Promise<PurchasesOffering | null> => {
       if (!isConfigured) {
-        console.log('[RevenueCat] Not configured, skipping offerings fetch');
         return null;
       }
       try {
         const offerings = await Purchases.getOfferings();
-        console.log('[RevenueCat] Offerings fetched:', offerings.current?.identifier);
-        console.log('[RevenueCat] Available packages:', offerings.current?.availablePackages.map(p => p.identifier));
         return offerings.current ?? null;
       } catch (error) {
-        console.error('[RevenueCat] Error fetching offerings:', error);
         captureError(error, { tags: { component: 'RevenueCat', action: 'getOfferings' } });
         return null;
       }
@@ -634,7 +617,6 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
       try {
         addBreadcrumb({ category: 'purchases', message: `Starting purchase: ${pkg.identifier}`, level: 'info' });
         const { customerInfo } = await Purchases.purchasePackage(pkg);
-        console.log('[RevenueCat] Purchase successful:', pkg.identifier);
         addBreadcrumb({ category: 'purchases', message: `Purchase complete: ${pkg.identifier}`, level: 'info' });
         
         queryClient.invalidateQueries({ queryKey: ['customerInfo'] });
@@ -646,7 +628,6 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
         };
       } catch (err) {
         const error = err as PurchasesError;
-        console.error('[RevenueCat] Purchase error:', error);
         
         if (error.userCancelled) {
           addBreadcrumb({ category: 'purchases', message: 'Purchase cancelled by user', level: 'info' });
@@ -677,11 +658,9 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
       try {
         addBreadcrumb({ category: 'purchases', message: 'Restoring purchases', level: 'info' });
         const info = await Purchases.restorePurchases();
-        console.log('[RevenueCat] Purchases restored');
         queryClient.invalidateQueries({ queryKey: ['customerInfo'] });
         return info;
       } catch (err) {
-        console.error('[RevenueCat] Restore error:', err);
         captureError(err, { tags: { component: 'RevenueCat', action: 'restore' } });
         throw err;
       }
@@ -790,7 +769,6 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     
     saveTrial(newTrial);
     addBreadcrumb({ category: 'purchases', message: 'Free trial started', level: 'info' });
-    console.log('[RevenueCat] Free trial started, expires:', expiresAt.toISOString());
     
     return true;
   }, [hasUsedTrial, saveTrial]);
@@ -840,7 +818,7 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
   }, []);
 
   const applyPromoCode = useCallback(async (code: string): Promise<{ success: boolean; message: string; promo?: PromoOffer }> => {
-    console.log('[RevenueCat] Applying promo code:', code);
+
     const upperCode = code.toUpperCase().trim();
     
     const promo = ACTIVE_PROMOS.find(p => p.code === upperCode);
@@ -894,10 +872,9 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     if (!isConfigured) return;
     try {
       await Purchases.logIn(userId);
-      console.log('[RevenueCat] User identified:', userId);
       queryClient.invalidateQueries({ queryKey: ['customerInfo'] });
     } catch (error) {
-      console.error('[RevenueCat] Error identifying user:', error);
+      if (__DEV__) console.error('[RevenueCat] Error identifying user:', error);
     }
   }, [queryClient]);
 
@@ -905,10 +882,9 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     if (!isConfigured) return;
     try {
       await Purchases.logOut();
-      console.log('[RevenueCat] User logged out');
       queryClient.invalidateQueries({ queryKey: ['customerInfo'] });
     } catch (error) {
-      console.error('[RevenueCat] Error logging out:', error);
+      if (__DEV__) console.error('[RevenueCat] Error logging out:', error);
     }
   }, [queryClient]);
 
@@ -916,7 +892,6 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
     if (!isConfigured) return;
 
     const listener = (info: CustomerInfo) => {
-      console.log('[RevenueCat] Customer info updated');
       queryClient.setQueryData(['customerInfo'], info);
     };
 
@@ -929,18 +904,15 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
 
   const enableDemoPremium = useCallback(() => {
     setDemoPremium(true);
-    console.log('[RevenueCat] Demo premium enabled');
   }, []);
 
   const disableDemoPremium = useCallback(() => {
     setDemoPremium(false);
-    console.log('[RevenueCat] Demo premium disabled');
   }, []);
 
   const isDemoMode = useMemo(() => !isConfigured && DEMO_MODE_ENABLED, []);
   
   const purchaseDemoProduct = useCallback(async (packageId: string, rewardType?: 'coins' | 'hints', rewardAmount?: number) => {
-    console.log('[RevenueCat] Demo purchase:', packageId);
     addBreadcrumb({ category: 'purchases', message: `Demo purchase: ${packageId}`, level: 'info' });
     
     await new Promise(resolve => setTimeout(resolve, 800));
@@ -1004,7 +976,6 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
       familyMembers: [...prev.familyMembers, newMember],
     } : null);
     
-    console.log('[RevenueCat] Family member added:', email);
     return true;
   }, [subscriptionDetails]);
 
@@ -1013,12 +984,11 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
       ...prev,
       familyMembers: prev.familyMembers.filter(m => m.id !== memberId),
     } : null);
-    console.log('[RevenueCat] Family member removed:', memberId);
     return true;
   }, []);
 
   const cancelSubscription = useCallback(async () => {
-    console.log('[RevenueCat] Cancellation requested');
+
     Alert.alert(
       'Cancel Subscription',
       'To cancel your subscription, please go to your device\'s app store settings. Your premium features will remain active until the end of your billing period.',
@@ -1028,7 +998,7 @@ export const [PurchasesProvider, usePurchases] = createContextHook(() => {
   }, []);
 
   const requestRefund = useCallback(async (reason: string) => {
-    console.log('[RevenueCat] Refund requested:', reason);
+
     Alert.alert(
       'Refund Request Submitted',
       'Your refund request has been submitted. You will receive an email within 3-5 business days.',

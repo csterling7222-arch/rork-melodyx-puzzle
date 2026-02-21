@@ -15,7 +15,6 @@ function TabsContent() {
           borderTopColor: Colors.surfaceLight,
           borderTopWidth: 1,
           paddingTop: 8,
-          height: 70,
           paddingBottom: 12,
         },
         tabBarLabelStyle: {
