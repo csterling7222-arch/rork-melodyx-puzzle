@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { MELODIES, Melody, INTERNATIONAL_MELODIES } from '@/utils/melodies';
+import { EXPANDED_SONG_LIBRARY } from '@/constants/songLibrary';
 import { getFeedback, isWin, GuessResult } from '@/utils/gameLogic';
 
 export interface FeverStats {
@@ -54,30 +55,53 @@ const GENRE_MAPPING: Record<FeverGenreFilter, string[]> = {
 
 const EXPANDED_MELODY_POOL = [...MELODIES, ...INTERNATIONAL_MELODIES];
 
-const ADDITIONAL_VIRAL_SONGS: Melody[] = [
-  { name: "Gangnam Style", notes: ["E", "E", "E", "E", "D", "D"], extendedNotes: ["E", "E", "E", "E", "D", "D", "E", "G", "A", "G", "E", "D"], hint: "Oppan Gangnam Style", category: "Viral", genre: "Viral", era: "2010s", mood: "energetic", artist: "PSY" },
-  { name: "Somebody That I Used", notes: ["F", "G", "A", "G", "F", "E"], extendedNotes: ["F", "G", "A", "G", "F", "E", "D", "F", "G", "A", "C", "A"], hint: "But you didn't have to cut me off", category: "Pop", genre: "Pop", era: "2010s", mood: "nostalgic", artist: "Gotye" },
-  { name: "Call Me Maybe", notes: ["G", "A", "B", "G", "E", "D"], extendedNotes: ["G", "A", "B", "G", "E", "D", "C", "D", "E", "G", "A", "B"], hint: "Hey I just met you", category: "Pop", genre: "Pop", era: "2010s", mood: "upbeat", artist: "Carly Rae Jepsen" },
-  { name: "Shake It Off", notes: ["D", "D", "E", "D", "B", "G"], extendedNotes: ["D", "D", "E", "D", "B", "G", "A", "B", "D", "E", "D", "B"], hint: "Players gonna play play", category: "Pop", genre: "Pop", era: "2010s", mood: "upbeat", artist: "Taylor Swift" },
-  { name: "Thriller", notes: ["E", "E", "D", "E", "G", "E"], extendedNotes: ["E", "E", "D", "E", "G", "E", "D", "C", "D", "E", "G", "A"], hint: "This is thriller night", category: "80s", genre: "80s", era: "80s", mood: "mysterious", artist: "Michael Jackson" },
-  { name: "Don't Stop Believin", notes: ["E", "F#", "G", "A", "B", "A"], extendedNotes: ["E", "F#", "G", "A", "B", "A", "G", "F#", "E", "D", "E", "G"], hint: "Just a small town girl", category: "80s", genre: "Rock", era: "80s", mood: "epic", artist: "Journey" },
-  { name: "Livin On A Prayer", notes: ["E", "G", "A", "B", "A", "G"], extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"], hint: "Woah we're halfway there", category: "80s", genre: "Rock", era: "80s", mood: "energetic", artist: "Bon Jovi" },
-  { name: "Toxic", notes: ["B", "C", "D", "E", "D", "C"], extendedNotes: ["B", "C", "D", "E", "D", "C", "B", "A", "G#", "A", "B", "C"], hint: "Baby can't you see", category: "Pop", genre: "Pop", era: "2000s", mood: "mysterious", artist: "Britney Spears" },
-  { name: "Crazy In Love", notes: ["F", "G", "A", "F", "D", "C"], extendedNotes: ["F", "G", "A", "F", "D", "C", "D", "F", "G", "A", "C", "A"], hint: "Got me looking so crazy right now", category: "Pop", genre: "Pop", era: "2000s", mood: "energetic", artist: "Beyoncé" },
-  { name: "Hotline Bling", notes: ["C#", "E", "F#", "G#", "F#", "E"], extendedNotes: ["C#", "E", "F#", "G#", "F#", "E", "C#", "B", "C#", "E", "F#", "G#"], hint: "You used to call me", category: "Pop", genre: "Pop", era: "2010s", mood: "nostalgic", artist: "Drake" },
-  { name: "Levitating", notes: ["B", "B", "A", "G#", "A", "B"], extendedNotes: ["B", "B", "A", "G#", "A", "B", "C#", "D#", "E", "D#", "C#", "B"], hint: "You want me I want you baby", category: "Pop", genre: "Pop", era: "2020s", mood: "upbeat", artist: "Dua Lipa" },
-  { name: "Watermelon Sugar", notes: ["E", "G", "A", "B", "A", "G"], extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"], hint: "Tastes like strawberries", category: "Pop", genre: "Pop", era: "2020s", mood: "upbeat", artist: "Harry Styles" },
-  { name: "drivers license", notes: ["G", "A", "B", "C", "B", "A"], extendedNotes: ["G", "A", "B", "C", "B", "A", "G", "F#", "G", "A", "B", "C"], hint: "I got my driver's license", category: "Pop", genre: "Pop", era: "2020s", mood: "nostalgic", artist: "Olivia Rodrigo" },
-  { name: "Stay", notes: ["F", "G", "A", "A#", "A", "G"], extendedNotes: ["F", "G", "A", "A#", "A", "G", "F", "E", "F", "G", "A", "A#"], hint: "I do the same thing I told you", category: "Pop", genre: "Pop", era: "2020s", mood: "energetic", artist: "The Kid LAROI" },
-  { name: "As It Was", notes: ["B", "C#", "D#", "E", "D#", "C#"], extendedNotes: ["B", "C#", "D#", "E", "D#", "C#", "B", "A#", "B", "C#", "D#", "E"], hint: "In this world it's just us", category: "Pop", genre: "Pop", era: "2020s", mood: "nostalgic", artist: "Harry Styles" },
-  { name: "Anti-Hero", notes: ["G", "A", "B", "D", "B", "A"], extendedNotes: ["G", "A", "B", "D", "B", "A", "G", "F#", "G", "A", "B", "D"], hint: "It's me hi I'm the problem", category: "Pop", genre: "Pop", era: "2020s", mood: "playful", artist: "Taylor Swift" },
-  { name: "Flowers", notes: ["E", "G", "A", "B", "A", "G"], extendedNotes: ["E", "G", "A", "B", "A", "G", "E", "D", "E", "G", "A", "B"], hint: "I can buy myself flowers", category: "Pop", genre: "Pop", era: "2020s", mood: "upbeat", artist: "Miley Cyrus" },
-  { name: "Heat Waves", notes: ["A", "B", "C#", "D", "C#", "B"], extendedNotes: ["A", "B", "C#", "D", "C#", "B", "A", "G#", "A", "B", "C#", "D"], hint: "Late nights in the middle of June", category: "Pop", genre: "Pop", era: "2020s", mood: "nostalgic", artist: "Glass Animals" },
-  { name: "Peaches", notes: ["E", "F#", "G#", "A", "G#", "F#"], extendedNotes: ["E", "F#", "G#", "A", "G#", "F#", "E", "D#", "E", "F#", "G#", "A"], hint: "I got my peaches out in Georgia", category: "Pop", genre: "Pop", era: "2020s", mood: "upbeat", artist: "Justin Bieber" },
-  { name: "Dynamite", notes: ["G", "A", "B", "D", "B", "A"], extendedNotes: ["G", "A", "B", "D", "B", "A", "G", "E", "G", "A", "B", "D"], hint: "Light it up like dynamite", category: "Pop", genre: "Pop", era: "2020s", mood: "energetic", artist: "BTS" },
-];
+const GENRE_TO_CATEGORY: Record<string, string> = {
+  'Pop': 'Pop',
+  'Rock': 'Rock',
+  'R&B': 'Pop',
+  'Hip-Hop': 'Pop',
+  'Electronic': 'Pop',
+  'Jazz': 'Classical',
+  'Classical': 'Classical',
+  'Country': 'Folk',
+  'Latin': 'International',
+  'K-pop': 'Pop',
+  'Indie': 'Rock',
+  'Alternative': 'Rock',
+  'Disco': '80s',
+  'Funk': '80s',
+  'Soundtrack': 'Movie',
+  'Video Game': 'Video Game',
+  'Musical': 'Movie',
+  'Folk': 'Folk',
+  'World': 'International',
+};
 
-const FULL_SONG_LIBRARY = [...EXPANDED_MELODY_POOL, ...ADDITIONAL_VIRAL_SONGS];
+const DIFFICULTY_MOOD: Record<string, string> = {
+  easy: 'playful',
+  medium: 'upbeat',
+  hard: 'energetic',
+  expert: 'epic',
+};
+
+const convertedSongLibrary: Melody[] = EXPANDED_SONG_LIBRARY.map(song => ({
+  name: song.name,
+  notes: song.notes,
+  extendedNotes: song.extendedNotes,
+  hint: song.hint,
+  category: GENRE_TO_CATEGORY[song.genre] ?? song.genre,
+  genre: song.genre,
+  era: song.era,
+  mood: DIFFICULTY_MOOD[song.difficulty] ?? 'upbeat',
+  artist: song.artist,
+}));
+
+const FULL_SONG_LIBRARY = [
+  ...EXPANDED_MELODY_POOL,
+  ...convertedSongLibrary,
+].filter((song, index, self) =>
+  self.findIndex(s => s.name === song.name && s.artist === song.artist) === index
+);
 
 function getSmartRandomMelody(
   excludeNames: string[] = [],
