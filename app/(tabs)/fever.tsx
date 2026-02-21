@@ -479,7 +479,7 @@ export default function FeverScreen() {
   const router = useRouter();
   const { theme, isDarkMode, animationsEnabled } = useScreenTheme('fever');
   const { currentInstrument } = useInstrument();
-  const { playNote, playMelody, playbackState } = useAudio(currentInstrument.id);
+  const { playNote, playMelody, playbackState, stopPlayback } = useAudio(currentInstrument.id);
   
   const {
     isPlaying,
@@ -518,6 +518,8 @@ export default function FeverScreen() {
   const prevGuessLength = useRef(currentGuess.length);
   const prevMelodyRef = useRef(currentMelody?.name);
   const correctFeedbackAnim = useRef(new Animated.Value(0)).current;
+  const isMelodyPlayingRef = useRef(false);
+  const submitInProgressRef = useRef(false);
 
   useEffect(() => {
     if (gameOver && !rewardsClaimedRef.current && (coinsEarned > 0 || hintsEarned > 0)) {
@@ -543,10 +545,14 @@ export default function FeverScreen() {
   }, [currentMelody]);
 
   useEffect(() => {
+    if (isMelodyPlayingRef.current || submitInProgressRef.current) {
+      prevGuessLength.current = currentGuess.length;
+      return;
+    }
     if (currentGuess.length > prevGuessLength.current && currentGuess.length > 0) {
       const lastNote = currentGuess[currentGuess.length - 1];
       playNote(lastNote);
-      console.log(`Fever: Playing note ${lastNote} (${currentGuess.length}/${melodyLength})`);
+      console.log(`[Fever] Playing note ${lastNote} (${currentGuess.length}/${melodyLength})`);
     }
     prevGuessLength.current = currentGuess.length;
   }, [currentGuess, playNote, melodyLength]);
@@ -695,38 +701,55 @@ export default function FeverScreen() {
   }, [addNote, isFeverActive, multiplier]);
 
   const handlePlayMelodyHint = useCallback(() => {
-    if (currentMelody && guesses.length >= 2) {
+    if (currentMelody && guesses.length >= 2 && !isMelodyPlayingRef.current) {
+      isMelodyPlayingRef.current = true;
       const hintNotes = currentMelody.notes.slice(0, 3);
+      stopPlayback();
       playMelody(hintNotes, 500);
       setShowMelodyHint(true);
       if (Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
+      setTimeout(() => {
+        isMelodyPlayingRef.current = false;
+      }, hintNotes.length * 500 + 600);
     }
-  }, [currentMelody, guesses.length, playMelody]);
+  }, [currentMelody, guesses.length, playMelody, stopPlayback]);
 
   const handlePlayBuildingMelody = useCallback(() => {
-    if (currentGuess.length > 0) {
-      playMelody(currentGuess, 350);
+    if (currentGuess.length > 0 && !isMelodyPlayingRef.current) {
+      isMelodyPlayingRef.current = true;
+      stopPlayback();
+      playMelody(currentGuess, 400);
       setShowBuildingMelody(true);
       if (Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
-      setTimeout(() => setShowBuildingMelody(false), currentGuess.length * 350 + 500);
+      const duration = currentGuess.length * 400 + 600;
+      setTimeout(() => {
+        setShowBuildingMelody(false);
+        isMelodyPlayingRef.current = false;
+      }, duration);
     }
-  }, [currentGuess, playMelody]);
+  }, [currentGuess, playMelody, stopPlayback]);
 
   const handleSubmitWithSound = useCallback(() => {
-    if (canSubmit) {
-      playMelody(currentGuess, 200);
+    if (canSubmit && !submitInProgressRef.current) {
+      submitInProgressRef.current = true;
+      isMelodyPlayingRef.current = true;
+      stopPlayback();
+      playMelody(currentGuess, 400);
       if (Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
+      const playbackDuration = currentGuess.length * 400 + 300;
       setTimeout(() => {
+        isMelodyPlayingRef.current = false;
+        submitInProgressRef.current = false;
         submitGuess();
-      }, currentGuess.length * 200 + 100);
+      }, playbackDuration);
     }
-  }, [canSubmit, currentGuess, playMelody, submitGuess]);
+  }, [canSubmit, currentGuess, playMelody, submitGuess, stopPlayback]);
 
   const GENRE_OPTIONS: { id: FeverGenreFilter; label: string; icon: React.ReactNode; color: string }[] = [
     { id: 'all', label: 'All', icon: <Sparkles size={16} color="#FF6B35" />, color: '#FF6B35' },
