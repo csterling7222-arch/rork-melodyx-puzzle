@@ -12,10 +12,11 @@ const MAX_CELL_SIZE = 48;
 const CELL_GAP = 6;
 const HORIZONTAL_PADDING = 32;
 
-const MIN_CELL_WIDTH = 50;
+const MIN_CELL_WIDTH = 52;
 const MAX_CELL_WIDTH = 200;
 const BASE_CELL_WIDTH = 48;
 const DURATION_SCALE_FACTOR = 1.8;
+const SCROLL_PADDING = 16;
 
 interface GuessGridProps {
   guesses: GuessResult[][];
@@ -379,7 +380,7 @@ export default function GuessGrid({
             { scale: Animated.multiply(gridScaleAnim, autoZoomScale) }
           ] 
         },
-        needsScroll && { width: gridWidth },
+        needsScroll && { minWidth: gridWidth + (SCROLL_PADDING * 2) },
       ]}
       accessible={true}
       accessibilityRole="none"
@@ -406,6 +407,9 @@ export default function GuessGrid({
           decelerationRate="fast"
           nestedScrollEnabled={true}
           scrollEventThrottle={16}
+          keyboardShouldPersistTaps="always"
+          directionalLockEnabled={true}
+          alwaysBounceHorizontal={true}
         >
           {gridContent}
         </ScrollView>
@@ -429,10 +433,11 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     width: '100%',
+    overflow: 'visible',
   },
   scrollContainer: {
     width: '100%',
-    alignItems: 'center',
+    overflow: 'visible',
   },
   scrollIndicator: {
     flexDirection: 'row',
@@ -450,16 +455,18 @@ const styles = StyleSheet.create({
     fontWeight: '500' as const,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    alignItems: 'center',
+    paddingLeft: SCROLL_PADDING,
+    paddingRight: SCROLL_PADDING,
+    flexGrow: 1,
   },
   gridContent: {
     gap: 6,
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   row: {
     flexDirection: 'row',
     gap: 6,
+    alignItems: 'center',
   },
   cell: {
     borderRadius: 8,
