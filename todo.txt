@@ -1,0 +1,9 @@
+- What the fuck even is utils/melodies.tsx? JSON duh
+
+- In-class style sheets, cool. Why not.
+
+- Types are way overused.
+
+- Framerate issues.
+
+- iOS cache bugs.
