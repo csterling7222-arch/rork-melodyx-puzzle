@@ -1,7 +1,7 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Platform, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { 
@@ -203,8 +203,8 @@ export const [InstrumentProvider, useInstrument] = createContextHook(() => {
       await AsyncStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(status));
       return status;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['soundCacheStatus'] });
+    onSuccess: (savedStatus) => {
+      queryClient.setQueryData(['soundCacheStatus'], savedStatus);
     },
   });
 
@@ -215,6 +215,12 @@ export const [InstrumentProvider, useInstrument] = createContextHook(() => {
   const effectSettings = useMemo(() => effectsQuery.data ?? {}, [effectsQuery.data]);
   const userPresets = useMemo(() => presetsQuery.data ?? [], [presetsQuery.data]);
   const cacheStatus = useMemo(() => cacheStatusQuery.data ?? {}, [cacheStatusQuery.data]);
+  const cacheStatusRef = useRef<SoundCacheStatus>({});
+  const precacheInFlightRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    cacheStatusRef.current = cacheStatus;
+  }, [cacheStatus]);
 
   const isTrialActive = useCallback((instrumentId: string): boolean => {
     if (!trialState.isActive || trialState.instrumentId !== instrumentId) return false;
@@ -474,26 +480,44 @@ export const [InstrumentProvider, useInstrument] = createContextHook(() => {
   }, [userPresets, savePresets]);
 
   const preCacheInstrumentSounds = useCallback(async (instrumentId: string) => {
+    if (precacheInFlightRef.current.has(instrumentId)) return;
+
     const instrument = getInstrumentById(instrumentId);
     const primaryBank = instrument.soundBanks.find(b => !b.isPremium) ?? instrument.soundBanks[0];
     
     if (!primaryBank) return;
 
+    const existingStatus = cacheStatusRef.current[instrumentId];
+    if (existingStatus?.cached && existingStatus.soundBankId === primaryBank.id) {
+      return;
+    }
+
+    precacheInFlightRef.current.add(instrumentId);
     console.log(`[Instrument] Pre-caching sounds for ${instrumentId}...`);
     
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    const newStatus: SoundCacheStatus = {
-      ...cacheStatus,
-      [instrumentId]: {
-        cached: true,
-        cachedAt: new Date().toISOString(),
-        soundBankId: primaryBank.id,
-      },
-    };
-    saveCacheStatus(newStatus);
-    console.log(`[Instrument] Cached ${instrumentId} sounds`);
-  }, [cacheStatus, saveCacheStatus]);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const latestStatus = cacheStatusRef.current[instrumentId];
+      if (latestStatus?.cached && latestStatus.soundBankId === primaryBank.id) {
+        return;
+      }
+      
+      const newStatus: SoundCacheStatus = {
+        ...cacheStatusRef.current,
+        [instrumentId]: {
+          cached: true,
+          cachedAt: new Date().toISOString(),
+          soundBankId: primaryBank.id,
+        },
+      };
+      cacheStatusRef.current = newStatus;
+      saveCacheStatus(newStatus);
+      console.log(`[Instrument] Cached ${instrumentId} sounds`);
+    } finally {
+      precacheInFlightRef.current.delete(instrumentId);
+    }
+  }, [saveCacheStatus]);
 
   const isInstrumentCached = useCallback((instrumentId: string): boolean => {
     return cacheStatus[instrumentId]?.cached ?? false;

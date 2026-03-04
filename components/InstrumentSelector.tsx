@@ -135,6 +135,7 @@ function UpgradeModal({
   );
 }
 
+// CSS can be abstracted.
 const upgradeStyles = StyleSheet.create({
   overlay: {
     flex: 1,
