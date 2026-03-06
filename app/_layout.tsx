@@ -28,6 +28,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 SplashScreen.preventAutoHideAsync();
 
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
