@@ -387,13 +387,13 @@ const styles = StyleSheet.create({
     width: 100,
   },
   firstPlace: {
-    order: 2,
+    marginBottom: 20,
   },
   secondPlace: {
-    order: 1,
+    marginBottom: 0,
   },
   thirdPlace: {
-    order: 3,
+    marginBottom: 0,
   },
   podiumAvatar: {
     width: 56,
